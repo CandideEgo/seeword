@@ -60,23 +60,27 @@ async def build_overview(db: AsyncSession, user: User) -> dict:
     # 每次观看移动（今天重看去年的视频就把那天记成今天），后者是「第一次打开
     # 这个视频」的日子，都不等于「那天学过」。因此历史用户的天数可能变少——
     # 这是真实值，不是回退，也不靠累计时长伪造缺失的日期。
-    event_dates = set(
+    event_date_rows = (
         (await db.execute(select(LearningEvent.event_date).where(LearningEvent.user_id == user.id).distinct()))
         .scalars()
         .all()
     )
-    days_studied = len(event_dates)
+    days_studied = len(event_date_rows)
 
-    total_seconds = (
+    # One aggregate for the whole "my videos" block: rows started, rows
+    # completed and the cumulative watched-seconds counter.
+    started_videos, completed_videos, total_seconds = (
         await db.execute(
-            select(func.coalesce(func.sum(LearningRecord.time_spent_seconds), 0)).where(
-                LearningRecord.user_id == user.id
-            )
+            select(
+                func.count(LearningRecord.id),
+                func.count(LearningRecord.id).filter(LearningRecord.completed.is_(True)),
+                func.coalesce(func.sum(LearningRecord.time_spent_seconds), 0),
+            ).where(LearningRecord.user_id == user.id)
         )
-    ).scalar_one()
-    total_minutes = int(total_seconds) // 60
+    ).one()
+    total_minutes = int(total_seconds or 0) // 60
 
-    week_event_dates = {day for day in event_dates if day >= this_monday}
+    week_event_dates = {day for day in event_date_rows if day >= this_monday}
     daily: list[dict[str, Any]] = []
     for i in range(7):
         day_date = this_monday + timedelta(days=i)
@@ -94,55 +98,58 @@ async def build_overview(db: AsyncSession, user: User) -> dict:
     week_active_days = sum(1 for item in daily if item["active"])
 
     words = await vocabulary_service.get_stats(db, user.id)
-
-    started_videos = (
-        await db.execute(select(func.count(LearningRecord.id)).where(LearningRecord.user_id == user.id))
-    ).scalar_one()
-    completed_videos = (
-        await db.execute(
-            select(func.count(LearningRecord.id)).where(
-                LearningRecord.user_id == user.id, LearningRecord.completed.is_(True)
-            )
-        )
-    ).scalar_one()
-
     exam_summary = await exam_service.exam_stats(db, user.id)
-    attempt_count = (
-        await db.execute(
-            select(func.count(ExamSession.id)).where(
-                ExamSession.user_id == user.id, ExamSession.submitted_at.is_not(None)
-            )
-        )
-    ).scalar_one()
-    answered = (
-        await db.execute(
-            select(func.count(ExamAnswer.id))
-            .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
-            .where(ExamSession.user_id == user.id, ExamAnswer.correct.is_not(None))
-        )
-    ).scalar_one()
-    correct = (
-        await db.execute(
-            select(func.count(ExamAnswer.id))
-            .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
-            .where(ExamSession.user_id == user.id, ExamAnswer.correct.is_(True))
-        )
-    ).scalar_one()
-    last_submitted = (
-        await db.execute(
-            select(func.max(ExamSession.submitted_at)).where(
-                ExamSession.user_id == user.id, ExamSession.submitted_at.is_not(None)
-            )
-        )
-    ).scalar_one()
 
-    favorite_videos = (
-        await db.execute(select(func.count(UserFavorite.id)).where(UserFavorite.user_id == user.id))
-    ).scalar_one()
-    favorite_sentences = (
-        await db.execute(select(func.count(SentenceFavorite.id)).where(SentenceFavorite.user_id == user.id))
-    ).scalar_one()
-    note_count = (await db.execute(select(func.count(UserNote.id)).where(UserNote.user_id == user.id))).scalar_one()
+    # Exam counters and library counters in one round trip. These used to be
+    # seven separate ``SELECT count(*)`` / ``max()`` statements; as correlated
+    # scalar subqueries they still use the same user_id indexes but cost one
+    # network round trip instead of seven.
+    submitted = ExamSession.submitted_at.is_not(None)
+    attempt_count_sq = (
+        select(func.count(ExamSession.id)).where(ExamSession.user_id == user.id, submitted).scalar_subquery()
+    )
+    answered_sq = (
+        select(func.count(ExamAnswer.id))
+        .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
+        .where(ExamSession.user_id == user.id, ExamAnswer.correct.is_not(None))
+        .scalar_subquery()
+    )
+    correct_sq = (
+        select(func.count(ExamAnswer.id))
+        .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
+        .where(ExamSession.user_id == user.id, ExamAnswer.correct.is_(True))
+        .scalar_subquery()
+    )
+    last_submitted_sq = (
+        select(func.max(ExamSession.submitted_at)).where(ExamSession.user_id == user.id, submitted).scalar_subquery()
+    )
+    favorite_videos_sq = select(func.count(UserFavorite.id)).where(UserFavorite.user_id == user.id).scalar_subquery()
+    favorite_sentences_sq = (
+        select(func.count(SentenceFavorite.id)).where(SentenceFavorite.user_id == user.id).scalar_subquery()
+    )
+    note_count_sq = select(func.count(UserNote.id)).where(UserNote.user_id == user.id).scalar_subquery()
+
+    (
+        attempt_count,
+        answered,
+        correct,
+        last_submitted,
+        favorite_videos,
+        favorite_sentences,
+        note_count,
+    ) = (
+        await db.execute(
+            select(
+                attempt_count_sq,
+                answered_sq,
+                correct_sq,
+                last_submitted_sq,
+                favorite_videos_sq,
+                favorite_sentences_sq,
+                note_count_sq,
+            )
+        )
+    ).one()
 
     membership_expires = user.plan_expires_at
     return {

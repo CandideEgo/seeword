@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BookOpen, Copy, Crown, GraduationCap, Layers, Play, RefreshCw } from "lucide-react";
-import QRCode from "qrcode";
 import { toast } from "sonner";
 import { api, ApiError, isProUser } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -141,22 +140,26 @@ export default function UpgradePage() {
   const desktop = browser !== null && !browser.wechat && !browser.mobile;
 
   // 桌面端把带签名的收款链接生成二维码，用户用微信扫码后就在微信里打开收款页。
+  // `qrcode` 只在桌面端真的需要时才动态加载：它不参与首屏，手机/微信路径
+  // 完全不下载。
   useEffect(() => {
     if (!desktop || !link) return;
     let cancelled = false;
     setQrCode(null);
     setQrFailed(false);
-    QRCode.toDataURL(link.url, {
-      width: 512,
-      margin: 2,
-      color: { dark: "#000000", light: "#FFFFFF" },
-    })
-      .then((data) => {
+    void (async () => {
+      try {
+        const { default: QRCode } = await import("qrcode");
+        const data = await QRCode.toDataURL(link.url, {
+          width: 512,
+          margin: 2,
+          color: { dark: "#000000", light: "#FFFFFF" },
+        });
         if (!cancelled) setQrCode(data);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setQrFailed(true);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

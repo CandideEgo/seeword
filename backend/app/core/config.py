@@ -276,6 +276,11 @@ class Settings(BaseSettings):
     translation_fallback_engine: str = "hy_mt2"  # paired with primary for concurrent mode
     translation_concurrent: bool = True  # run primary + fallback concurrently, first valid wins
     translation_batch_size: int = 5  # smaller batches avoid 404s (agnes) and sentence-merging (hy_mt2)
+    # How many translation batches may be in flight at once. The tail used to
+    # await every batch strictly in order, so a 20-minute video paid one LLM
+    # round trip after another. 2 is deliberately conservative — raise it only
+    # if the configured engine's rate limit tolerates it.
+    translation_batch_concurrency: int = 2
     translation_hymt2_api_key: str = ""
     translation_qwen_api_key: str = ""
     translation_glm_api_key: str = ""

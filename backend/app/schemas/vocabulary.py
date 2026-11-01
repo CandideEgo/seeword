@@ -243,6 +243,27 @@ class LearningWordsResponse(BaseModel):
     words: list[str]
 
 
+class WatchContextVocabSet(BaseModel):
+    """The set already collected from this video.
+
+    The watch page only needs the id (to open it) and knows the video it is on,
+    so the full ``VocabSet`` card shape (title, counts, thumbnail) is not built
+    here — that would turn one lightweight lookup into the whole ``/vocab-sets``
+    aggregation.
+    """
+
+    id: str
+    video_id: str | None = None
+
+
+class WatchContextResponse(BaseModel):
+    """Everything the watch page needs about the viewer's vocabulary, in one call."""
+
+    learning_words: list[str]
+    mastered_words: list[str]
+    vocab_set: WatchContextVocabSet | None = None
+
+
 class PracticeItem(BaseModel):
     word: str
     category: str

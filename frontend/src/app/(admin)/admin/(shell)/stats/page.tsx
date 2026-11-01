@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Activity,
   AlertTriangle,
@@ -14,29 +15,31 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { cn } from "@/lib/utils";
 import { apiErrorMessage } from "@/lib/errors";
+import { formatMonthDay } from "@/lib/format";
 import { AdminEmptyState, AdminPageHeader, AdminSkeleton } from "@/components/admin/ui";
 import { Button } from "@/components/ui/Button";
 import type { AdminLearningMetrics, AdminStats, RecentActivityType } from "@/types";
 import { getAdminStats, getLearningMetrics } from "@/lib/adminData";
 import { useChartTheme } from "@/lib/chart-theme";
 import { Card } from "@/components/ui/Card";
+
+// recharts 很重（约 100KB+ gzip），只有数据到齐、图表真正要画时才加载 ——
+// 与 GrowthTrendChart 同一做法。图表本体在 components/admin/StatsCharts。
+const StatsTrendChart = dynamic(
+  () => import("@/components/admin/StatsCharts").then((m) => m.StatsTrendChart),
+  { ssr: false, loading: () => <AdminSkeleton.Chart /> }
+);
+const StatsPlanPieChart = dynamic(
+  () => import("@/components/admin/StatsCharts").then((m) => m.StatsPlanPieChart),
+  { ssr: false, loading: () => <AdminSkeleton.Chart /> }
+);
+const StatsStatusBarChart = dynamic(
+  () => import("@/components/admin/StatsCharts").then((m) => m.StatsStatusBarChart),
+  { ssr: false, loading: () => <AdminSkeleton.Chart /> }
+);
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -471,11 +474,6 @@ export default function AdminStatsPage() {
 
   const newVocab7d = stats.trend.vocabulary.slice(-7).reduce((a, b) => a + b, 0);
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return `${d.getMonth() + 1}/${d.getDate()}`;
-  }
-
   const planData = stats.users_by_plan.map((p) => ({
     name: p.plan === "pro" ? "Pro" : "Free",
     value: p.count,
@@ -580,64 +578,7 @@ export default function AdminStatsPage() {
           </div>
         }
       >
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-            <defs>
-              <linearGradient id="gSignups" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={ct.series.brand} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={ct.series.brand} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gVocab" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={ct.series.success} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={ct.series.success} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gActive" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={ct.series.indigo} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={ct.series.indigo} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tick={{ fontSize: 11, fill: ct.tick }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis tick={{ fontSize: 11, fill: ct.tick }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{
-                ...ct.tooltipStyle,
-                borderRadius: "8px",
-              }}
-              labelFormatter={(label) => formatDate(String(label))}
-            />
-            <Area
-              type="monotone"
-              dataKey="vocabulary"
-              stroke={ct.series.success}
-              strokeWidth={2}
-              fill="url(#gVocab)"
-              name="新增词汇"
-            />
-            <Area
-              type="monotone"
-              dataKey="active"
-              stroke={ct.series.indigo}
-              strokeWidth={2}
-              fill="url(#gActive)"
-              name="活跃用户"
-            />
-            <Area
-              type="monotone"
-              dataKey="signups"
-              stroke={ct.series.brand}
-              strokeWidth={2}
-              fill="url(#gSignups)"
-              name="新增注册"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <StatsTrendChart data={trend} />
       </ChartCard>
 
       {/* Topic distribution + cumulative behavior distribution (MET-02: 不再叫漏斗) */}
@@ -743,7 +684,7 @@ export default function AdminStatsPage() {
                     backgroundColor: v === max ? "#e84a10" : "#ff7a45",
                   }}
                 />
-                <span className="font-mono text-caption text-muted">{formatDate(date)}</span>
+                <span className="font-mono text-caption text-muted">{formatMonthDay(date)}</span>
               </div>
             );
           })}
@@ -753,25 +694,7 @@ export default function AdminStatsPage() {
       {/* Distribution Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="用户方案分布">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={planData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={85}
-                paddingAngle={2}
-              >
-                {planData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ ...ct.tooltipStyle, borderRadius: "8px" }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <StatsPlanPieChart data={planData} />
           <div className="flex justify-center gap-6 mt-2">
             {planData.map((p) => (
               <div key={p.name} className="flex items-center gap-2">
@@ -785,29 +708,7 @@ export default function AdminStatsPage() {
         </ChartCard>
 
         <ChartCard title="视频状态分布">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={statusData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} vertical={false} />
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 11, fill: ct.tick }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 11, fill: ct.tick }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip contentStyle={{ ...ct.tooltipStyle, borderRadius: "8px" }} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                {statusData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <StatsStatusBarChart data={statusData} />
         </ChartCard>
       </div>
 

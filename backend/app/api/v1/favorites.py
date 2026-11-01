@@ -6,7 +6,7 @@ Routes are video-scoped (prefix ``/videos``) so they read naturally as
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,24 +59,28 @@ async def get_watch_meta(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the current user's favorite status + note for a video in one call."""
-    await _get_owned_video_or_404(db, video_id)
-    fav = (
+    # One round trip answers all three questions: does the video exist, is it
+    # favorited, and what is the note. Both joins are on the unique
+    # (user_id, video_id) pairs, so this stays a single row per video.
+    row = (
         await db.execute(
-            select(UserFavorite).where(
-                UserFavorite.user_id == current_user.id,
-                UserFavorite.video_id == video_id,
+            select(UserFavorite.id, UserNote.content)
+            .select_from(Video)
+            .outerjoin(
+                UserFavorite,
+                and_(UserFavorite.video_id == Video.id, UserFavorite.user_id == current_user.id),
             )
-        )
-    ).scalar_one_or_none()
-    note = (
-        await db.execute(
-            select(UserNote).where(
-                UserNote.user_id == current_user.id,
-                UserNote.video_id == video_id,
+            .outerjoin(
+                UserNote,
+                and_(UserNote.video_id == Video.id, UserNote.user_id == current_user.id),
             )
+            .where(Video.id == video_id)
         )
-    ).scalar_one_or_none()
-    return WatchMeta(is_favorited=fav is not None, note=note.content if note else "")
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    favorite_id, note_content = row
+    return WatchMeta(is_favorited=favorite_id is not None, note=note_content or "")
 
 
 @router.post("/{video_id}/favorite", response_model=FavoriteStatus)

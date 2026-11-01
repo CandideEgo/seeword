@@ -82,27 +82,45 @@ async def _translate_subtitles(
     service = TranslationService(engine_override=engine) if engine else get_translation_service()
     results: list[str | None] = [None] * len(texts)
 
+    # Batches run with bounded concurrency instead of strictly one after the
+    # other. The old loop turned a 20-minute video into a long chain of LLM
+    # round trips; the limit keeps the engine's rate limit respected. Results
+    # are written by index, so order and length are unchanged.
     batch_size = service.effective_batch_size
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        translations = await service.translate_batch(batch)
-        for j, t in enumerate(translations):
-            results[i + j] = t
+    concurrency = max(1, get_settings().translation_batch_concurrency)
+    semaphore = asyncio.Semaphore(concurrency)
 
-    # Retry individual None entries one at a time.  Single-item batches
-    # eliminate length-mismatch and sentence-merging risks, and each retry
-    # goes through the full translate_batch path (benefiting from concurrent
-    # dual-engine fan-out when configured).
+    async def _translate_one_batch(offset: int, batch: list[str]) -> None:
+        async with semaphore:
+            translations = await service.translate_batch(batch)
+        for j, t in enumerate(translations):
+            results[offset + j] = t
+
+    async with asyncio.TaskGroup() as group:
+        for offset in range(0, len(texts), batch_size):
+            group.create_task(_translate_one_batch(offset, texts[offset : offset + batch_size]))
+
+    # Retry individual None entries.  Single-item batches eliminate
+    # length-mismatch and sentence-merging risks, and each retry goes through
+    # the full translate_batch path (benefiting from concurrent dual-engine
+    # fan-out when configured). They are grouped under the same concurrency
+    # limit rather than awaited one by one.
     none_indices = [i for i, r in enumerate(results) if r is None]
     if none_indices:
         logger.info(
-            "Retrying %d untranslated subtitles individually",
+            "Retrying %d untranslated subtitles",
             len(none_indices),
         )
-        for idx in none_indices:
-            retry = await service.translate_batch([texts[idx]])
+
+        async def _retry_one(index: int) -> None:
+            async with semaphore:
+                retry = await service.translate_batch([texts[index]])
             if retry and retry[0] is not None:
-                results[idx] = retry[0]
+                results[index] = retry[0]
+
+        async with asyncio.TaskGroup() as group:
+            for index in none_indices:
+                group.create_task(_retry_one(index))
 
     # Phase 2: translation quality gate
     quality_report = None

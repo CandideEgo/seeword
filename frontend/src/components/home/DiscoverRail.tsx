@@ -7,43 +7,18 @@ import { ArrowUpRight, CirclePlay, Check, Flame } from "lucide-react";
 import { ErrorState } from "@/components/common/ErrorState";
 import { Skeleton } from "@/components/common/SkeletonCard";
 import { api } from "@/lib/api";
+import { channelSubscriptionsRequest } from "@/lib/channelSubscriptions";
 import { Image } from "@/components/ui/Image";
 import { VideoMetadata } from "@/components/video/VideoMetadata";
 import { formatDuration } from "@/lib/format";
 import { watchHref } from "@/lib/watchEntry";
-import type { VideoCard } from "@/types";
+import { useContinueLearning } from "@/hooks/useContinueLearning";
 import type { ChannelSubscriptionSummary } from "@/types/channels";
-
-interface ContinueItem {
-  video: VideoCard;
-  position_seconds: number;
-  progress_percentage: number;
-  remaining_seconds: number | null;
-}
-
-interface ContinueResponse {
-  items: ContinueItem[];
-  total: number;
-}
 
 /** Compact resume strip: cover, title, remaining time, explicit continue. */
 export function DiscoverContinue() {
-  const [item, setItem] = useState<ContinueItem | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setFailed(false);
-    api<ContinueResponse>("/api/v1/learning/continue?limit=1", { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setItem(data.items[0] ?? null);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
-      });
-    return () => controller.abort();
-  }, [attempt]);
+  // 与首页布局门共用同一次 `/learning/continue` 请求（见 useContinueLearning）。
+  const { item, failed, retry } = useContinueLearning();
 
   if (failed) {
     return (
@@ -51,7 +26,7 @@ export function DiscoverContinue() {
         观看记录暂时未能加载
         <button
           type="button"
-          onClick={() => setAttempt((value) => value + 1)}
+          onClick={retry}
           className="font-medium text-brand-700 hover:underline"
         >
           重试
@@ -125,23 +100,24 @@ export function DiscoverRail({ initialDue = 0 }: { initialDue?: number }) {
     setLoadState("loading");
     Promise.all([
       api<Overview>("/api/v1/users/me/overview", { signal: controller.signal }),
-      api<ChannelSubscriptionSummary[] | { items: ChannelSubscriptionSummary[] }>(
-        "/api/v1/discovery/subscriptions",
-        { signal: controller.signal }
-      ),
+      // 与列表后的「已订阅的频道」共用同一次请求（lib/channelSubscriptions）。
+      channelSubscriptionsRequest.get(),
     ])
       .then(([data, channels]) => {
         if (controller.signal.aborted) return;
         if (!data?.words || !data?.this_week || !data?.streak)
           throw new Error("学习进度数据不完整");
         setOverview(data);
-        setSubs(Array.isArray(channels) ? channels : (channels.items ?? []));
+        setSubs(channels);
         setLoadState("ready");
       })
       .catch(() => {
         if (!controller.signal.aborted) setLoadState("error");
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      channelSubscriptionsRequest.release();
+    };
   }, [attempt]);
   if (loadState === "error")
     return (

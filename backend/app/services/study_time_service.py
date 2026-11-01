@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.behavior import BehaviorEvent
 
@@ -40,21 +40,41 @@ async def watch_seconds_by_local_day(
 ) -> dict[date, int]:
     """按用户本地日汇总 ``[start, end)`` 内的有效学习秒数。
 
-    ``start`` / ``end`` 是 aware UTC 时刻；分桶在 Python 里做，因为
+    ``start`` / ``end`` 是 aware UTC 时刻。分桶必须落在**用户本地日**：
     ``func.date(server_ts)`` 只会换到数据库时区（UTC），对 Asia/Shanghai 的
     用户来说 00:00–08:00 会被算进前一天。
+
+    On Postgres the bucketing and the sum both happen in SQL (``timezone(tz,
+    server_ts)`` → local wall clock), so a busy week returns at most one row per
+    day instead of every ``watch_time`` event. The in-memory SQLite used by the
+    test suite has no ``timezone()`` function, so it keeps the row-walking path;
+    both paths produce the same dictionary.
     """
+    filters = (
+        BehaviorEvent.user_id == user_id,
+        BehaviorEvent.event_type == EVENT_WATCH_TIME,
+        BehaviorEvent.server_ts >= start,
+        BehaviorEvent.server_ts < end,
+    )
+    delta_seconds = BehaviorEvent.event_payload["delta_s"].as_float()
+
+    if db.get_bind().dialect.name == "postgresql":
+        local_day = func.date(func.timezone(tz.key, BehaviorEvent.server_ts))
+        rows = (
+            await db.execute(
+                select(local_day.label("day"), func.sum(delta_seconds).label("seconds"))
+                .where(*filters)
+                .group_by(local_day)
+            )
+        ).all()
+        return {day: int(seconds) for day, seconds in rows if day is not None and seconds is not None}
+
     rows = (
         await db.execute(
             select(
                 BehaviorEvent.server_ts,
-                BehaviorEvent.event_payload["delta_s"].as_float(),
-            ).where(
-                BehaviorEvent.user_id == user_id,
-                BehaviorEvent.event_type == EVENT_WATCH_TIME,
-                BehaviorEvent.server_ts >= start,
-                BehaviorEvent.server_ts < end,
-            )
+                delta_seconds,
+            ).where(*filters)
         )
     ).all()
 
