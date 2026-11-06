@@ -360,7 +360,7 @@ async function mockHome(
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
   await page.route("**/api/v1/users/me", (route) =>
     route.fulfill({
-      json: { id: "home-editorial-test", name: "学习者", onboarding_completed: true, plan: "free" },
+      json: { id: "home-editorial-test", name: "学习者", onboarding_completed: true },
     })
   );
   await page.route("**/api/v1/browse/featured**", (route) => route.fulfill({ json: FEATURED }));

@@ -9,9 +9,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowUpRight,
-  CreditCard,
   Cpu,
-  Crown,
   RefreshCw,
   ServerCog,
   Settings,
@@ -216,7 +214,7 @@ export default function AdminDashboardPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           icon={Users}
           label="总用户数"
@@ -224,12 +222,6 @@ export default function AdminDashboardPage() {
           delta={`+${stats.signups_today} 今日`}
           tone="brand"
           href="/admin/users"
-        />
-        <KpiCard
-          icon={Crown}
-          label="Pro 用户"
-          value={stats.pro_users.toLocaleString()}
-          tone="amber"
         />
         <KpiCard
           icon={Activity}
@@ -326,11 +318,10 @@ export default function AdminDashboardPage() {
       {/* Quick Actions */}
       <Card padding={5}>
         <h3 className="text-copy font-semibold text-ink mb-4">快捷入口</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { href: "/admin/videos", label: "视频管理", icon: Video },
             { href: "/admin/users", label: "用户管理", icon: Users },
-            { href: "/admin/payments", label: "付费记录", icon: CreditCard },
             { href: "/admin/stats", label: "数据统计", icon: TrendingUp },
             { href: "/admin/settings", label: "系统设置", icon: Settings },
           ].map((item) => (
@@ -365,12 +356,10 @@ export default function AdminDashboardPage() {
                 <span
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-full",
-                    activity.type === "signup"
-                      ? "bg-brand-50 text-brand-500"
-                      : "bg-success-soft text-success"
+                    "bg-brand-50 text-brand-500"
                   )}
                 >
-                  {activity.type === "signup" ? <UserPlus size={14} /> : <CreditCard size={14} />}
+                  <UserPlus size={14} />
                 </span>
                 <span className="flex-1 text-body">{activity.summary}</span>
                 <span className="text-meta text-muted-soft">

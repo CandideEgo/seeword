@@ -35,7 +35,6 @@ from app.schemas.video import (
     SubtitleSplit,
     SubtitleUpdate,
     TakedownSuggestionsResponse,
-    UnlockedVideoIdsResponse,
     VideoAdminResponse,
     VideoAdminStatusResponse,
     VideoAdminUpdate,
@@ -46,7 +45,6 @@ from app.schemas.video import (
     VideoResponse,
     VideoScoreResponse,
     VideoStatusResponse,
-    VideoUnlockResponse,
     VideoVocabularyItem,
     WordLevelsUpdate,
 )
@@ -831,40 +829,6 @@ async def get_admin_video_score(
     }
 
 
-@router.get("/unlocked", response_model=PaginatedResponse[VideoResponse])
-@rate_limit("30/minute")
-async def list_unlocked_videos(
-    request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=50),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """The current user's permanently unlocked videos (newest first).
-
-    **内测期已退役（需求 §2.3）**：门控解除后不再有「解锁」概念，保留路由与
-    表 dormant 以便未来收费复用，返回空页。前端「已解锁」Tab 已移除。
-    """
-    from app.schemas.pagination import paginated
-
-    return paginated([], page=page, page_size=page_size, total=0)
-
-
-@router.get("/unlocked-ids", response_model=UnlockedVideoIdsResponse)
-@rate_limit("30/minute")
-async def list_unlocked_video_ids(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """All unlocked video ids for the current user (card badge lookups).
-
-    **内测期已退役（需求 §2.3）**：不再有锁标/额度概念，返回空集；
-    ``remaining_this_month`` 恒为 None（不限量）。表 dormant 保留。
-    """
-    return {"video_ids": [], "remaining_this_month": None, "quota": None}
-
-
 # Phase 1 B0 — list the current user's favorite videos. Declared before the
 # /{video_id} dynamic route so the static "favorites" path wins the match
 # (FastAPI's route ordering is registration order; the previous attempt got
@@ -1091,28 +1055,6 @@ async def get_video(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
     return result
-
-
-@router.post("/{video_id}/unlock", response_model=VideoUnlockResponse)
-@rate_limit("10/minute")
-async def unlock_video(
-    request: Request,
-    video_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """**内测期已退役（需求 §2.3）**：免费开放后无解锁概念。
-
-    保留路由避免前端旧引用 404，恒返回已放行的 access 形状，不写
-    ``user_video_unlocks`` 行（表 dormant 保留，未来收费可复用）。
-    """
-    from app.services.unlock_service import get_video_access_info
-    from app.services.video_access import check_video_access
-
-    video = await db.get(Video, video_id)
-    if video is None or not check_video_access(video, current_user):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
-    return {"access": await get_video_access_info(db, current_user, video)}
 
 
 @router.get("/{video_id}/status", response_model=VideoStatusResponse)

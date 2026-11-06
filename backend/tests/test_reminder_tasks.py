@@ -21,8 +21,8 @@ from app.models.learning import Vocabulary
 from app.models.learning_plan import UserLearningProfile
 from app.models.notification import Notification
 from app.models.preferences import UserPreferences
-from app.models.user import PlanType, RoleType, User
-from app.tasks.reminder_tasks import send_hourly_reminders, send_pro_expiring_reminders
+from app.models.user import RoleType, User
+from app.tasks.reminder_tasks import send_hourly_reminders
 
 pytestmark = pytest.mark.usefixtures("_redis_down")
 
@@ -47,14 +47,11 @@ _NOW_REMINDER_HOUR = datetime(2026, 8, 29, 12, 0, tzinfo=UTC)
 _NOW_STREAK_HOUR = datetime(2026, 8, 29, 13, 0, tzinfo=UTC)
 
 
-async def _make_user(db, phone: str, *, plan=PlanType.free, expires_at=None):
+async def _make_user(db, phone: str):
     user = User(
         phone=phone,
         hashed_password="hashed",
         name="Reminder Test",
-        plan=plan,
-        plan_expires_at=expires_at,
-        plan_source="trial" if plan == PlanType.pro else None,
         role=RoleType.user,
     )
     db.add(user)
@@ -264,70 +261,3 @@ async def test_streak_warning_not_sent_and_counter_reset_when_already_broken():
             await db.execute(select(UserLearningProfile).where(UserLearningProfile.user_id == user_id))
         ).scalar_one()
         assert profile.current_streak == 5
-
-
-# ── Pro expiry reminders ────────────────────────────────────────────────
-
-
-async def test_pro_expiring_sent_three_days_out():
-    now = datetime(2026, 8, 29, 1, 0, tzinfo=UTC)  # 09:00 Beijing
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800100010", plan=PlanType.pro, expires_at=now + timedelta(days=3))
-        await _set_prefs(db, user.id)
-        user_id = user.id
-
-    sent = send_pro_expiring_reminders(now=now)
-
-    assert sent == 1
-    async with _session_maker()() as db:
-        notes = await _notifications(db, user_id, "pro_expiring")
-        assert len(notes) == 1
-        assert "3 天后到期" in notes[0].message
-        assert notes[0].related_url == "/upgrade"
-
-
-async def test_pro_expiring_sent_one_day_out():
-    now = datetime(2026, 8, 29, 1, 0, tzinfo=UTC)
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800100011", plan=PlanType.pro, expires_at=now + timedelta(days=1))
-        await _set_prefs(db, user.id)
-        user_id = user.id
-
-    sent = send_pro_expiring_reminders(now=now)
-
-    assert sent == 1
-    async with _session_maker()() as db:
-        notes = await _notifications(db, user_id, "pro_expiring")
-        assert len(notes) == 1
-        assert "明天到期" in notes[0].message
-
-
-async def test_pro_expiring_silent_outside_buckets():
-    now = datetime(2026, 8, 29, 1, 0, tzinfo=UTC)
-    async with _session_maker()() as db:
-        two = await _make_user(db, "13800100012", plan=PlanType.pro, expires_at=now + timedelta(days=2))
-        ten = await _make_user(db, "13800100013", plan=PlanType.pro, expires_at=now + timedelta(days=10))
-        await _set_prefs(db, two.id)
-        await _set_prefs(db, ten.id)
-        ids = (two.id, ten.id)
-
-    sent = send_pro_expiring_reminders(now=now)
-
-    assert sent == 0
-    async with _session_maker()() as db:
-        for uid in ids:
-            assert await _notifications(db, uid, "pro_expiring") == []
-
-
-async def test_pro_expiring_respects_opt_out():
-    now = datetime(2026, 8, 29, 1, 0, tzinfo=UTC)
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800100014", plan=PlanType.pro, expires_at=now + timedelta(days=3))
-        await _set_prefs(db, user.id, pro_expiring=False)
-        user_id = user.id
-
-    sent = send_pro_expiring_reminders(now=now)
-
-    assert sent == 0
-    async with _session_maker()() as db:
-        assert await _notifications(db, user_id, "pro_expiring") == []

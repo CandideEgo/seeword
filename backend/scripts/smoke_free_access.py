@@ -94,14 +94,7 @@ async def main() -> int:
             r = await c.get(f"/api/v1/videos/{video_id}", headers=headers)
             results.append(check("详情 200", r.status_code == 200, f"status={r.status_code}"))
             data = r.json()
-            results.append(check("access.unlocked=True", data["access"]["unlocked"] is True, str(data["access"])))
-            results.append(
-                check(
-                    "不限量（remaining=null）",
-                    data["access"]["remaining_this_month"] is None,
-                    str(data["access"]["remaining_this_month"]),
-                )
-            )
+            results.append(check("响应不含会员字段", "access" not in data, str(list(data.keys()))))
             results.append(check("字幕直接下发", len(data["subtitles"]) == 1, f"n={len(data['subtitles'])}"))
             results.append(
                 check("播放 URL 直接下发", data.get("video_url_720p") is not None, str(data.get("video_url_720p")))
@@ -112,30 +105,23 @@ async def main() -> int:
             results.append(check("媒体 200", r.status_code == 200, f"status={r.status_code}"))
             results.append(check("内容一致", r.content == b"free access media payload"))
 
-            print("\n[3] 跟读重点句可直接读（不再 403）")
+            print("\n[3] 跟读重点句：跟读功能本身已退役（410）")
             r = await c.get(f"/api/v1/videos/{video_id}/shadowing-sentences", headers=headers)
-            results.append(check("200", r.status_code == 200, f"status={r.status_code}"))
+            results.append(check("410 FEATURE_RETIRED", r.status_code == 410, f"status={r.status_code}"))
 
-            print("\n[4] 退役端点 — 空载荷，不写解锁行")
+            print("\n[4] 已下线的解锁/收费端点 — 404")
             r = await c.post(f"/api/v1/videos/{video_id}/unlock", headers=headers)
-            results.append(check("unlock 200 且放行", r.status_code == 200 and r.json()["access"]["unlocked"] is True))
+            results.append(check("unlock 已删除", r.status_code == 404, f"status={r.status_code}"))
             r = await c.get("/api/v1/videos/unlocked", headers=headers)
-            results.append(check("unlocked 列表为空", r.json()["total"] == 0, str(r.json()["total"])))
-            r = await c.get("/api/v1/videos/unlocked-ids", headers=headers)
-            results.append(check("unlocked-ids 为空", r.json()["video_ids"] == [], str(r.json()["video_ids"])))
+            results.append(check("unlocked 列表已删除", r.status_code == 404, f"status={r.status_code}"))
+            r = await c.get("/api/v1/payments/status", headers=headers)
+            results.append(check("payments 已删除", r.status_code == 404, f"status={r.status_code}"))
 
-            async with get_async_session_maker()() as db:
-                from sqlalchemy import select as _select
-
-                from app.models.user_video_unlock import UserVideoUnlock
-
-                rows = (await db.execute(_select(UserVideoUnlock))).scalars().all()
-                results.append(check("未写 user_video_unlocks 行", rows == []))
-
-            print("\n[5] 匿名仍被拒（登录墙语义保留）")
+            print("\n[5] 匿名：能拿元信息，但不给字幕/播放地址（登录墙）")
             r = await c.get(f"/api/v1/videos/{video_id}")
-            results.append(check("匿名详情 locked", r.json()["access"]["unlocked"] is False))
+            results.append(check("匿名详情 200", r.status_code == 200, f"status={r.status_code}"))
             results.append(check("匿名无字幕", r.json()["subtitles"] == []))
+            results.append(check("匿名无播放地址", r.json()["video_url_720p"] is None))
             r = await c.get(f"/media/{media_name}")
             results.append(check("匿名媒体 403", r.status_code == 403, f"status={r.status_code}"))
             r = await c.get(f"/api/v1/videos/{video_id}/shadowing-sentences")
@@ -151,7 +137,7 @@ async def main() -> int:
 
     print(f"\n{'=' * 56}\n冒烟结果：{sum(results)}/{len(results)} 通过")
     if all(results):
-        print("登录即看：无解锁流程，全功能开放；匿名仍拒")
+        print("登录即看：无解锁流程，全功能免费；匿名仍拒")
         return 0
     print("存在失败项，见上方 [FAIL]")
     return 1

@@ -36,7 +36,7 @@ from app.core.security import create_token
 from app.main import create_app
 from app.models.exam_test import ExamAnswer, ExamPaper, ExamQuestion, ExamSession
 from app.models.learning_plan import LearningEvent
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services import exam_service
 
 pytestmark = pytest.mark.integration
@@ -53,7 +53,6 @@ async def _seed() -> tuple[str, dict, list[dict], str]:
             phone="13611136201",
             hashed_password="hashed",
             name="Exam Race",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         paper = ExamPaper(

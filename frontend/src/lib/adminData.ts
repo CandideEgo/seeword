@@ -10,8 +10,6 @@ import { adminApi } from "@/lib/adminApi";
 import type {
   AdminAccount,
   AdminChannel,
-  AdminPayment,
-  AdminPaymentSummary,
   AdminLearningMetrics,
   AdminSettings,
   AdminStats,
@@ -50,7 +48,6 @@ export function listUsers(
     page?: number;
     page_size?: number;
     role?: string;
-    plan?: string;
     keyword?: string;
   } = {}
 ): Promise<Paginated<AdminUser>> {
@@ -58,7 +55,6 @@ export function listUsers(
   if (opts.page) params.set("page", String(opts.page));
   if (opts.page_size) params.set("page_size", String(opts.page_size));
   if (opts.role) params.set("role", opts.role);
-  if (opts.plan) params.set("plan", opts.plan);
   if (opts.keyword) params.set("keyword", opts.keyword);
   const qs = params.toString();
   return adminApi<Paginated<AdminUser>>(`/api/v1/admin/users${qs ? `?${qs}` : ""}`);
@@ -76,58 +72,6 @@ export async function promoteUser(id: string, role: "user" | "admin"): Promise<P
     method: "PATCH",
     body: JSON.stringify({ role }),
   });
-}
-
-export async function setUserPlan(
-  id: string,
-  plan: "free" | "pro",
-  days: number
-): Promise<Partial<AdminUser>> {
-  const res = await adminApi<{
-    id: string;
-    plan: string;
-    plan_expires_at: string | null;
-  }>(`/api/v1/admin/users/${id}/plan`, {
-    method: "PATCH",
-    body: JSON.stringify({ plan, duration_days: days }),
-  });
-  // Map the response back to partial AdminUser shape for the patchUser helper
-  return {
-    plan: res.plan as "free" | "pro",
-    plan_expires_at: res.plan_expires_at,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 金数据 payments (replaces the removed legacy orders surface)
-// ---------------------------------------------------------------------------
-
-/** List 金数据 payment records (read-only; `raw_json` never returned). */
-export function listPayments(
-  opts: {
-    page?: number;
-    page_size?: number;
-    status?: string;
-    keyword?: string;
-  } = {}
-): Promise<Paginated<AdminPayment>> {
-  const params = new URLSearchParams();
-  if (opts.page) params.set("page", String(opts.page));
-  if (opts.page_size) params.set("page_size", String(opts.page_size));
-  if (opts.status) params.set("status", opts.status);
-  if (opts.keyword) params.set("keyword", opts.keyword);
-  const qs = params.toString();
-  return adminApi<Paginated<AdminPayment>>(`/api/v1/admin/payments${qs ? `?${qs}` : ""}`);
-}
-
-/** Status counters + revenue sums (fen) for the payments page. */
-export function paymentSummary(): Promise<AdminPaymentSummary> {
-  return adminApi<AdminPaymentSummary>("/api/v1/admin/payments/summary");
-}
-
-/** Enqueue the 金数据 sync Celery task (no inline external request). */
-export function syncPayments(): Promise<{ queued: boolean }> {
-  return adminApi<{ queued: boolean }>("/api/v1/admin/payments/sync", { method: "POST" });
 }
 
 // ---------------------------------------------------------------------------

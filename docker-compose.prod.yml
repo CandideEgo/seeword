@@ -159,28 +159,6 @@ services:
       ALIYUN_SMS_TEMPLATE_REGISTER: ${ALIYUN_SMS_TEMPLATE_REGISTER:-}
       ALIYUN_SMS_TEMPLATE_CHANGE_PHONE: ${ALIYUN_SMS_TEMPLATE_CHANGE_PHONE:-}
       ALIYUN_SMS_TEMPLATE_RESET_PASSWORD: ${ALIYUN_SMS_TEMPLATE_RESET_PASSWORD:-}
-      # 金数据（站外收款页）→ 自动开通 Pro。配置项见
-      # backend/app/core/config.py::Settings（jinshuju_* 那一组）。
-      # 本文件此前一个 JINSHUJU_* 都没传，而 prod compose 的 environment 是白名单式
-      # （没有 env_file）——生产环境这组变量全部取不到默认值，支付链路根本没法启用。
-      # 值一律从宿主环境 / .env 透传，真值不写进本文件（变量名见 backend/.env.example）。
-      JINSHUJU_ENABLED: ${JINSHUJU_ENABLED:-false}
-      JINSHUJU_ACCESS_TOKEN: ${JINSHUJU_ACCESS_TOKEN:-}
-      JINSHUJU_FORM_TOKEN: ${JINSHUJU_FORM_TOKEN:-}
-      JINSHUJU_WEBHOOK_SECRET: ${JINSHUJU_WEBHOOK_SECRET:-}
-      JINSHUJU_TIER_FIELD: ${JINSHUJU_TIER_FIELD:-field_2}
-      JINSHUJU_PHONE_FIELD: ${JINSHUJU_PHONE_FIELD:-field_5}
-      JINSHUJU_SYNC_LOOKBACK_HOURS: ${JINSHUJU_SYNC_LOOKBACK_HOURS:-72}
-      JINSHUJU_PURCHASE_URL: ${JINSHUJU_PURCHASE_URL:-}
-      JINSHUJU_PURCHASE_TOKEN_TTL_MINUTES: ${JINSHUJU_PURCHASE_TOKEN_TTL_MINUTES:-1440}
-      # 站内购买 token（写在 x_field_1 的 HMAC 签名）用的密钥。
-      # 是否必填由后端按 JINSHUJU_ENABLED 决定（app/core/config.py）：
-      # 开启金数据时必须显式配置且 ≠ JWT_SECRET，关闭时留空即可。这里用
-      # `${VAR:-}`（可选）而不是 `${VAR:?}`，否则「没开金数据」的部署会在
-      # compose 阶段被一个根本用不到的密钥卡住，运维通常只会填个假值绕过，
-      # 反而破坏密钥分离的本意。
-      # 生成：openssl rand -hex 32（必须与 JWT_SECRET 不同）。
-      JINSHUJU_PURCHASE_TOKEN_SECRET: ${JINSHUJU_PURCHASE_TOKEN_SECRET:-}
       # Trust X-Forwarded-For from the nginx container so per-IP rate
       # limiting (app.core.limiter) sees real client IPs instead of the
       # nginx container IP for every request. Safe: backend is only
@@ -274,17 +252,6 @@ services:
       TRANSLATION_CONCURRENT: ${TRANSLATION_CONCURRENT:-false}
       ENV: ${ENV:-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      # 金数据同步在这个 worker 里跑（beat 每 5 分钟排一次 sync_jinshuju_payments，
-      # webhook 触发的 process_jinshuju_entry 也落在这个队列），所以 worker 至少要有
-      # 「能不能同步」和「怎么认表单项」这一组；purchase_url / purchase token secret
-      # 只服务站内的购买链接（API 用），不放进 worker —— 少一份密钥多一份密钥副本。
-      # celery-beat 不需要这组变量：它只按任务名排程，任务体在 worker 里执行。
-      JINSHUJU_ENABLED: ${JINSHUJU_ENABLED:-false}
-      JINSHUJU_ACCESS_TOKEN: ${JINSHUJU_ACCESS_TOKEN:-}
-      JINSHUJU_FORM_TOKEN: ${JINSHUJU_FORM_TOKEN:-}
-      JINSHUJU_TIER_FIELD: ${JINSHUJU_TIER_FIELD:-field_2}
-      JINSHUJU_PHONE_FIELD: ${JINSHUJU_PHONE_FIELD:-field_5}
-      JINSHUJU_SYNC_LOOKBACK_HOURS: ${JINSHUJU_SYNC_LOOKBACK_HOURS:-72}
       # A09/OPS-05：worker 的异常要进 Sentry，管线派发积压告警要走站外 webhook
       # （此前 compose 没透传，send_alert 只能回落到站内通知，DB 挂了就一起没了）。
       SENTRY_DSN: ${SENTRY_DSN:-}

@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.core.security import hash_password
 from app.models.subtitle import Subtitle
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoStatus
 from app.services.difficulty_service import (
     beyond_basic_ratio,
@@ -123,7 +123,6 @@ async def _ensure_user(db_session) -> User:
             phone="13800138000",
             hashed_password=hash_password("Testpass123!"),
             name="Test User",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db_session.add(user)

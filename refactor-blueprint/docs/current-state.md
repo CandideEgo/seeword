@@ -39,7 +39,7 @@
 | 流式导师回复（P02.2） | `services/teaching/streaming.py`、`teaching_gateway.py::stream_tutor_reply`、`teaching_runs.py::_stream_turn`、`models/v2_runtime.py::TeachingMessageBlock` | 纯文本 `[n]` 引用 + 有序不可变块；每块独立短事务发布，`message.block` 事件；用量 `reported/missing/unknown`；默认关闭，关闭时回到 P02.1 非流式 |
 | 外部接入 | `integrations/mcp/server.py`、`services/external_connection_service.py` | opaque 凭据、scope、过期/轮换/撤销；共享教学服务 |
 | V2 开放控制 | `services/v2_access.py`、`models/v2_runtime.py` | 功能开关、白名单、账号有效性；不是现成的商业会员准入 |
-| 收款与会员 | `api/v1/payments.py`、`services/order_service.py`、`services/jinshuju_service.py` | HTTP 验签/金额校验、Order 共享结算与补单；金数据保留独立收款模型 |
+| 收款与会员 | **已下线（2026-11）** | 会员收费链路整体删除（端点/服务/任务/表/配置）；全站功能对登录用户免费，本表其余能力不受影响 |
 | 个人资料与互动 | `api/v1/favorites.py`、`notes.py`、`channels.py`、`learning.py` | 收藏、笔记、订阅、观看/学习历史；不复制内容主体 |
 | 运营与通知 | `api/v1/admin.py`、`feedback.py`、`notifications.py`、`services/notification_service.py`、`notification_transport.py`、后台 services/tasks | 通知创建与传输分离，调用者提交后推送；系统配置、反馈公告及人工操作 |
 | 档案与统计 | `services/learning_event_service.py`、`event_contract.py`、`profile_service.py`、`admin_stats.py` | LearningEvent、用户聚合、后台读模型；record_event 供必达事实，emit_event 保留旧生产者的容错入口；不能反写正式成绩 |

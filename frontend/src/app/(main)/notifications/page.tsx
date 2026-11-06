@@ -31,7 +31,6 @@ interface Notification {
 const TYPE_LABELS: Record<string, string> = {
   system: "系统",
   video_ready: "视频就绪",
-  pro_expiring: "会员",
   vocabulary_reminder: "词汇提醒",
   comment_reply: "互动",
   social_follow: "互动",

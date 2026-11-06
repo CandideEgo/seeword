@@ -465,7 +465,7 @@ export function VideoDetailRow({
               onChange={(e) => setIsDemo(e.target.checked)}
               className="h-4 w-4 rounded-sm border-hairline"
             />
-            示范视频（不消耗解锁额度）
+            示范视频（匿名可直接播放）
           </label>
         </div>
 

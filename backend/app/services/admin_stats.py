@@ -14,14 +14,12 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 
 from app.core.time_utils import iso_or_none
-from app.models.jinshuju_payment import JinshujuPayment, JinshujuPaymentStatus
 from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent
-from app.models.order import Order
-from app.models.user import PlanType, User
+from app.models.user import User
 from app.models.video import Video, VideoStatus
 from app.services.event_contract import MEANINGFUL_EVENT_TYPES
 
@@ -124,36 +122,20 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
     # All user-level counters in ONE scan via conditional aggregation
     # (previously 7 separate COUNT queries).
     #
-    # ADM-05: ``pro_users`` counts **active** Pro only (plan == pro AND not
-    # expired). The ``plan`` column is never downgraded by any beat job — an
-    # expiry silently leaves ``plan='pro'`` behind — so counting the stored
-    # plan overstates the paying base (audit measured 611 stored vs 284 active).
-    # ``pro_expired_count`` keeps the lapsed rows visible, and ``users_by_plan``
-    # below intentionally stays an as-stored distribution (see its comment).
-    #
-    # A13/FE-04: ``plan_expires_at IS NULL`` is *invalid*, not infinite — the
-    # same rule as ``unlock_service.is_active_pro`` and the frontend. Row without
-    # an expiry counts as lapsed (visible) instead of active (flattering).
-    active_pro_condition = User.plan_expires_at > now
-    expired_pro_condition = or_(User.plan_expires_at.is_(None), User.plan_expires_at < now)
     (
         total_users,
         new_users_7d,
-        pro_users,
         active_users_today,
         active_users_7d,
         signups_today,
-        pro_expired_count,
     ) = (
         await db.execute(
             select(
                 func.count(User.id),
                 func.count(User.id).filter(User.created_at >= ago_7d),
-                func.count(User.id).filter(User.plan == PlanType.pro, active_pro_condition),
                 func.count(User.id).filter(func.date(User.last_active_at) == today),
                 func.count(User.id).filter(User.last_active_at >= ago_7d),
                 func.count(User.id).filter(func.date(User.created_at) == today),
-                func.count(User.id).filter(User.plan == PlanType.pro, expired_pro_condition),
             )
         )
     ).one()
@@ -231,12 +213,6 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
     videos_ready = status_counts.get(VideoStatus.ready, 0)
     videos_error_count = status_counts.get(VideoStatus.error, 0)
 
-    # As-stored plan distribution: buckets the ``plan`` column verbatim, so the
-    # ``pro`` bucket includes lapsed memberships (ADM-05). Active Pro is
-    # ``pro_users`` above; the delta between the two is ``pro_expired_count``.
-    users_by_plan_rows = (await db.execute(select(User.plan, func.count(User.id)).group_by(User.plan))).all()
-    users_by_plan = [{"plan": r[0], "count": r[1]} for r in users_by_plan_rows]
-
     # --- Video topic distribution (prototype 31: 视频分类分布) ---
     # topic_tags is a comma-separated string column; aggregate in Python.
     topic_rows = (await db.execute(select(Video.topic_tags).where(Video.is_published.is_(True)))).scalars().all()
@@ -252,22 +228,18 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
         {"topic": t, "count": c} for t, c in sorted(topic_counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
     ]
 
-    # --- Cumulative behavior / entitlement distribution (MET-02) ---
-    # 这四个数字**互相独立**（不同 cohort、无时间窗、无步骤顺序），不是漏斗；
-    # 管理端已改名为「累计行为分布」。真实 cohort 漏斗与付费口径见
-    # ``measurement_service.learning_metrics``（付费只认已匹配账号的金数据流水）。
+    # --- Cumulative behavior distribution ---
+    # 这三个数字**互相独立**（不同 cohort、无时间窗、无步骤顺序），不是漏斗。
+    # 真实 cohort 漏斗见 ``measurement_service.learning_metrics``。
     watched_users = (await db.execute(select(func.count(func.distinct(LearningRecord.user_id))))).scalar_one()
     vocab_users = (await db.execute(select(func.count(func.distinct(Vocabulary.user_id))))).scalar_one()
     funnel = {
         "registered": total_users,
         "watched": int(watched_users or 0),
         "vocab_saved": int(vocab_users or 0),
-        # ADM-05: funnel must use the same active-Pro definition as ``pro_users``,
-        # otherwise the last stage shows stored (mostly expired) plans.
-        "pro": pro_users,
     }
 
-    # --- Recent activity (merge-sort from signups + 金数据 payments) ---
+    # --- Recent activity ---
     recent: list[dict] = []
 
     # Signups
@@ -285,57 +257,7 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
     # scoring is gone, so "完成口语评测" entries would only ever describe a
     # dead feature.)
 
-    # 金数据 payments (ADM-06) — the live revenue source. Applied purchases show
-    # as "开通 Pro"; pending ones (paid but the account isn't registered yet)
-    # still deserve a line so ops can spot missing grants. The legacy ``orders``
-    # table is kept as a fallback for pre-Jinshuju history only.
-    payment_rows = (
-        await db.execute(
-            select(JinshujuPayment, User.name, User.phone)
-            .outerjoin(User, JinshujuPayment.user_id == User.id)
-            .where(JinshujuPayment.status.in_([JinshujuPaymentStatus.APPLIED, JinshujuPaymentStatus.PENDING]))
-            .order_by(
-                func.coalesce(JinshujuPayment.entry_created_at, JinshujuPayment.created_at).desc(),
-                JinshujuPayment.id.desc(),
-            )
-            .limit(8)
-        )
-    ).all()
-    for payment, name, linked_phone in payment_rows:
-        paid_at = payment.entry_created_at or payment.created_at
-        who = name or linked_phone or payment.phone or "用户"
-        tier = payment.tier_name or "Pro"
-        amount = f"（¥{payment.amount_fen / 100:.0f}）" if payment.amount_fen is not None else ""
-        state = "开通 Pro" if payment.status == JinshujuPaymentStatus.APPLIED else "付款待开通"
-        recent.append(
-            {
-                "id": f"payment-{payment.id}",
-                "type": "payment",
-                "summary": f"{who} {state} {tier}{amount}",
-                "created_at": iso_or_none(paid_at),
-            }
-        )
-
-    if not payment_rows:
-        # Legacy fallback: rows written before the Jinshuju收款链路 switched over.
-        for o in (
-            await db.execute(
-                select(Order, User.name, User.phone)
-                .join(User, Order.user_id == User.id)
-                .where(Order.status == "paid")
-                .order_by(Order.created_at.desc(), Order.id.desc())
-                .limit(8)
-            )
-        ).all():
-            order, name, phone = o
-            recent.append(
-                {
-                    "id": f"payment-{order.id}",
-                    "type": "payment",
-                    "summary": f"{name or phone} 升级 Pro (¥{order.amount / 100:.0f})",
-                    "created_at": iso_or_none(order.created_at),
-                }
-            )
+    # (Payment activity source removed with the retired paid-membership chain.)
 
     # Sort all by created_at desc and take top 8
     recent.sort(key=lambda x: x["created_at"] or "", reverse=True)
@@ -344,7 +266,6 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
     return {
         "total_users": total_users,
         "new_users_7d": new_users_7d,
-        "pro_users": pro_users,
         "total_videos": total_videos,
         "videos_ready": videos_ready,
         "total_vocabulary": total_vocabulary,
@@ -361,9 +282,7 @@ async def _compute_admin_stats(db: AsyncSession, days: int = 30) -> dict:
             "active_users": active_list,
         },
         "videos_by_status": videos_by_status,
-        "users_by_plan": users_by_plan,
         "recent_activity": recent,
-        "pro_expired_count": int(pro_expired_count or 0),
         "funnel": funnel,
         "videos_by_topic": videos_by_topic,
     }

@@ -96,28 +96,6 @@ export function mediaUrl(
 }
 
 /**
- * Check whether a user has an active Pro subscription.
- *
- * The backend sets ``plan = "pro"`` on upgrade but does NOT reset it on
- * expiry — instead ``plan_expires_at`` is checked.  A naive
- * ``user.plan === "pro"`` would show Pro UI to expired users who then
- * get 403 from the API.
- *
- * Shared contract with the backend (A13/FE-04, decided 2026-10-29):
- * ``plan_expires_at === null`` is **invalid/missing data, not an infinite
- * membership** — ``GET /payments/status``, ``unlock_service.is_active_pro``
- * and the admin KPI all use `plan === "pro" && expiry > now`. Keep the four
- * in step; a null expiry must never read as "Pro" on one side only.
- */
-export function isProUser(
-  user: { plan: string; plan_expires_at: string | null } | null | undefined
-): boolean {
-  if (!user || user.plan !== "pro") return false;
-  if (!user.plan_expires_at) return false;
-  return new Date(user.plan_expires_at) > new Date();
-}
-
-/**
  * Get the current auth token from the Zustand auth store.
  *
  * This is the single source of truth — no direct localStorage access.

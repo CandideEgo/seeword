@@ -89,7 +89,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   // D0 登录墙：受保护路由已被 middleware 302 到 /login；能走到这里的未登录访问
-  // 只剩白名单页（/upgrade、/contact 等），直接渲染页面内容（不带应用 shell）。
+  // 只剩白名单页（/contact 等），直接渲染页面内容（不带应用 shell）。
   // 设计应用壳（index.html:90-113）只有 sidebar/topbar/main：登录后的页面不再
   // 渲染 SiteFooter；未登录白名单页保留协议入口。
   if (!isAuthenticated) {

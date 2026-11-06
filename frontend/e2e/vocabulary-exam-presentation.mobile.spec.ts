@@ -83,7 +83,6 @@ async function setup(page: Page) {
         nickname: "Test",
         phone: "13800000000",
         onboarding_completed: true,
-        plan: "free",
       };
     else if (path === "/api/v1/notifications/unread-count") json = { count: 0 };
     else if (path === "/api/v1/vocabulary/stats")

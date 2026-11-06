@@ -28,7 +28,6 @@ from app.services import exam_service, vocabulary_service
 from app.services.event_contract import MEANINGFUL_EVENT_TYPES
 from app.services.local_time import get_user_local_now, local_zone
 from app.services.study_time_service import watch_seconds_by_local_day
-from app.services.unlock_service import is_active_pro
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -151,14 +150,11 @@ async def build_overview(db: AsyncSession, user: User) -> dict:
     ).scalar_one()
     note_count = (await db.execute(select(func.count(UserNote.id)).where(UserNote.user_id == user.id))).scalar_one()
 
-    membership_expires = user.plan_expires_at
     return {
         "user": {
             "id": user.id,
             "name": user.name,
             "avatar_url": user.avatar_url,
-            "plan": user.plan.value if hasattr(user.plan, "value") else str(user.plan),
-            "plan_expires_at": membership_expires,
             "created_at": user.created_at,
         },
         "streak": {
@@ -191,9 +187,5 @@ async def build_overview(db: AsyncSession, user: User) -> dict:
             "favorite_videos": favorite_videos,
             "favorite_sentences": favorite_sentences,
             "notes": note_count,
-        },
-        "membership": {
-            "is_pro": is_active_pro(user),
-            "expires_at": membership_expires,
         },
     }

@@ -21,20 +21,17 @@ from app.models.engagement import VideoLike
 from app.models.exam_test import ExamAnswer, ExamSession
 from app.models.favorite import UserFavorite, UserNote
 from app.models.feedback import Feedback
-from app.models.jinshuju_payment import JinshujuPayment
 from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
 from app.models.listening import ListeningSession
 from app.models.media_cleanup import MediaCleanupTask
 from app.models.milestone import MasterySnapshot, UserMilestone
 from app.models.notification import Notification
-from app.models.order import Order
 from app.models.preferences import UserPreferences
 from app.models.study_session import StudySession, StudySessionItem
 from app.models.subtitle import Subtitle
 from app.models.user import User
 from app.models.user_content import ChannelSubscription, SentenceFavorite
-from app.models.user_video_unlock import UserVideoUnlock
 from app.models.video import Video
 from app.models.vocab_set import VocabSet, VocabSetWord
 from app.services import account_data
@@ -97,25 +94,12 @@ async def _seed_all(user_id: str, marker: str) -> dict:
                 SentenceFavorite(user_id=user_id, subtitle_id=subtitle.id),
                 ChannelSubscription(user_id=user_id, channel_id=channel.id),
                 VideoLike(user_id=user_id, video_id=video.id),
-                UserVideoUnlock(user_id=user_id, video_id=video.id),
                 ListeningSession(user_id=user_id, video_id=video.id, title=f"listen-{marker}"),
-                Order(user_id=user_id, order_number=f"ORD-{marker}", plan="pro_monthly", amount=1000),
                 Notification(user_id=user_id, type="system", title=f"notify-{marker}"),
                 Feedback(user_id=user_id, content=f"feedback-{marker}"),
                 MasterySnapshot(user_id=user_id, snapshot_date=date.today(), mastery_json={"cet4": {"mastered": 1}}),
                 UserMilestone(user_id=user_id, milestone_type=f"first-{marker}"),
                 BehaviorEvent(user_id=user_id, event_type="watch_time", event_payload={"marker": marker}),
-                JinshujuPayment(
-                    entry_token=f"entry-{marker}",
-                    serial_number=1,
-                    form_token="form",
-                    phone="13900000000",
-                    tier_name="月卡",
-                    amount_fen=1000,
-                    status="applied",
-                    user_id=user_id,
-                    raw_json=f'{{"marker":"{marker}"}}',
-                ),
             ]
         )
         await db.flush()
@@ -221,12 +205,9 @@ async def test_export_contains_every_section_and_no_other_user(media_tmp):
         "sentence_favorites",
         "channel_subscriptions",
         "video_likes",
-        "video_unlocks",
         "listening_sessions",
         "exam_sessions",
         "videos",
-        "orders",
-        "payments",
         "notifications",
         "feedbacks",
         "mastery_snapshots",
@@ -247,9 +228,6 @@ async def test_export_contains_every_section_and_no_other_user(media_tmp):
     assert json.loads(payloads["vocab_sets.json"])[0]["words"][0]["vocabulary_id"]
     assert json.loads(payloads["study_sessions.json"])[0]["items"][0]["sort_order"] == 1
     assert json.loads(payloads["exam_sessions.json"])[0]["answers"][0]["user_answer"] == "A"
-    payment = json.loads(payloads["payments.json"])[0]
-    assert payment["amount_fen"] == 1000 and "raw_json" not in payment
-
     combined = "\n".join(payloads.values())
     assert "bravo" not in combined  # never another user's rows
     assert str(bravo_id) not in combined
@@ -322,10 +300,8 @@ async def test_purge_removes_user_data_and_media_but_keeps_shared_records(media_
             (SentenceFavorite, SentenceFavorite.user_id),
             (ChannelSubscription, ChannelSubscription.user_id),
             (VideoLike, VideoLike.user_id),
-            (UserVideoUnlock, UserVideoUnlock.user_id),
             (ListeningSession, ListeningSession.user_id),
             (ExamSession, ExamSession.user_id),
-            (Order, Order.user_id),
             (Notification, Notification.user_id),
             (Feedback, Feedback.user_id),
             (MasterySnapshot, MasterySnapshot.user_id),
@@ -341,12 +317,6 @@ async def test_purge_removes_user_data_and_media_but_keeps_shared_records(media_
 
         events = (await db.execute(select(BehaviorEvent).where(BehaviorEvent.user_id.is_(None)))).scalars().all()
         assert any(event.event_payload == {"marker": "purgealpha"} for event in events)
-
-        payment = (
-            await db.execute(select(JinshujuPayment).where(JinshujuPayment.entry_token == "entry-purgealpha"))
-        ).scalar_one()
-        assert payment.user_id is None and payment.phone is None and payment.raw_json is None
-        assert payment.amount_fen == 1000
 
         cleanup = (await db.execute(select(MediaCleanupTask))).scalars().all()
         assert cleanup and all(row.status == "done" for row in cleanup)

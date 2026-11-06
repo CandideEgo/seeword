@@ -298,18 +298,14 @@ async def _make_user(
     db: AsyncSession,
     *,
     phone: str,
-    plan: str = "free",
     role: str = "user",
-    expires: datetime | None = None,
 ):
-    from app.models.user import PlanType, RoleType, User
+    from app.models.user import RoleType, User
 
     user = User(
         phone=phone,
         hashed_password="x",
         name=f"User {phone[-4:]}",
-        plan=PlanType(plan),
-        plan_expires_at=expires,
         role=RoleType(role),
     )
     db.add(user)
@@ -327,32 +323,13 @@ async def test_official_video_media_locked_for_anonymous(client, video_media_dir
         assert resp.status_code == 403, name
 
 
-async def test_official_video_media_pro_ok(client, video_media_dir, db_session):
+async def test_official_video_media_logged_in_ok(client, video_media_dir, db_session):
+    """Any logged-in account can stream official media — there is no membership gate."""
     v = video_media_dir["official"]
-    pro = await _make_user(db_session, phone="13700000001", plan="pro", expires=datetime(2099, 12, 31, tzinfo=UTC))
-    resp = await client.get(f"/media/{v.id}.mp4?token={create_token(pro.id)}")
+    user = await _make_user(db_session, phone="13700000001")
+    resp = await client.get(f"/media/{v.id}.mp4?token={create_token(user.id)}")
     assert resp.status_code == 200
     assert resp.content == b"official video"
-
-
-async def test_official_video_media_expired_pro_ok(client, video_media_dir, db_session):
-    """内测免费期（需求 §2.3）：门控解除，plan 到期不再影响观看 —— 登录即放行。"""
-    v = video_media_dir["official"]
-    expired = await _make_user(db_session, phone="13700000002", plan="pro", expires=datetime(2020, 1, 1, tzinfo=UTC))
-    resp = await client.get(f"/media/{v.id}.mp4?token={create_token(expired.id)}")
-    assert resp.status_code == 200
-
-
-async def test_official_video_media_unlocked_free_ok(client, video_media_dir, db_session):
-    from app.models.user_video_unlock import UserVideoUnlock
-
-    v = video_media_dir["official"]
-    free = await _make_user(db_session, phone="13700000003")
-    db_session.add(UserVideoUnlock(user_id=free.id, video_id=v.id))
-    await db_session.commit()
-    resp = await client.get(f"/media/{v.id}_720p.mp4?token={create_token(free.id)}")
-    assert resp.status_code == 200
-    assert resp.content == b"official 720p"
 
 
 async def test_demo_video_media_open_to_anonymous(client, video_media_dir, db_session):
@@ -399,13 +376,12 @@ async def test_draft_ugc_media_other_user_token_404(client, video_media_dir):
 
 
 async def test_draft_ugc_media_admin_token_ok(client, video_media_dir, db_session):
-    from app.models.user import PlanType, RoleType, User
+    from app.models.user import RoleType, User
 
     admin = User(
         phone="13911112222",
         hashed_password="x",
         name="Admin 2",
-        plan=PlanType.pro,
         role=RoleType.admin,
     )
     db_session.add(admin)

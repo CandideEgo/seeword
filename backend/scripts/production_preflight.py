@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 """生产配置预检（A11 / OPS-07）——不连库、不建容器，只验证「会不会带着错配置上线」。
 
-覆盖四类真实事故：
+覆盖三类真实事故：
 
 1. **弱密钥/缺密钥**：``ENV=production`` 下缺 ``JWT_SECRET`` 或短于 32 字符必须
    启动失败（空密钥曾让任何人可伪造 token）。
 2. **生产开了开发假短信**：``SMS_DEV_FAKE_ENABLED=true`` 在生产必须拒绝启动
    （固定码 1234 能登进任何手机号）。
-3. **站内支付误开**：生产 ``PAYMENTS_ENABLED=true`` 必须拒绝（回调验签仍是桩）。
-4. **配置白名单漂移**：``docker-compose.prod.yml`` 必须把告警/Sentry 变量透传进
+3. **配置白名单漂移**：``docker-compose.prod.yml`` 必须把告警/Sentry 变量透传进
    容器（A09 修过一次：宿主 .env 写了也进不了容器）；``nginx.ssl.conf`` 必须仍带
    CSP ``media-src`` 与 HSTS。
 
@@ -118,11 +117,6 @@ def main() -> int:
         "生产启用假短信",
         {**VALID_SECRETS, "SMS_DEV_FAKE_ENABLED": "true"},
         "SMS_DEV_FAKE_ENABLED",
-    )
-    problems += _expect_failure(
-        "生产启用站内支付",
-        {**VALID_SECRETS, "PAYMENTS_ENABLED": "true"},
-        "PAYMENTS_ENABLED",
     )
     problems += _expect_success("最小合法生产配置", VALID_SECRETS)
 

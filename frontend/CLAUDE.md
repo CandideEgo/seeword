@@ -72,7 +72,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **生产验收独立运行**：`scripts/production-smoke.ps1` 在专用 Compose 项目中创建临时数据库、生成可播放媒体和 localhost 测试证书；用 `playwright.production.config.ts` 验证生产镜像经过 HTTPS nginx 的行为。`PRODUCTION_REGRESSION=1` 复用观看页与移动端回归，`PLAYWRIGHT_BASE_URL` 要与 `PRODUCTION_SMOKE_URL` 同设为该本机地址（旧测试 helper 读取前者）。结束后用脚本的 `-Stop` 清理专用容器与测试卷。该配置拒绝远程主机，不能用于向线上账户写入测试数据。常规 e2e 仍用下面的开发环境配置；两种方式都要保留，因为开发代理不会覆盖生产响应头、媒体访问与静态资源问题。
 
-**公开配置在构建时固定**：Docker 的 `NEXT_PUBLIC_*` 构建参数负责站点地址和已有公示信息；修改 Compose 运行时变量不会改变已构建的浏览器包。API 与媒体继续同源。会员链接、价格、期限从后端读取，公示字段为空时不补占位文字。
+**公开配置在构建时固定**：Docker 的 `NEXT_PUBLIC_*` 构建参数负责站点地址和已有公示信息；修改 Compose 运行时变量不会改变已构建的浏览器包。API 与媒体继续同源。会员收费链路已整体下线（无购买入口、无价格配置），公示字段为空时不补占位文字。
 
 Windows 的生产验收把参考词典原样复制到专用 Linux 卷再只读挂载：SQLite 通过 Windows bind mount 随机读的开销会制造搜索冷启动假故障（同一词典实测约 31 秒，本地卷约 0.3 秒）。保持词典内容一致，通过文件系统匹配生产环境，不增加测试等待时间或跳过搜索断言。
 

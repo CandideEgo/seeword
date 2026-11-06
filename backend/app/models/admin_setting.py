@@ -23,12 +23,6 @@ class AdminSetting(Base):
 
     # --- 通用配置 ---
     site_name: Mapped[str] = mapped_column(String(100), default="SeeWord", nullable=False)
-    wechat_shop_url: Mapped[str | None] = mapped_column(
-        String(500), nullable=True, default=None, comment="Pro 购买入口 URL，空则显示「即将开通」"
-    )
-    payments_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, comment="非经营性平台默认关闭，仅兑换码激活"
-    )
     registration_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # --- 质量门禁 ---

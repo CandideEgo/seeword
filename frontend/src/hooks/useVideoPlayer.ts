@@ -322,9 +322,8 @@ export function useVideoPlayer({
           setPlaybackMode("offline");
           return;
         }
-        // 锁定的视频不算 ready：未解锁时字幕/媒体 URL 已被后端置空。
-        const unlocked = v.access ? v.access.unlocked : true;
-        if (v.status === "ready" && canPlay(v) && unlocked) setPlaybackMode("ready");
+        // 登录墙之外的匿名响应不含字幕/媒体 URL，canPlay 会拦住。
+        if (v.status === "ready" && canPlay(v)) setPlaybackMode("ready");
         else if (v.status === "ready_subtitles" || v.status === "processing")
           setPlaybackMode("processing");
         else setPlaybackMode("loading");
@@ -353,8 +352,7 @@ export function useVideoPlayer({
         const updated = await api<VideoDetail>(`/api/v1/videos/${videoId}`);
         if (!active) return;
         setVideo(updated);
-        const unlocked = updated.access ? updated.access.unlocked : true;
-        if (updated.status === "ready" && canPlay(updated) && unlocked) setPlaybackMode("ready");
+        if (updated.status === "ready" && canPlay(updated)) setPlaybackMode("ready");
         else if (updated.status === "ready_subtitles" || updated.status === "processing")
           setPlaybackMode("processing");
         else if (updated.status === "error") {

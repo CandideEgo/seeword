@@ -44,8 +44,6 @@ function fieldIds(key: string): FieldIds {
 
 const IDS = {
   siteName: fieldIds("site-name"),
-  wechatShopUrl: fieldIds("wechat-shop-url"),
-  paymentsEnabled: fieldIds("payments-enabled"),
   registrationEnabled: fieldIds("registration-enabled"),
   qualityBlockEnabled: fieldIds("quality-block-enabled"),
   qualityBlockThreshold: fieldIds("quality-block-threshold"),
@@ -436,7 +434,7 @@ export default function AdminSettingsPage() {
       ) : (
         <>
           {/* 通用配置 */}
-          <Section icon={Settings2} title="通用配置" description="站点名称、存储、支付模式">
+          <Section icon={Settings2} title="通用配置" description="站点名称与注册开关">
             <Row
               field={IDS.siteName}
               title="站点名称"
@@ -448,36 +446,6 @@ export default function AdminSettingsPage() {
                 describedBy={IDS.siteName.description}
                 value={form.site_name}
                 onChange={(v) => patch({ site_name: v })}
-              />
-            </Row>
-            <Row
-              field={IDS.wechatShopUrl}
-              title="微信小商店 URL"
-              description="历史会员购买入口字段；真实购买入口是 /upgrade 调金数据收款链接，本字段当前无消费者"
-              note={STORED_ONLY_NOTE}
-            >
-              <TextInput
-                id={IDS.wechatShopUrl.control}
-                describedBy={IDS.wechatShopUrl.description}
-                mono
-                wide
-                value={form.wechat_shop_url ?? ""}
-                placeholder="https://shop.weixin.com/..."
-                onChange={(v) => patch({ wechat_shop_url: v || null })}
-              />
-            </Row>
-            <Row
-              field={IDS.paymentsEnabled}
-              title="启用支付"
-              description="仅登记到数据库；真实支付门禁读的是后端环境变量 payments_enabled，本站会员收款走升级页的站外金数据收款页（付款后自动开通到当前账号）"
-              note={STORED_ONLY_NOTE}
-            >
-              <Toggle
-                id={IDS.paymentsEnabled.control}
-                labelledBy={IDS.paymentsEnabled.label}
-                describedBy={IDS.paymentsEnabled.description}
-                on={form.payments_enabled}
-                onChange={(v) => patch({ payments_enabled: v })}
               />
             </Row>
             <Row

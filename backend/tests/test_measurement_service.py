@@ -9,11 +9,9 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from app.models.behavior import BehaviorEvent
-from app.models.jinshuju_payment import JinshujuPayment, JinshujuPaymentStatus
-from app.models.learning import LearningRecord
 from app.models.learning_plan import LearningEvent
 from app.models.pipeline_dispatch import DISPATCH_STATUS_PENDING, PipelineDispatch
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoSource, VideoStatus
 from app.services.event_contract import MEANINGFUL_EVENT_TYPES
 from app.services.measurement_service import learning_metrics, percentile
@@ -28,12 +26,10 @@ def test_percentile_nearest_rank() -> None:
     assert percentile(values, 0.5) == 2000
 
 
-async def _user(db, phone: str, *, created_at: datetime, plan=PlanType.free, expires=None, role=RoleType.user) -> User:
+async def _user(db, phone: str, *, created_at: datetime, role=RoleType.user) -> User:
     user = User(
         phone=phone,
         name=phone,
-        plan=plan,
-        plan_expires_at=expires,
         role=role,
         created_at=created_at,
     )
@@ -96,48 +92,6 @@ async def test_activation_and_cohort_denominators(db_session) -> None:
     assert metrics["weekly"]["active_7d"] == 2
     assert metrics["weekly"]["multi_day_7d"] == 1
     assert metrics["weekly"]["volume_rate"] == pytest.approx(0.5)
-
-
-@pytest.mark.asyncio
-async def test_entitlement_separates_paid_from_trial(db_session) -> None:
-    db = db_session
-    now = datetime.now(UTC)
-    future = now + timedelta(days=30)
-
-    paid = await _user(db, "13800000101", created_at=now, plan=PlanType.pro, expires=future)
-    await _user(db, "13800000102", created_at=now, plan=PlanType.pro, expires=future)  # 试用：无付款流水
-    free = await _user(db, "13800000103", created_at=now)
-    video = Video(
-        id="00000000-0000-4000-8000-0000000000aa",
-        title="Metric Video",
-        source_url="https://example.com/v.mp4",
-        video_source=VideoSource.imported,
-        status=VideoStatus.ready,
-    )
-    db.add(video)
-    await db.flush()
-    # 观看过 / 收过词：各自独立累计
-    db.add(LearningRecord(user_id=free.id, video_id=video.id))
-    db.add(
-        JinshujuPayment(
-            entry_token="entry-metric-1",
-            serial_number=1,
-            form_token="form",
-            phone=paid.phone,
-            status=JinshujuPaymentStatus.APPLIED,
-            user_id=paid.id,
-        )
-    )
-    await db.commit()
-
-    metrics = await learning_metrics(db, days=7)
-    entitlement = metrics["entitlement"]
-    assert entitlement["active_pro"] == 2
-    assert entitlement["paid_pro"] == 1
-    assert entitlement["trial_or_granted_pro"] == 1
-    assert entitlement["registered"] == 3
-    assert entitlement["watched"] == 1
-    assert entitlement["paid_share_of_active_pro"] == pytest.approx(0.5)
 
 
 @pytest.mark.asyncio
@@ -269,7 +223,7 @@ async def test_admin_metrics_endpoint_requires_admin_and_returns_definitions(
     # 口径随响应返回：看数字的人必须先看到分母定义
     assert body["definitions"]["version"] == "1"
     assert "activation" in body["definitions"]
-    assert {"activation", "cohorts", "weekly", "entitlement", "event_quality", "performance"} <= set(body)
+    assert {"activation", "cohorts", "weekly", "event_quality", "performance"} <= set(body)
     assert set(body["performance"]["web_vitals"]) == {"lcp", "inp", "cls"}
 
 

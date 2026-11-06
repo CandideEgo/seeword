@@ -33,7 +33,7 @@ async function mockStories(page: Page, mediaFails = false) {
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
   await page.route("**/api/v1/users/me", (route) =>
     route.fulfill({
-      json: { id: "home-story-test", name: "学习者", onboarding_completed: true, plan: "free" },
+      json: { id: "home-story-test", name: "学习者", onboarding_completed: true },
     })
   );
   const base = {

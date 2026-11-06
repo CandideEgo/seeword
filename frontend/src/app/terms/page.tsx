@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { siteConfig } from "@/lib/siteConfig";
 import { LegalLayout, type LegalSection } from "@/components/legal/LegalLayout";
-import { LegalTable } from "@/components/legal/LegalTable";
 
 export const metadata: Metadata = {
   robots: { index: true, follow: true },
@@ -48,20 +47,12 @@ export default function TermsPage() {
       <section id="sec-2" className="scroll-mt-10 space-y-3">
         <H2>二、服务与费用</H2>
         <p>
-          本站提供免费账号与会员服务。当前账号的可用权益、解锁额度、会员期限和价格，以账户页面及升级页展示为准。
-          购买会员需先登录，并从本站升级页进入金数据收款页，在微信中完成支付。
+          本站面向登录用户免费开放全部现有功能（视频字幕、词汇学习、听力与试卷练习等），
+          不提供付费会员或其他收费项目，站内也不设购买入口。
         </p>
-        <LegalTable
-          caption="会员购买与开通"
-          columns={["项目", "说明"]}
-          rows={[
-            ["价格与期限", "以升级页及付款前确认的档位、金额和期限为准"],
-            ["会员开通", "支付确认后开通至发起购买的登录账号，无需另行激活"],
-            ["订单问题", "请通过帮助与反馈联系支持，并提供订单号"],
-          ]}
-        />
         <p>
-          请在付款前核对当前账号、购买档位和金额。支付确认及会员状态更新可能需要几分钟，可返回升级页刷新查看。
+          本站为非经营性工具展示平台，不进行在线支付。如未来推出收费服务，会先在站内公示价格与服务条款，
+          不会在本协议未更新的情况下开始收费。
         </p>
       </section>
 

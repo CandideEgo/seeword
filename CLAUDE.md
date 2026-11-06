@@ -79,9 +79,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 路由
 
-全部在 `backend/app/api/v1/*.py`，注册时统一加 `prefix="/api/v1"`。**唯一例外**是 `media.router` 挂在根——它是 Range-aware 的视频服务，因为 Starlette 的 `StaticFiles` 会吞掉 Range 头，导致 `<video>` 无法拖进度。另 `mock_payments` 只在 `env in (development, testing)` 时挂载。
+全部在 `backend/app/api/v1/*.py`，注册时统一加 `prefix="/api/v1"`。**唯一例外**是 `media.router` 挂在根——它是 Range-aware 的视频服务，因为 Starlette 的 `StaticFiles` 会吞掉 Range 头，导致 `<video>` 无法拖进度。
 
 **已下线功能不是死代码**：跟读/成就/热力图/周报/里程碑与旧录音上传的后端入口统一由 `app/services/retired_features.py::feature_gone` 返回 410 `FEATURE_RETIRED`（`api/v1/shadowing.py`、`learning.py` 的 heatmap/weekly-reports、`learning_plan.py` 的 milestones、`media.py` 的 shadowing-audio），前端 `/weekly-report` 则重定向到个人页进度 tab；这些都是兼容壳，不要「恢复」这些端点。**退役功能的用户数据表已在 2026-10-26 的清理迁移 `c3d4e5f6a7b8` 中删除**（`shadowing_attempts` / `weekly_reports` / `speaking_attempts` / `speaking_rubrics` / `rubric_criteria` / `speaking_attempt_scores` / `video_practice_questions`，以及兑换码系统 `redeem_codes`），数据导出与注销清理不再包含这些数据集；存量 `/media/shadowing/` 音频文件仍在磁盘上（仅旧媒体路由可读），需要清理由运维单独执行。
+
+**会员收费链路是更彻底的一种「下线」**（2026-11）：不是留 410 兼容壳，而是端点、页面、服务、任务、配置与数据表全部删除（含 `/upgrade`、`/pricing`、`/checkout`、`/payments/*`、`/videos/{id}/unlock`、`/videos/unlocked*`、`/admin/payments*`、后台人工开通会员；表在迁移 `d4e5f6a7b8c9` 中删除）。`tests/test_architecture_invariants.py` 的 `DROPPED_TABLES` 与 `REMOVED_PAYMENT_ROUTE_FRAGMENTS` 守着它不许复活。
 
 `backend/app/api/dependencies.py` 提供鉴权依赖（见下）。
 
@@ -94,7 +96,7 @@ SQLAlchemy 2.0 async。`backend/app/core/database.py` 里有两点值得知道�
 
 模型在 `backend/app/models/`，必须由 `app/models/__init__.py` 按依赖序 re-export（`create_app` 会先 import 它们，好让 SQLAlchemy 在任何 `create_all`／Alembic autogenerate 前把 `Base.metadata` 填全）。迁移在 `backend/migrations/versions/`：HEAD 上 94 个 revision（含 5 个 V2 迁移）。数量会漂，别把它当契约。
 
-核心实体：`User` 拥有 `Video` / `Vocabulary` / `LearningRecord` / `Order` / `UserFavorite` / `UserNote` / `UserVideoUnlock` / `Notification`；`Video` 拥有 `Subtitle`（按 `sentence_index` 排序，含 `text_en` / `text_zh` / 逐词时间戳 `words` / `word_levels`），并冗余 `like_count` / `favorite_count` / `view_count` / `score`，以及管线状态 `status` + `processing_step` + `step_started_at`。`ListeningSession` 保存听力练习的冻结题面、草稿答案与判分结果（见下）。
+核心实体：`User` 拥有 `Video` / `Vocabulary` / `LearningRecord` / `UserFavorite` / `UserNote` / `Notification`；`Video` 拥有 `Subtitle`（按 `sentence_index` 排序，含 `text_en` / `text_zh` / 逐词时间戳 `words` / `word_levels`），并冗余 `like_count` / `favorite_count` / `view_count` / `score`，以及管线状态 `status` + `processing_step` + `step_started_at`。`ListeningSession` 保存听力练习的冻结题面、草稿答案与判分结果（见下）。
 
 另有两组容易混淆的数据：`UserLearningProfile` + `LearningEvent`（结构化学习事件，喂学习档案/目标/推荐；`learning_event_service.py` 增量更新计数与 streak，`profile_service.py` 负责按需重算 mastery/CEFR。模块名仍叫 `learning_plan`，但 ADR-0012 的每日计划已在 `d1e2f3a4b5c6` 连同表一起删除）与真题语料/试卷（`ExamSentence` / `ExamSentenceWord` / `ExamWordFreq` 供例句与高频词，`ExamPaper` / `ExamQuestion` / `ExamSession` / `ExamAnswer` 供试卷作答；原卷 PDF 走 `exam_pdfs.py`）。
 
@@ -102,7 +104,7 @@ SQLAlchemy 2.0 async。`backend/app/core/database.py` 里有两点值得知道�
 
 另有一行密码契约：新密码 8 位起、**最多 72 个 UTF-8 字节**（bcrypt 只消费前 72 字节，bcrypt ≥ 5 对更长输入直接抛错）。`security.validate_password_strength` 统一校验、schema 转 422；`hash_password` 拒绝超长而**不截断**；`verify_password` 对历史 hash 按前 72 字节比对，让旧密码仍可登录。
 
-手机号 + 短信验证码，**没有邮箱**。`app/core/security.py` 用 PyJWT HS256 签 token（access 30 分钟、refresh 7 天，带 `jti`/`type`）。`app/api/dependencies.py` 的 `get_current_user` 会解 token、校验类型、查 token 黑名单、拒绝早于 `password_changed_at` 的 token、拒绝被封禁用户。另有 `get_optional_user` / `get_admin_user`；内测免费期没有 Pro 访问门（`unlock_service` 里额度逻辑保留 dormant），原 `require_pro_user` 已删除。「有效会员」只有一个口径：`plan == pro` 且 `plan_expires_at` 晚于当前时间；**到期时间为空是无效数据，不是永久会员**（前端 `isProUser`、`/payments/status`、`unlock_service.is_active_pro`、后台 KPI 四处一致，2026-10-29 定）。
+手机号 + 短信验证码，**没有邮箱**。`app/core/security.py` 用 PyJWT HS256 签 token（access 30 分钟、refresh 7 天，带 `jti`/`type`）。`app/api/dependencies.py` 的 `get_current_user` 会解 token、校验类型、查 token 黑名单、拒绝早于 `password_changed_at` 的 token、拒绝被封禁用户。另有 `get_optional_user` / `get_admin_user`。**2026-11 起会员收费链路整体下线**：全站功能对登录用户免费，没有 `plan` / 解锁额度 / 收款端点 / 后台付费面板，`users.plan*`、`orders`、`jinshuju_payments`、`user_video_unlocks` 均在迁移 `d4e5f6a7b8c9` 中删除；未登录仍被登录墙挡住（后端匿名详情不下发字幕与媒体 URL）。
 
 **不走 Bearer 的入口共用同一条校验链**：媒体 `?token=`、原卷 PDF、通知 WebSocket 握手都调 `dependencies.resolve_token_user()`，而不是各自解 token——黑名单、改密失效、封禁一条不落。新增这类入口（`<video>`/`<audio>`/WS/下载）必须走它。
 
@@ -121,7 +123,7 @@ head 与 tail 在 `backend/app/tasks/video_processing.py`，**中间的 GPU 段�
 
 ### Celery
 
-`backend/app/tasks/celery_app.py` 定义 `celery_app` 与常量 `GPU_TRANSCRIBE_TASK`（值是**保留的旧任务名** `app.tasks.video_processing.transcribe_video_gpu`，task_routes 用它），三个队列：云端默认的 `celery`、远端 `transcription_gpu` 与教学 `teaching`（后两者随 V2 提交入库；teaching 队列默认没有 worker，V2 开关默认关闭，但 beat 的 `sweep-teaching-runs` 每 10 秒无条件排程，见「V2 后端重构标准」）。**只有 `GPU_TRANSCRIBE_TASK` 路由到 GPU 队列**，其余（管线首尾、本地化、订单过期等）都在云端跑。GPU 侧的 Celery 应用与任务在 `gpu-worker/gpu_worker/celery_app.py` / `tasks.py`，只声明、只消费 `transcription_gpu`。beat 里挂着订单过期与对账、金数据付款同步、管线看门狗（含首页草稿生成超时巡检）、**管线派发补发（每 60 秒，`app.services.pipeline_dispatch` 的 outbox）**、失败下载重试、评分（小时/天）、内容榜单快照、自愿开启的词汇复习提醒、注销账号清理。**Pro/兑换码 beat 与周报空任务壳已在 2026-10-26 清理中删除**（兑换码任务文件一并删除，已入队的旧消息会以 unregistered task 结束，影响面可忽略）；`reminder_tasks.send_pro_expiring_reminders` 的任务体保留但无调度，供未来恢复付费到期提醒时复用。
+`backend/app/tasks/celery_app.py` 定义 `celery_app` 与常量 `GPU_TRANSCRIBE_TASK`（值是**保留的旧任务名** `app.tasks.video_processing.transcribe_video_gpu`，task_routes 用它），三个队列：云端默认的 `celery`、远端 `transcription_gpu` 与教学 `teaching`（后两者随 V2 提交入库；teaching 队列默认没有 worker，V2 开关默认关闭，但 beat 的 `sweep-teaching-runs` 每 10 秒无条件排程，见「V2 后端重构标准」）。**只有 `GPU_TRANSCRIBE_TASK` 路由到 GPU 队列**，其余（管线首尾、本地化等）都在云端跑。GPU 侧的 Celery 应用与任务在 `gpu-worker/gpu_worker/celery_app.py` / `tasks.py`，只声明、只消费 `transcription_gpu`。beat 里挂着管线看门狗（含首页草稿生成超时巡检）、**管线派发补发（每 60 秒，`app.services.pipeline_dispatch` 的 outbox）**、失败下载重试、评分（小时/天）、内容榜单快照、自愿开启的词汇复习提醒、注销账号清理。**Pro/兑换码 beat 与周报空任务壳已在 2026-10-26 清理中删除**；2026-11 会员收费链路下线时，订单过期/对账与金数据同步两条 beat、以及 `reminder_tasks.send_pro_expiring_reminders` 任务体也一并删除（已入队的旧消息会以 unregistered task 结束，影响面可忽略）。
 
 Windows 上这些以 NSSM 服务托管：云端 worker 用 `backend/scripts/run_celery_worker.ps1`（该脚本只起 worker；仓库没有 beat 的 NSSM 脚本，本地/生产 beat 需单独启动或由 prod compose 的 `celery-beat` 服务托管）；GPU worker 用 `gpu-worker/scripts/run_gpu_worker.ps1`，隧道用 `gpu-worker/scripts/gpu_worker_tunnel.ps1`（服务名见 [`gpu-worker/README.md`](gpu-worker/README.md)）。
 
@@ -175,9 +177,9 @@ Next.js 16 App Router，源码在 `frontend/src`。路由组 `(main)`（用户�
 
 **LLM 接入**：provider + 模型目录 + 「哪些模型免费」+ 任务路由的唯一事实源是 `backend/app/services/llm_provider.py`（形状照 pi 的 `models.json`，裁成 env 驱动）。默认 provider 是 Command Code（OpenAI 兼容），默认模型是免费模型；`AIService`（词注释/分类/练习题/首页草稿）与翻译的 `commandcode` 引擎都从这里取模型，`LLM_MODEL_<TASK>` 可按任务换模型，`OPENAI_*` 仅作后备。巡检 `python scripts/check_llm_provider.py --list|--test`；接入手册与免费模型口径见 [`docs/llm-provider-commandcode-integration-2026-10.md`](docs/llm-provider-commandcode-integration-2026-10.md)（外部事实/调研见同目录 `llm-provider-commandcode-research-2026-10.md`）。
 
-运行时开关有两层：env 布尔（`sms_login_enabled`、`payments_enabled`、`oss_upload_enabled`、`jwt_blacklist_enabled` 等）与 DB 里的单行 `AdminSetting`（看门狗、注册开关、质量门阈值等，任务里按调用时刻读 `_effective_*`）。
+运行时开关有两层：env 布尔（`sms_login_enabled`、`oss_upload_enabled`、`jwt_blacklist_enabled` 等）与 DB 里的单行 `AdminSetting`（看门狗、注册开关、质量门阈值等，任务里按调用时刻读 `_effective_*`）。
 
-**会员收款走站外金数据收款页**（`JINSHUJU_*` env）：所有购买入口在站内 `/upgrade`，链接带 `x_field_1` 签名 token，付款后 Celery beat 每 5 分钟同步已付款 entry（可选「数据推送」webhook 做秒级）并自动延长**当前账号**的 `plan_expires_at`，不需要买家填手机号；手机号匹配路径保留兼容。收款页只支持微信内支付，所以 `/upgrade` 按浏览器分流：微信内直接跳转，桌面显示二维码扫码，手机浏览器复制链接去微信打开。站内 `payments_enabled` 仍保持关闭（ICP）。细节见 [`docs/jinshuju-payment-integration-2026-10.md`](docs/jinshuju-payment-integration-2026-10.md)。
+**会员收费链路已于 2026-11 整体下线**（全站功能免费开放）：站内 `payments` 路由、支付宝/微信/金数据 providers、订单与收款台账、后台付费面板、`/upgrade`、`/pricing`、`/checkout` 及全部 `PAYMENTS_*` / `JINSHUJU_*` / `ALIPAY_*` / `WECHAT_*` 配置都已删除，不要再恢复。历史实施记录见 [`docs/jinshuju-payment-integration-2026-10.md`](docs/jinshuju-payment-integration-2026-10.md)（已标注下线）。
 
 ## 改版（`redesign` 分支，2026-10）
 

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,7 +15,7 @@ from app.core.logging import mask_phone
 from app.core.redis import get_redis
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.core.token_blacklist import blacklist_token, claim_token_once
-from app.models.user import PlanType, User
+from app.models.user import User
 from app.schemas.user import (
     ChangePasswordRequest,
     ChangePhoneRequest,
@@ -67,20 +67,6 @@ async def _registration_enabled(db: AsyncSession) -> bool:
 
     row = (await db.execute(select(AdminSetting).where(AdminSetting.id == SETTINGS_ROW_ID))).scalar_one_or_none()
     return row is None or bool(row.registration_enabled)
-
-
-async def _apply_pending_purchases(db: AsyncSession, user: User) -> None:
-    """把登录手机号名下「已付款但账号当时不存在」的金数据订单补发成 Pro。
-
-    金数据收款页先于注册是正常路径（扫码付款后才来登录），补发失败绝不能
-    挡住登录：异常只记日志，下一次登录或定时同步还会重试。
-    """
-    from app.services import jinshuju_service
-
-    try:
-        await jinshuju_service.apply_pending_grants(db, user)
-    except Exception:
-        logger.warning("jinshuju_pending_grants_failed", user_id=user.id, exc_info=True)
 
 
 async def _check_signup_rate_limit(request: Request) -> None:
@@ -164,9 +150,6 @@ async def sms_login(request: Request, data: SmsLoginRequest, db: AsyncSession = 
             hashed_password=None,
             name=None,
             onboarding_completed=False,
-            plan=PlanType.pro,
-            plan_expires_at=datetime.now(UTC) + timedelta(days=settings.trial_days),
-            plan_source="trial",
         )
         db.add(user)
         try:
@@ -185,9 +168,6 @@ async def sms_login(request: Request, data: SmsLoginRequest, db: AsyncSession = 
                 raise
     if user.is_banned:
         raise HTTPException(status_code=403, detail="账户已被封禁")
-
-    # 金数据收款页成交时账号可能还没注册：首次短信登录时补发。
-    await _apply_pending_purchases(db, user)
 
     token = create_token(user.id)
     refresh_token = create_token(user.id, token_type="refresh")
@@ -223,13 +203,6 @@ async def sms_register(request: Request, data: SmsRegisterRequest, db: AsyncSess
         hashed_password=hash_password(data.password) if data.password else None,
         name=data.name,
         onboarding_completed=False,
-        # Signup trial (D0): every new phone gets trial_days of Pro, full
-        # feature parity with paid Pro. The downgrade-expired-pro beat flips
-        # the plan back to free on expiry — no extra code path needed.
-        # One trial per phone is guaranteed by the phone uniqueness check above.
-        plan=PlanType.pro,
-        plan_expires_at=datetime.now(UTC) + timedelta(days=settings.trial_days),
-        plan_source="trial",
     )
     db.add(user)
     try:
@@ -250,9 +223,6 @@ async def sms_register(request: Request, data: SmsRegisterRequest, db: AsyncSess
             raise
         raise HTTPException(status_code=409, detail="该手机号已注册") from exc
     await db.refresh(user)
-
-    # 金数据收款页成交时账号可能还没注册：注册成功时补发。
-    await _apply_pending_purchases(db, user)
 
     token = create_token(user.id)
     refresh_token = create_token(user.id, token_type="refresh")
@@ -276,9 +246,6 @@ async def phone_login(request: Request, data: PhoneLoginRequest, db: AsyncSessio
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="手机号或密码错误")
     if user.is_banned:
         raise HTTPException(status_code=403, detail="账户已被封禁")
-
-    # 金数据收款页成交时账号可能还没注册：登录时补发。
-    await _apply_pending_purchases(db, user)
 
     token = create_token(user.id)
     refresh_token = create_token(user.id, token_type="refresh")

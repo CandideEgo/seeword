@@ -18,7 +18,7 @@ from app.models.learning import Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
 from app.models.preferences import UserPreferences
 from app.models.subtitle import Subtitle
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoStatus
 from app.models.vocab_set import VocabSet, VocabSetWord
 from app.services import ecdict
@@ -159,7 +159,6 @@ async def _other_auth_headers() -> dict:
             phone="13800138999",
             hashed_password=hash_password("Otherpass1!"),
             name="Other User",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)

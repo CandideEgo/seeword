@@ -183,14 +183,13 @@ async def test_export_builds_zip_with_media_and_serves_once(client: AsyncClient,
 
 async def test_export_status_of_other_users_task_returns_404(client: AsyncClient, auth_headers: dict, media_tmp):
     from app.core.security import create_token, hash_password
-    from app.models.user import PlanType, RoleType
+    from app.models.user import RoleType
 
     async with TestSessionLocal() as db:
         other = User(
             phone="13800137777",
             hashed_password=hash_password("Otherpass1!"),
             name="Other",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(other)

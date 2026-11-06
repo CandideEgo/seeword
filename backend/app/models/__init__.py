@@ -11,14 +11,12 @@ from app.models.exam_test import ExamAnswer, ExamPaper, ExamQuestion, ExamSessio
 from app.models.favorite import UserFavorite, UserNote
 from app.models.feedback import Feedback
 from app.models.home_content import HomeContentDraft, HomeContentRevision, HomePageConfig
-from app.models.jinshuju_payment import JinshujuPayment
 from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
 from app.models.listening import ListeningSession
 from app.models.media_cleanup import MediaCleanupTask
 from app.models.milestone import MasterySnapshot, UserMilestone
 from app.models.notification import Notification
-from app.models.order import Order
 from app.models.pipeline_dispatch import PipelineDispatch
 from app.models.preferences import UserPreferences
 from app.models.question_exposure import UserExposureMappingState, UserQuestionExposure
@@ -39,7 +37,6 @@ from app.models.teaching import (
 )
 from app.models.user import User
 from app.models.user_content import ChannelSubscription, SentenceFavorite
-from app.models.user_video_unlock import UserVideoUnlock
 from app.models.v2_runtime import (
     AgentRun,
     AgentRunEvent,

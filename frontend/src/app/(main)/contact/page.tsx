@@ -62,7 +62,7 @@ interface FaqItem {
   link?: { href: string; label: string };
 }
 
-/** 设计稿 contact.html 的 8 条常见问题；口径按产品现状改写（会员购买走 /upgrade 的站外收款页）。 */
+/** 设计稿 contact.html 的常见问题；口径按产品现状改写（全站功能免费开放）。 */
 const FAQ: FaqItem[] = [
   {
     q: "今天到期的词是怎么算出来的？",
@@ -83,7 +83,7 @@ const FAQ: FaqItem[] = [
   {
     q: "换手机号以后，学习记录和词库还在吗？",
     body: [
-      "都在。换绑只改登录用的手机号，词汇、词库、学习记录与会员期都跟着账号走。",
+      "都在。换绑只改登录用的手机号，词汇、词库与学习记录都跟着账号走。",
       "换绑入口在「我的 → 个人资料 → 手机号 → 更换」，需要新手机号的短信验证码与当前密码。",
     ],
     link: { href: "/profile", label: "去个人资料" },
@@ -93,21 +93,6 @@ const FAQ: FaqItem[] = [
     body: [
       "先刷新页面再点一次；如果仍然不对，请把视频标题、句子位置（如「第 12 句，4:01」）和设备浏览器写进反馈，我们按段重新对齐字幕。",
       "遇到字幕缺失或错位，可以附上视频名称和时间点，方便我们核查。",
-    ],
-  },
-  {
-    q: "在哪里查看会员与可用权益？",
-    body: [
-      "在「我的」查看当前账号的会员状态与有效期。可用视频与学习功能，以对应页面展示的访问状态为准。",
-      "站内升级页可以查看当前档位与价格，付款后自动开通到当前账号。",
-    ],
-    link: { href: "/upgrade", label: "查看会员与价格" },
-  },
-  {
-    q: "付款后多久开通？在哪里查看会员有效期？",
-    body: [
-      "会员从升级页进入金数据收款页，在微信内完成付款；支付确认后自动开通到发起购买的当前账号，不需要另外填写手机号。",
-      "付款与开通之间可能有几分钟同步时间，可回升级页或「我的」刷新查看；超过 30 分钟仍未到账，请发邮件到 support@seeword.top 并附上订单号。",
     ],
   },
   {
@@ -516,15 +501,6 @@ export default function ContactPage() {
             <section className="user-aside-sec">
               <h2 className="user-aside-title">相关页面</h2>
               <ul className="space-y-2">
-                <li>
-                  <Link
-                    href="/upgrade"
-                    className="inline-flex items-center gap-1 text-copy font-semibold text-brand-700 hover:underline"
-                  >
-                    会员与价格
-                    <ArrowRight size={14} />
-                  </Link>
-                </li>
                 <li>
                   <Link
                     href="/profile?tab=account"

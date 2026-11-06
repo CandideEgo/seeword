@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.core.security import hash_password
 from app.models.learning import Vocabulary
 from app.models.subtitle import Subtitle
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoStatus
 from app.services.recommendation_service import (
     _user_learning_words,
@@ -26,7 +26,6 @@ async def _setup_user(db_session) -> str:
             phone="13800138000",
             hashed_password=hash_password("Testpass123!"),
             name="Test User",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db_session.add(user)

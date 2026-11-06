@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { api, isProUser } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/Tabs";
 import { Avatar } from "@/components/ui/Avatar";
 import { ErrorState } from "@/components/common/ErrorState";
 import { PageTransition } from "@/components/common/PageTransition";
-import { User as UserIcon, Settings, TrendingUp, Bookmark, Bell, Phone, Crown } from "lucide-react";
+import { User as UserIcon, Settings, TrendingUp, Bookmark, Bell, Phone } from "lucide-react";
 import ProfileTab from "@/components/profile/ProfileTab";
 import SettingsTab from "@/components/profile/SettingsTab";
 import { ProfileOverview } from "@/components/profile/ProfileOverview";
@@ -22,7 +22,6 @@ import {
 } from "@/components/profile/EventDistributionChart";
 import { useProfileStore } from "@/stores/profileStore";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { LinkButton } from "@/components/ui/LinkButton";
 
 import { EXAM_LEVELS } from "@/lib/examLevels";
 import { cn } from "@/lib/utils";
@@ -202,10 +201,6 @@ export default function ProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="text-copy-lg font-bold text-ink flex items-center gap-2 flex-wrap">
               {user.name || "学习者"}
-              {/* 会员状态由 plan + plan_expires_at 决定（isProUser 与后端 /payments/status 同口径）。 */}
-              <span className="inline-flex items-center text-caption font-semibold px-2.5 py-0.5 rounded-pill bg-brand-50 text-brand-700">
-                {isProUser(user) ? "会员" : "免费版"}
-              </span>
             </div>
             {/* 身份副行在所有 tab 都显示：否则「我的内容」下这张卡只剩名字，右侧大片空白。 */}
             <div className="text-copy text-muted mt-1 flex items-center gap-2 flex-wrap">
@@ -404,34 +399,7 @@ export default function ProfilePage() {
           </div>
 
           <aside className="user-page-aside">
-            {/* 设计 me 页右栏：深色会员卡 + 账户卡。数据全部来自当前用户。 */}
-            <section
-              className="rounded-lg bg-ink p-5 text-canvas"
-              aria-labelledby="member-mini-title"
-            >
-              <p className="text-caption font-semibold tracking-[0.12em] uppercase text-on-dark/60">
-                {isProUser(user) ? "会员" : "免费体验"}
-              </p>
-              <h2
-                id="member-mini-title"
-                className="mt-2 text-title font-semibold tracking-tight text-canvas"
-              >
-                所有视频与逐句字幕
-              </h2>
-              <p className="mt-2 text-meta text-on-dark/70">
-                {isProUser(user) && user.plan_expires_at
-                  ? `有效期至 ${new Date(user.plan_expires_at).toLocaleDateString("zh-CN", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}`
-                  : "内测期全部功能免费使用"}
-              </p>
-              <LinkButton href="/upgrade" variant="secondary" size="sm" className="mt-4">
-                查看会员
-              </LinkButton>
-            </section>
-
+            {/* 设计 me 页右栏：账户卡。数据全部来自当前用户。 */}
             <section
               className="user-aside-sec rounded-md border border-hairline p-4"
               aria-labelledby="account-title"
@@ -456,20 +424,6 @@ export default function ProfilePage() {
                       {user.phone ? maskPhone(user.phone) : "未绑定"}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Crown size={15} className="flex-none text-muted" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-caption text-muted">会员状态</p>
-                    <p className="text-meta text-ink">{isProUser(user) ? "会员" : "免费版"}</p>
-                  </div>
-                  <Link
-                    href="/upgrade"
-                    aria-label="查看会员权益"
-                    className="inline-flex min-h-9 items-center text-caption font-semibold text-brand-700 hover:underline"
-                  >
-                    查看
-                  </Link>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Bell size={15} className="flex-none text-muted" aria-hidden />

@@ -18,7 +18,7 @@ from app.core.security import hash_password
 from app.models.learning import Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
 from app.models.milestone import MasterySnapshot, UserMilestone
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services.milestone_service import (
     check_and_award,
     ensure_today_snapshot,
@@ -37,7 +37,6 @@ async def _create_user(db, phone: str = "13800000001") -> str:
         phone=phone,
         hashed_password=hash_password("Testpass123!"),
         name="Milestone Tester",
-        plan=PlanType.free,
         role=RoleType.user,
     )
     db.add(user)

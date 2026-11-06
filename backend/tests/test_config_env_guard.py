@@ -54,7 +54,7 @@ class TestEnvValueGuard:
         assert s.env == "production"
 
     def test_prod_alias_is_normalized(self):
-        """``prod`` is accepted because payment_provider already treats it as production."""
+        """``prod`` is accepted as an alias of ``production``."""
         s = _settings(
             env="prod",
             jwt_secret=_STRONG_SECRET,
@@ -203,42 +203,6 @@ class TestJwtSecretStrength:
         for algorithm in ("none", "RS256", ""):
             with pytest.raises(RuntimeError, match="JWT_ALGORITHM"):
                 _settings(env="development", jwt_algorithm=algorithm)
-
-
-class TestStubPaymentGuard:
-    """The WeChat/Alipay callbacks are stubs; production must not boot with them."""
-
-    def test_production_rejects_enabled_legacy_payments(self):
-        with pytest.raises(RuntimeError, match="PAYMENTS_ENABLED"):
-            _settings(
-                env="production",
-                jwt_secret="y" * 32,
-                database_url="postgresql+asyncpg://u:p@db/x",
-                redis_url="redis://localhost:6379/0",
-                openai_api_key="k",
-                transcription_callback_secret="c",
-                payments_enabled=True,
-            )
-
-
-class TestPaymentSignatureDefault:
-    """审计 H12：验签必须默认 fail-closed，dev 旁路只能显式开启。"""
-
-    def test_verify_signature_defaults_on(self):
-        # production 无旁路路径（_verify_* 只看 development 分支），无需构造。
-        for env in ("development", "testing"):
-            assert _settings(env=env).payment_verify_signature is True, env
-
-    def test_dev_bypass_requires_explicit_opt_out(self, monkeypatch):
-        """默认下无 sign 的回调走验签并失败；显式 False 才旁路（带 warning）。"""
-        from app.services import alipay_payment
-
-        monkeypatch.setattr(alipay_payment.settings, "env", "development")
-        monkeypatch.setattr(alipay_payment.settings, "payment_verify_signature", True)
-        assert alipay_payment._verify_alipay_signature({}) is False
-
-        monkeypatch.setattr(alipay_payment.settings, "payment_verify_signature", False)
-        assert alipay_payment._verify_alipay_signature({}) is True
 
 
 class TestV2FeatureGuards:

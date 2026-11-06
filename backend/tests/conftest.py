@@ -14,7 +14,6 @@ async files.
 import os
 import time
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
@@ -511,14 +510,13 @@ def test_user_data() -> dict:
 @pytest_asyncio.fixture
 async def auth_headers(client: AsyncClient, test_user_data: dict, test_password: str) -> dict:
     """Create a test user, return Authorization headers with JWT."""
-    from app.models.user import PlanType, RoleType, User
+    from app.models.user import RoleType, User
 
     async with TestSessionLocal() as db:
         user = User(
             phone=test_user_data["phone"],
             hashed_password=hash_password(test_password),
             name=test_user_data["name"],
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)
@@ -531,37 +529,14 @@ async def auth_headers(client: AsyncClient, test_user_data: dict, test_password:
 @pytest_asyncio.fixture
 async def admin_headers(client: AsyncClient) -> dict:
     """Create an admin user, return Authorization headers."""
-    from app.models.user import PlanType, RoleType, User
+    from app.models.user import RoleType, User
 
     async with TestSessionLocal() as db:
         user = User(
             phone="13900139000",
             hashed_password=hash_password("Adminpass1!"),
             name="Admin",
-            plan=PlanType.pro,
-            plan_expires_at=datetime(2099, 12, 31),
             role=RoleType.admin,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        token = create_token(user.id)
-        return {"Authorization": f"Bearer {token}"}
-
-
-@pytest_asyncio.fixture
-async def pro_headers(client: AsyncClient) -> dict:
-    """Create a Pro user with an active subscription, return Authorization headers."""
-    from app.models.user import PlanType, RoleType, User
-
-    async with TestSessionLocal() as db:
-        user = User(
-            phone="13700137000",
-            hashed_password=hash_password("Propass1!"),
-            name="Pro User",
-            plan=PlanType.pro,
-            plan_expires_at=datetime(2099, 12, 31, tzinfo=UTC),
-            role=RoleType.user,
         )
         db.add(user)
         await db.commit()

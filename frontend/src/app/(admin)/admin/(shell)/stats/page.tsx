@@ -6,8 +6,6 @@ import {
   AlertTriangle,
   BookOpen,
   Cpu,
-  CreditCard,
-  Crown,
   RefreshCw,
   TrendingUp,
   UserPlus,
@@ -21,8 +19,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -62,7 +58,6 @@ const TOPIC_COLORS = [
 
 const ACTIVITY_ICON: Record<RecentActivityType, React.ElementType> = {
   signup: UserPlus,
-  payment: CreditCard,
 };
 
 // ---------------------------------------------------------------------------
@@ -178,7 +173,7 @@ function LearningMetricsSection({ metrics }: { metrics: AdminLearningMetrics }) 
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6">
         <ChartCard
           title="激活与留存"
           description={`激活日 cohort · 近 ${metrics.days} 天 · 分母固定为入组人数`}
@@ -236,27 +231,6 @@ function LearningMetricsSection({ metrics }: { metrics: AdminLearningMetrics }) 
               </p>
             </div>
           )}
-        </ChartCard>
-
-        <ChartCard title="用户行为与权益分布" description="累计口径 · 不是时序漏斗">
-          <div className="flex flex-col">
-            <MetricRow label="注册用户" value={metrics.entitlement.registered.toLocaleString()} />
-            <MetricRow label="观看过视频" value={metrics.entitlement.watched.toLocaleString()} />
-            <MetricRow label="收过词" value={metrics.entitlement.vocab_saved.toLocaleString()} />
-            <MetricRow label="有效 Pro" value={metrics.entitlement.active_pro.toLocaleString()} />
-            <MetricRow
-              label="其中已付款"
-              value={metrics.entitlement.paid_pro.toLocaleString()}
-              hint={pct(metrics.entitlement.paid_share_of_active_pro)}
-            />
-            <MetricRow
-              label="试用 / 人工赠送"
-              value={metrics.entitlement.trial_or_granted_pro.toLocaleString()}
-            />
-          </div>
-          <p className="mt-3 text-meta text-muted">
-            各段是相互独立的累计人数，不能读成逐级转化；付费只认已匹配账号的金数据付款。
-          </p>
         </ChartCard>
       </div>
 
@@ -353,11 +327,6 @@ export default function AdminStatsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const ct = useChartTheme();
-
-  const PLAN_COLORS: Record<string, string> = {
-    free: ct.series.neutral,
-    pro: ct.series.brand,
-  };
 
   const STATUS_COLORS: Record<string, string> = {
     ready: ct.series.success,
@@ -476,12 +445,6 @@ export default function AdminStatsPage() {
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
 
-  const planData = stats.users_by_plan.map((p) => ({
-    name: p.plan === "pro" ? "Pro" : "Free",
-    value: p.count,
-    color: PLAN_COLORS[p.plan] || ct.series.neutral,
-  }));
-
   const statusData = stats.videos_by_status.map((s) => ({
     name: STATUS_LABEL[s.status] || s.status,
     value: s.count,
@@ -524,12 +487,6 @@ export default function AdminStatsPage() {
           value={stats.signups_today}
           delta={`7日 ${stats.new_users_7d}`}
           tone="green"
-        />
-        <KpiCard
-          icon={Crown}
-          label="Pro 用户"
-          value={stats.pro_users.toLocaleString()}
-          tone="amber"
         />
         <KpiCard icon={Activity} label="实时在线" value={stats.online_now} tone="brand" />
         <KpiCard
@@ -683,7 +640,6 @@ export default function AdminStatsPage() {
                 ["注册用户", stats.funnel.registered, ct.series.brand],
                 ["观看视频", stats.funnel.watched, "#ff7a45"],
                 ["收藏词汇", stats.funnel.vocab_saved, ct.series.indigo],
-                ["开通 Pro", stats.funnel.pro, ct.series.success],
               ] as [string, number, string][]
             ).map(([label, value, color]) => {
               const pct = stats.funnel.registered
@@ -751,39 +707,7 @@ export default function AdminStatsPage() {
       </ChartCard>
 
       {/* Distribution Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="用户方案分布">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={planData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={85}
-                paddingAngle={2}
-              >
-                {planData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ ...ct.tooltipStyle, borderRadius: "8px" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center gap-6 mt-2">
-            {planData.map((p) => (
-              <div key={p.name} className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
-                <span className="text-meta text-muted">
-                  {p.name}: {p.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-
+      <div className="grid gap-6">
         <ChartCard title="视频状态分布">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={statusData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>

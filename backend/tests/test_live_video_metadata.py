@@ -48,25 +48,17 @@ async def test_warm_detail_and_feed_follow_favorites_and_likes(client, auth_head
     assert next(v for v in feed if v["id"] == vid)["view_count"] == 1
 
 
-async def test_viewer_scoped_access_is_not_cached(client, auth_headers, fake_redis, monkeypatch):
-    """A future per-user quota must not reuse the shared detail cache key.
+async def test_detail_payload_has_no_viewer_scoped_fields(client, auth_headers, fake_redis):
+    """Free-for-all access means the detail payload is viewer-independent.
 
-    Today ``remaining_this_month`` is always None; if that changes, the payload
-    becomes viewer-dependent and caching it under ``video:detail:{id}`` would
-    leak one user's remaining quota to another.
+    Nothing per-viewer (quota, membership) may ride in the cached payload; the
+    old D0 ``access`` block is gone with the retired membership chain.
     """
-    from app.services import unlock_service
-
-    async def scoped_access(_db, _user, _video):
-        return {"unlocked": True, "remaining_this_month": 3, "quota": 5}
-
-    monkeypatch.setattr(unlock_service, "get_video_access_info", scoped_access)
-
     async with TestSessionLocal() as db:
         video = Video(
             id=str(uuid.uuid4()),
-            title="Viewer scoped access",
-            source_url="https://example.com/viewer-scoped.mp4",
+            title="Viewer independent detail",
+            source_url="https://example.com/viewer-independent.mp4",
             status=VideoStatus.ready,
             is_official=True,
             is_published=True,
@@ -78,8 +70,8 @@ async def test_viewer_scoped_access_is_not_cached(client, auth_headers, fake_red
 
     resp = await client.get(f"/api/v1/videos/{vid}", headers=auth_headers)
     assert resp.status_code == 200
-    assert resp.json()["access"]["remaining_this_month"] == 3
-    assert await cache_get(f"video:detail:{vid}") is None
+    assert "access" not in resp.json()
+    assert await cache_get(f"video:detail:{vid}") is not None
 
 
 async def test_detail_invalidation_uses_sync_redis_accessor(fake_redis):

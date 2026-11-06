@@ -436,7 +436,7 @@ function MetadataForm({
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
-          示范视频（不消耗解锁额度）
+          示范视频（匿名可直接播放）
         </label>
         <label className="inline-flex items-center gap-2">
           <input

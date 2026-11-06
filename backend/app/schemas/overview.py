@@ -11,8 +11,6 @@ class OverviewUser(BaseModel):
     id: str
     name: str | None = None
     avatar_url: str | None = None
-    plan: str
-    plan_expires_at: datetime | None = None
     created_at: datetime | None = None
 
 
@@ -61,11 +59,6 @@ class OverviewLibrary(BaseModel):
     notes: int
 
 
-class OverviewMembership(BaseModel):
-    is_pro: bool
-    expires_at: datetime | None = None
-
-
 class OverviewResponse(BaseModel):
     user: OverviewUser
     streak: OverviewStreak
@@ -75,4 +68,3 @@ class OverviewResponse(BaseModel):
     videos: OverviewVideos
     exams: OverviewExams
     library: OverviewLibrary
-    membership: OverviewMembership

@@ -50,7 +50,7 @@ from app.core.database import get_async_session_maker, get_db
 from app.core.security import create_token
 from app.main import create_app
 from app.models.catalog import CatalogItem, CatalogStatus
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoSource, VideoStatus
 
 pytestmark = pytest.mark.integration
@@ -64,7 +64,6 @@ async def _seed_admin_and_item() -> tuple[dict, str, str]:
             phone="13611136002",
             hashed_password="hashed",
             name="Catalog Race",
-            plan=PlanType.free,
             role=RoleType.admin,
         )
         item = CatalogItem(

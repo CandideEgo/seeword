@@ -352,17 +352,24 @@ class TestOpenApiResponseModels:
         """BE-07: final batch — dashboard stats and webhook acks."""
         assert self._schema("/api/v1/admin/stats", "get")["$ref"].endswith("AdminStatsResponse")
         assert self._schema("/api/v1/internal/transcription/callback", "post")["$ref"].endswith("AcknowledgedResponse")
-        for path, name in (
-            ("/api/v1/payments/callback/alipay", "AlipayCallbackResponse"),
-            ("/api/v1/payments/callback/wechat", "WechatCallbackResponse"),
-            ("/api/v1/payments/jinshuju/webhook", "JinshujuWebhookResponse"),
-            ("/api/v1/payments/mock-pay", "MockPaymentResponse"),
-        ):
-            assert self._schema(path, "post")["$ref"].endswith(name)
 
-    def test_unlock_response_is_typed(self):
-        """BE-07: legacy unlock used a plain dict."""
-        assert self._schema("/api/v1/videos/{video_id}/unlock", "post")["$ref"].endswith("VideoUnlockResponse")
+    def test_retired_payment_and_unlock_routes_are_gone(self):
+        """2026-11: the paid-membership chain is retired end to end."""
+        from app.main import create_app
+
+        paths = create_app().openapi()["paths"]
+        for gone in (
+            "/api/v1/payments/status",
+            "/api/v1/payments/create-order",
+            "/api/v1/payments/jinshuju/purchase-link",
+            "/api/v1/videos/{video_id}/unlock",
+            "/api/v1/videos/unlocked",
+            "/api/v1/videos/unlocked-ids",
+            "/api/v1/admin/payments",
+            "/api/v1/admin/payments/summary",
+            "/api/v1/admin/users/{user_id}/plan",
+        ):
+            assert gone not in paths, gone
 
     def test_channel_admin_routes_are_typed(self):
         """BE-07: channel admin list/create/update/attach used dicts."""
@@ -398,41 +405,6 @@ class TestOpenApiResponseModels:
         assert self._schema("/api/v1/admin/admins", "get")["type"] == "array"
         assert self._schema("/api/v1/admin/users/{user_id}/ban", "patch")["$ref"].endswith("AdminUserBanResponse")
         assert self._schema("/api/v1/admin/users/{user_id}/role", "patch")["$ref"].endswith("AdminUserRoleResponse")
-        assert self._schema("/api/v1/admin/users/{user_id}/plan", "patch")["$ref"].endswith("AdminUserPlanResponse")
-
-    def test_admin_payments_routes_are_typed(self):
-        """金数据 payment surface: typed list/summary/sync + no raw_json leak."""
-        assert self._schema("/api/v1/admin/payments", "get")["$ref"].endswith("PaginatedResponse_AdminPaymentRow_")
-        assert self._schema("/api/v1/admin/payments/summary", "get")["$ref"].endswith("AdminPaymentSummaryResponse")
-        assert self._schema("/api/v1/admin/payments/sync", "post")["$ref"].endswith("AdminPaymentSyncResponse")
-
-        from app.main import create_app
-
-        row_schema = create_app().openapi()["components"]["schemas"]["AdminPaymentRow"]
-        properties = row_schema["properties"]
-        for field in (
-            "id",
-            "entry_token",
-            "serial_number",
-            "phone",
-            "user_id",
-            "user_phone",
-            "user_name",
-            "tier_name",
-            "amount_fen",
-            "duration_days",
-            "trade_status",
-            "trade_no",
-            "payment_method",
-            "status",
-            "error_message",
-            "entry_created_at",
-            "created_at",
-            "applied_at",
-        ):
-            assert field in properties, f"AdminPaymentRow missing field: {field}"
-        # The external raw payload carries buyer PII and must never be exposed.
-        assert "raw_json" not in properties
 
     def test_legacy_admin_orders_route_is_gone(self):
         """ADM-19/§5: the dead ``GET /admin/orders`` surface was removed."""
@@ -441,13 +413,10 @@ class TestOpenApiResponseModels:
         paths = create_app().openapi()["paths"]
         assert "/api/v1/admin/orders" not in paths
 
-    def test_notes_exam_pdf_and_payment_routes_are_typed(self):
-        """BE-07: notes list, exam PDF list and payment polling used dicts."""
+    def test_notes_and_exam_pdf_routes_are_typed(self):
+        """BE-07: notes list and exam PDF list used bare dicts."""
         assert self._schema("/api/v1/notes", "get")["$ref"].endswith("PaginatedResponse_NoteItem_")
         assert self._schema("/api/v1/exam-pdfs", "get")["$ref"].endswith("ExamPdfListResponse")
-        assert self._schema("/api/v1/payments/status", "get")["$ref"].endswith("PaymentStatusResponse")
-        assert self._schema("/api/v1/payments/order/{order_id}", "get")["$ref"].endswith("OrderStatusResponse")
-        assert self._schema("/api/v1/payments/create-order", "post")["$ref"].endswith("CreateOrderResponse")
 
     def test_discovery_search_and_daily_routes_are_typed(self):
         """BE-07: global search and daily recommendation used bare dicts."""
@@ -457,13 +426,12 @@ class TestOpenApiResponseModels:
         assert self._schema("/api/v1/discovery/practice-summary", "get")["$ref"].endswith("PracticeSummaryResponse")
 
     def test_recommendation_and_presence_routes_are_typed(self):
-        """BE-07: recommendation feeds, heartbeat and unlocked-ids were dicts."""
+        """BE-07: recommendation feeds and heartbeat were dicts."""
         assert self._schema("/api/v1/recommendations/home", "get")["$ref"].endswith("RecommendationHomeResponse")
         assert self._schema("/api/v1/recommendations/category/{tag}", "get")["$ref"].endswith(
             "RecommendationCategoryResponse"
         )
         assert self._schema("/api/v1/presence/heartbeat", "post")["$ref"].endswith("OkResponse")
-        assert self._schema("/api/v1/videos/unlocked-ids", "get")["$ref"].endswith("UnlockedVideoIdsResponse")
 
     def test_user_overview_is_typed(self):
         """BE-07: the aggregated profile overview used a bare dict."""

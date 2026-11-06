@@ -6,15 +6,14 @@ Two families:
   dataset inventory lives in :mod:`app.services.account_data` so it can be
   tested independently of Celery; it covers profile / preferences / vocabulary /
   learning records+events+profile / favorites / notes / sentence favorites /
-  channel subscriptions / likes / unlocks / vocab sets / study sessions /
-  listening attempts / exam attempts+answers / orders / payment ledger /
-  notifications / feedback / mastery+milestone history / behavior events /
-  uploaded videos, plus the on-disk originals (avatar, uploaded video files,
-  historical shadowing audio). Failures retry a bounded number of times and
+  channel subscriptions / likes / vocab sets / study sessions / listening
+  attempts / exam attempts+answers / notifications / feedback /
+  mastery+milestone history / behavior events / uploaded videos, plus the
+  on-disk originals (avatar, uploaded video files, historical shadowing audio). Failures retry a bounded number of times and
   notify the user once they give up.
 - ``purge_deleted_accounts`` — daily sweep for accounts whose 30-day window
   elapsed. Deletes personal data, keeps official catalog videos, anonymizes
-  behavior events and the external payment ledger, then deletes the user row
+  behavior events, then deletes the user row
   (the moment the phone number is released). Disk cleanup is recorded in
   ``media_cleanup_tasks`` inside the same transaction and drained afterwards;
   ``retry_media_cleanup`` (beat, every 15 minutes) retries anything that failed,
@@ -82,7 +81,7 @@ _README = """SeeWord 数据导出包
   favorites.* / notes.*        收藏与笔记
   sentence_favorites.json      句子收藏
   channel_subscriptions.json   频道订阅
-  video_likes.json / video_unlocks.json  点赞与解锁记录
+  video_likes.json             点赞记录
   listening_sessions.*         听力练习与判分结果
   exam_sessions.json           试卷作答（含逐题快照与你的答案）
   teaching_sessions.json / teaching_attempts.json  教学状态与作答（按当前内容权限投影）
@@ -92,8 +91,6 @@ _README = """SeeWord 数据导出包
   external_connections.json / teaching_runs.json  外部连接与讲解任务安全摘要
   teaching_messages.json  当前权限允许的任务对话
   videos.json                  你上传的视频元数据
-  orders.*                     站内订单
-  payments.json                站外收款记录（不含第三方原始表单内容）
   notifications.*              站内通知
   feedbacks.*                  你提交的反馈
   mastery_snapshots.json       掌握度历史快照
@@ -103,8 +100,7 @@ _README = """SeeWord 数据导出包
 
 说明：
 - 导出由账号本人发起，只包含该账号自己的数据。
-- 手机号与账号标识属于账号资料；金数据付款记录只导出金额、档位、状态与
-  交易号，不包含第三方表单原始内容。
+- 手机号与账号标识属于账号资料。
 - 下载链接一次性、15 分钟内有效。
 """
 
@@ -249,11 +245,7 @@ async def _purge_user(db, user) -> None:
     # 2. Behavior events survive as aggregate stats, without the account link.
     await db.execute(sa_update(BehaviorEvent).where(BehaviorEvent.user_id == user.id).values(user_id=None))
 
-    # 3. The external payment ledger is the accounting source of truth; keep the
-    #    money fields, drop the account link, phone and raw third-party payload.
-    await account_data.anonymize_payment_ledger(db, user.id)
-
-    # 4. Official catalog videos are not the uploader's personal data — keep
+    # 3. Official catalog videos are not the uploader's personal data — keep
     #    them, detach the account. User-uploaded (non-official) videos go with
     #    the account; their subtitles/dispatches cascade.
     official_ids = [video.id for video in videos if video.is_official]
@@ -265,7 +257,7 @@ async def _purge_user(db, user) -> None:
 
     await _delete_v2_children(db, user.id)
 
-    # 5. Every remaining table with a user_id FK to users.id, children before
+    # 4. Every remaining table with a user_id FK to users.id, children before
     #    parents. The excluded ones were handled above; DB-level ON DELETE
     #    CASCADE covers nested rows (exam answers, study items, …).
     from app.services.v2_schema import existing_tables
@@ -282,11 +274,11 @@ async def _purge_user(db, user) -> None:
     for table in reversed(user_scoped):
         await db.execute(sa_delete(table).where(table.columns["user_id"] == user.id))
 
-    # 6. Delete the user row — this is where the phone number is released.
+    # 5. Delete the user row — this is where the phone number is released.
     await db.execute(sa_delete(UserModel).where(UserModel.id == user.id))
     await db.commit()
 
-    # 7. Drain the media queue now; failures stay pending for the beat retry.
+    # 6. Drain the media queue now; failures stay pending for the beat retry.
     result = await account_data.process_media_cleanup(db, limit=500)
     logger.info(
         "account_purged",

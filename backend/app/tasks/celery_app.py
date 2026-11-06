@@ -37,7 +37,7 @@ celery_app.conf.update(
     # the remote GPU worker (the standalone ``gpu-worker/`` component) consumes
     # ``transcription_gpu`` exclusively. Only the transcription task is routed
     # off the default queue — everything else (video pipeline head/tail,
-    # localize, order expiry) runs on the cloud.
+    # localize) runs on the cloud.
     task_default_queue="celery",
     task_queues=(Queue("celery"), Queue(settings.transcription_gpu_queue_name), Queue("teaching")),
     task_routes={
@@ -48,17 +48,6 @@ celery_app.conf.update(
         "sweep-teaching-runs": {
             "task": "app.tasks.teaching_tasks.sweep_teaching_runs",
             "schedule": 10,
-        },
-        "expire-pending-orders": {
-            "task": "app.tasks.order_tasks.expire_pending_orders",
-            "schedule": 300,  # every 5 minutes
-        },
-        # Reconcile orders whose callback may have been lost — query the
-        # payment provider for authoritative status and upgrade the user
-        # if the platform reports the order paid.
-        "reconcile-pending-orders": {
-            "task": "app.tasks.order_tasks.reconcile_pending_orders",
-            "schedule": 900,  # every 15 minutes
         },
         # Mark videos stuck in any pipeline step (translating/downloading/
         # transcoding/...) as failed when the worker is offline or hung longer
@@ -101,12 +90,6 @@ celery_app.conf.update(
             "task": "app.tasks.ranking_tasks.snapshot_rankings",
             "schedule": crontab(minute=30, hour=16),
         },
-        # 金数据外部收款：每 5 分钟同步最近窗口内的已付款订单，自动开通 Pro。
-        # 数据推送 webhook（api/v1/payments.py）是秒级主路径，本任务负责补漏。
-        "sync-jinshuju-payments": {
-            "task": "app.tasks.payment_tasks.sync_jinshuju_payments",
-            "schedule": 300,  # every 5 minutes
-        },
         # 首页编辑内容：把卡在 queued/running 超过 900s 的生成任务标为 failed TIMEOUT
         # （GET 状态时也会顺手处理，本巡检是兜底）。生成任务本身走默认 celery 队列。
         "sweep-home-content-generations": {
@@ -142,8 +125,6 @@ import app.tasks.account_tasks
 import app.tasks.health_tasks
 import app.tasks.home_content_tasks
 import app.tasks.notification_tasks
-import app.tasks.order_tasks
-import app.tasks.payment_tasks
 import app.tasks.pipeline_dispatch_tasks  # A05: beat re-dispatches pending pipeline intents
 import app.tasks.ranking_tasks
 import app.tasks.reminder_tasks

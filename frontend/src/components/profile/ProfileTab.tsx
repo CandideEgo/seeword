@@ -1,14 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Camera, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
 import { Modal } from "@/components/common/Modal";
-import { api, isProUser } from "@/lib/api";
+import { api } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errors";
 import { AVATAR_GENDERS, type AvatarGender } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,7 @@ interface ProfileTabProps {
 }
 
 /**
- * 个人资料（1B 设计减法后）：只保留头像/昵称/会员状态三个核心项。
+ * 个人资料（1B 设计减法后）：只保留头像/昵称/手机号三个核心项。
  * 简介、英语等级、注册时间已下线（无展示场景/与偏好难度重复/头部已有「加入 N 天」）；
  * 换绑手机是年度级低频动作，收进弹窗，不再占据资料页主视觉。
  */
@@ -199,7 +198,7 @@ export default function ProfileTab({ user, onUpdate }: ProfileTabProps) {
         </div>
       </Card>
 
-      {/* Name + phone + plan */}
+      {/* Name + phone */}
       <Card padding={5} className="space-y-4">
         <div>
           <label className="block text-copy font-semibold text-ink mb-2">昵称</label>
@@ -224,23 +223,6 @@ export default function ProfileTab({ user, onUpdate }: ProfileTabProps) {
           <Button type="button" variant="text" size="sm" onClick={() => setShowChangePhone(true)}>
             更换
           </Button>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-hairline pt-4">
-          <div>
-            <p className="text-copy font-semibold text-ink">会员</p>
-            <p className="mt-0.5 text-meta text-muted">
-              {isProUser(user) && user.plan_expires_at
-                ? `有效期至 ${new Date(user.plan_expires_at).toLocaleDateString("zh-CN")}`
-                : "内测期免费使用全部功能"}
-            </p>
-          </div>
-          <Link
-            href="/upgrade"
-            className="inline-flex items-center gap-1 rounded-pill border border-hairline bg-canvas px-3 py-1 text-meta font-semibold text-ink transition-colors hover:border-ink"
-          >
-            {isProUser(user) ? "续费" : "升级会员"} →
-          </Link>
         </div>
       </Card>
 

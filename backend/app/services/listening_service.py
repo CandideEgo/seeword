@@ -15,7 +15,6 @@ from app.models.subtitle import Subtitle
 from app.models.user import User
 from app.models.video import Video
 from app.services.discovery_service import public_video_filters
-from app.services.unlock_service import get_video_access_info
 from app.services.video_card import video_card_payload
 
 MAX_QUESTIONS = 10
@@ -77,9 +76,6 @@ async def playable_video(db: AsyncSession, video_id: str, user: User):
     video = (await db.execute(select(Video).where(Video.id == video_id, *playable_filters()))).scalar_one_or_none()
     if not video:
         raise HTTPException(404, "视频暂不可用于听力练习，请选择其他素材")
-    access = await get_video_access_info(db, user, video)
-    if not access["unlocked"]:
-        raise HTTPException(403, "当前账号暂不能访问这个视频")
     return video
 
 

@@ -20,7 +20,6 @@ const BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
   "/admin/home-editorial": [{ label: "首页编排" }],
   "/admin/channels": [{ label: "频道管理" }],
   "/admin/users": [{ label: "用户管理" }],
-  "/admin/payments": [{ label: "付费记录" }],
   "/admin/feedback": [{ label: "反馈与公告" }],
   "/admin/stats": [{ label: "数据统计" }],
   "/admin/settings": [{ label: "系统设置" }],

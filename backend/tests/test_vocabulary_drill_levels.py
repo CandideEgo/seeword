@@ -9,7 +9,7 @@ match the target level.
 import pytest
 
 from app.models.learning import Vocabulary
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services import ecdict, practice_service
 from tests.conftest import TestSessionLocal, hash_password
 
@@ -48,7 +48,6 @@ async def test_vocabulary_drill_filters_by_target_level(fake_redis, monkeypatch)
             phone="13800138010",
             hashed_password=hash_password("Vocabpass1!"),
             name="Vocab",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)
@@ -82,7 +81,6 @@ async def test_vocabulary_drill_falls_back_when_too_few_matches(fake_redis, monk
             phone="13800138011",
             hashed_password=hash_password("Vocabpass1!"),
             name="Vocab",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)
@@ -115,7 +113,6 @@ async def test_vocabulary_drill_no_level_returns_all(fake_redis, monkeypatch):
             phone="13800138012",
             hashed_password=hash_password("Vocabpass1!"),
             name="Vocab",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)

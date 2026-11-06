@@ -1,40 +1,27 @@
-"""Postgres integration tests for Celery task bodies (D2 follow-up).
+"""Postgres integration test for Celery task bodies (D2 follow-up).
 
-The in-memory SQLite suite cannot express row-locking semantics:
-``with_for_update(skip_locked=True)`` is silently ignored by SQLite, so the
-monetization tasks' lock-ordering behaviour — ``expire_pending_orders`` /
-``reconcile_pending_orders`` racing between beats or workers — was never
-actually exercised. These tests run the task bodies against a real Postgres
-and assert the SKIP LOCKED behaviour that prevents double-processing in
-production, plus the reconcile paid path (user actually upgraded to Pro).
+The in-memory SQLite suite cannot express row-locking semantics, so
+Postgres-specific scoring coverage lives here.
 
-Marked ``integration`` (see pytest.ini). They skip when no Postgres is
+Marked ``integration`` (see pytest.ini). It skips when no Postgres is
 reachable; CI's backend job provisions one (``DATABASE_URL`` points at the
-service Postgres), so they run for real there. Locally:
+service Postgres). Locally:
 
     docker compose -f docker-compose.dev.yml up -d db
-    PG_TEST_URL=postgresql+asyncpg://seeword:seeword_dev@localhost:5432/seeword \\
-        pytest tests/test_celery_tasks_pg.py -v
+    PG_TEST_URL=postgresql+asyncpg://seeword:seeword_dev@localhost:5432/seeword pytest tests/test_celery_tasks_pg.py -v
 
 Notes:
 - Task bodies execute on the shared celery-asyncio background loop via
   ``run_async``; the test body runs on the pytest loop. conftest's Postgres
   engine uses ``NullPool`` so every session opens a fresh loop-local
   connection (asyncpg connections are loop-bound).
-- ``pytestmark = pytest.mark.integration`` routes these tests through the
-  Postgres branch of conftest's ``_async_setup`` fixture.
 """
-
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
 
 from app.core.database import get_async_session_maker
-from app.models.order import Order, OrderStatus
-from app.models.user import PlanType, RoleType, User
 from app.models.video import Video, VideoSource, VideoStatus
-from app.tasks.order_tasks import expire_pending_orders, reconcile_pending_orders
 from app.tasks.scoring_tasks import compute_top_scores
 
 pytestmark = pytest.mark.integration
@@ -47,161 +34,6 @@ def _session_maker():
     Postgres session maker; ``get_async_session_maker`` reads it at call time.
     """
     return get_async_session_maker()
-
-
-async def _make_user(db, phone: str, *, plan=PlanType.free, expires_at=None):
-    user = User(
-        phone=phone,
-        hashed_password="hashed",
-        name="PG Task Test",
-        plan=plan,
-        plan_expires_at=expires_at,
-        role=RoleType.user,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-async def test_expire_pending_orders_skips_locked_rows():
-    """SKIP LOCKED passes over a row locked by another transaction.
-
-    SQLite ignores ``with_for_update`` entirely; on Postgres the task's
-    ``SELECT ... FOR UPDATE SKIP LOCKED`` must skip the row held by an open
-    transaction — exactly the concurrent-beat scenario the task was built for.
-    """
-    now = datetime.now(UTC)
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800006001")
-        locked = Order(
-            user_id=user.id,
-            order_number="ORD-LOCK-01",
-            plan="pro_monthly",
-            amount=990,
-            status=OrderStatus.pending,
-            created_at=now - timedelta(hours=2),
-        )
-        free = Order(
-            user_id=user.id,
-            order_number="ORD-FREE-01",
-            plan="pro_monthly",
-            amount=990,
-            status=OrderStatus.pending,
-            created_at=now - timedelta(hours=2),
-        )
-        db.add_all([locked, free])
-        await db.commit()
-        locked_num, free_num = locked.order_number, free.order_number
-
-    # Hold an exclusive row lock on one order, then run the task: the locked
-    # row must be skipped, the unlocked stale order must be expired.
-    async with _session_maker()() as locker:
-        await locker.execute(select(Order).where(Order.order_number == locked_num).with_for_update())
-        count = expire_pending_orders()
-        assert count == 1  # only the unlocked order was processed
-
-    # Release the lock (rollback) — the skipped order is picked up next run.
-    async with _session_maker()() as db:
-        rows = {
-            o.order_number: o.status
-            for o in (await db.execute(select(Order).where(Order.order_number.in_([locked_num, free_num])))).scalars()
-        }
-        assert rows[locked_num] == OrderStatus.pending
-        assert rows[free_num] == OrderStatus.expired
-
-    count = expire_pending_orders()
-    assert count == 1
-
-    async with _session_maker()() as db:
-        status = (await db.execute(select(Order.status).where(Order.order_number == locked_num))).scalar_one()
-        assert status == OrderStatus.expired
-
-
-async def test_expire_pending_orders_concurrent_no_double_expire():
-    """Two beats racing must claim each row exactly once (sum of counts == N).
-
-    Without row locking both transactions would see the same pending rows and
-    double-process them; SKIP LOCKED guarantees disjoint claim sets.
-    """
-    now = datetime.now(UTC)
-    n = 8
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800006002")
-        orders = [
-            Order(
-                user_id=user.id,
-                order_number=f"ORD-CONC-{i:04d}",
-                plan="pro_monthly",
-                amount=990,
-                status=OrderStatus.pending,
-                created_at=now - timedelta(hours=3),
-            )
-            for i in range(n)
-        ]
-        db.add_all(orders)
-        await db.commit()
-        numbers = [o.order_number for o in orders]
-
-    import asyncio
-
-    counts = await asyncio.gather(
-        asyncio.to_thread(expire_pending_orders),
-        asyncio.to_thread(expire_pending_orders),
-    )
-    assert sum(counts) == n
-
-    async with _session_maker()() as db:
-        rows = (await db.execute(select(Order).where(Order.order_number.in_(numbers)))).scalars().all()
-        assert all(o.status == OrderStatus.expired for o in rows)
-
-
-async def test_reconcile_pending_orders_upgrades_user_when_provider_says_paid(monkeypatch):
-    """The reconcile money path really upgrades the user on Postgres.
-
-    ``_process_successful_payment`` locks the user row, extends Pro and marks
-    the order paid — the branch the SQLite suite could not assert end-to-end
-    (it stubbed the provider to always answer "pending").
-    """
-    import app.services.payment_provider as payment_provider
-
-    class _PaidProvider:
-        def __init__(self) -> None:
-            self.queried: list[str] = []
-
-        async def query_order(self, order_number: str):
-            self.queried.append(order_number)
-            return OrderStatus.paid
-
-    fake = _PaidProvider()
-    monkeypatch.setattr(payment_provider, "get_payment_provider", lambda: fake)
-
-    now = datetime.now(UTC)
-    async with _session_maker()() as db:
-        user = await _make_user(db, "13800006003", plan=PlanType.free)
-        order = Order(
-            user_id=user.id,
-            order_number="ORD-REC-PAID",
-            plan="pro_monthly",
-            amount=990,
-            status=OrderStatus.pending,
-            created_at=now - timedelta(hours=2),
-        )
-        db.add(order)
-        await db.commit()
-        order_id, user_id = order.id, user.id
-
-    count = reconcile_pending_orders()
-    assert count == 1
-    assert "ORD-REC-PAID" in fake.queried
-
-    async with _session_maker()() as db:
-        upgraded = await db.get(User, user_id)
-        paid_order = await db.get(Order, order_id)
-        assert upgraded.plan == PlanType.pro
-        assert upgraded.plan_expires_at is not None
-        assert paid_order.status == OrderStatus.paid
-        assert paid_order.paid_at is not None
 
 
 async def test_compute_top_scores_scores_ready_videos_on_pg():

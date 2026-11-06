@@ -40,7 +40,7 @@ from app.core.database import get_async_session_maker, get_db
 from app.core.security import create_token
 from app.main import create_app
 from app.models.favorite import UserNote
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoStatus
 
 pytestmark = pytest.mark.integration
@@ -58,7 +58,6 @@ async def _seed_user_and_video() -> tuple[dict, str]:
             phone="13611136001",
             hashed_password="hashed",
             name="Note Race",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         video = Video(

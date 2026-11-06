@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.notification import Notification
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services.notification_service import notify_admins
 
 
@@ -18,7 +18,6 @@ class TestNotifyAdmins:
                     phone=f"1380000{i}",
                     hashed_password="x",
                     name=f"u{i}",
-                    plan=PlanType.free,
                     role=role,
                 )
             )
@@ -38,7 +37,6 @@ class TestNotifyAdmins:
                 phone="1380001",
                 hashed_password="x",
                 name="admin",
-                plan=PlanType.free,
                 role=RoleType.admin,
             )
         )

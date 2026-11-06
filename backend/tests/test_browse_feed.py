@@ -21,7 +21,7 @@ the favorites coverage.
 from datetime import UTC, datetime, timedelta
 
 from app.models.favorite import UserFavorite
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoReviewStatus, VideoStatus
 from app.services.ranking_service import current_week_start_utc
 from app.services.video_card import CARD_SHAPE_VERSION
@@ -40,7 +40,7 @@ def _before_window(hours: float = 1.0) -> datetime:
 
 
 async def _make_user(db, phone: str) -> User:
-    u = User(phone=phone, hashed_password="hashed", name="Feed Sort", plan=PlanType.free, role=RoleType.user)
+    u = User(phone=phone, hashed_password="hashed", name="Feed Sort", role=RoleType.user)
     db.add(u)
     await db.commit()
     await db.refresh(u)
@@ -54,7 +54,6 @@ async def _make_users(db, count: int) -> list[User]:
             phone=f"1380013{1000 + i}",
             hashed_password="hashed",
             name="Feed Sort",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         for i in range(count)

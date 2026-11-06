@@ -9,11 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class PlanType(str, enum.Enum):
-    free = "free"
-    pro = "pro"
-
-
 class RoleType(str, enum.Enum):
     user = "user"
     admin = "admin"
@@ -37,12 +32,6 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     level: Mapped[str | None] = mapped_column(String(10), nullable=True)  # A1-C2
-    plan: Mapped[PlanType] = mapped_column(SAEnum(PlanType, name="plantype"), default=PlanType.free, nullable=False)
-    plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
-    # Where the current/most recent Pro entitlement came from: "trial" for the
-    # signup trial, "redeem" for historical redeem-code grants (that system is
-    # retired; no new rows are written), null for never-Pro users.
-    plan_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     role: Mapped[RoleType] = mapped_column(SAEnum(RoleType, name="roletype"), default=RoleType.user, nullable=False)
     # Timestamp of the last password change/reset. Tokens issued before this
     # moment are rejected by the auth dependency, effectively invalidating all
@@ -74,14 +63,12 @@ class User(Base):
     videos = relationship("Video", foreign_keys="Video.user_id", back_populates="user")
     learning_records = relationship("LearningRecord", back_populates="user")
     vocabulary = relationship("Vocabulary", back_populates="user")
-    orders = relationship("Order", back_populates="user")
     notifications = relationship("Notification", back_populates="user", order_by="Notification.created_at.desc()")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
     favorites = relationship("UserFavorite", back_populates="user", cascade="all, delete-orphan")
     notes = relationship("UserNote", back_populates="user", cascade="all, delete-orphan")
     learning_profile = relationship("UserLearningProfile", back_populates="user", uselist=False)
     learning_events = relationship("LearningEvent", back_populates="user", cascade="all, delete-orphan")
-    video_unlocks = relationship("UserVideoUnlock", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def has_password(self) -> bool:

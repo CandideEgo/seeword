@@ -1,5 +1,12 @@
 # 金数据收款 → SeeWord 会员自动开通（2026-10 接入说明）
 
+> **已下线（2026-11）**：会员收费链路已整体移除，全站功能对登录用户免费开放。
+> 本文只作历史实施记录，文中提到的端点（`/upgrade`、`/payments/*`、
+> `/api/v1/admin/payments*`）、服务（`jinshuju_service`、`payment_tasks`）、
+> 数据表（`orders`、`jinshuju_payments`）与环境变量（`JINSHUJU_*`）都已删除，
+> 不要再据此恢复。删除迁移为 `d4e5f6a7b8c9`。
+
+
 站内仍不收款（`payments_enabled=false`，ICP 合规）。会员在金数据收款页成交后，
 后端按「站内购买标识」自动把 Pro 开到买家账号上 —— 买家不用找客服、不用兑换码，
 **收款页也不需要收集手机号**。

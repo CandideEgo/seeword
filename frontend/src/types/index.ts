@@ -7,8 +7,6 @@ export interface User {
   /** The user's gender; null = not filled in (the client then falls back to a seed hash). */
   gender: "male" | "female" | null;
   level: string | null;
-  plan: "free" | "pro";
-  plan_expires_at: string | null;
   timezone: string | null;
   role?: "user" | "admin";
   last_active_at: string | null;
@@ -177,19 +175,10 @@ export interface SubtitleRevision {
 
 /**
  * 播放页 / 视频详情：卡片 + 字幕 + 观看权限。
- * 后端 `VideoDetailResponse` = `VideoResponse` + `subtitles` + `access`，同构。
+ * 后端 `VideoDetailResponse` = `VideoResponse` + `subtitles`，同构。
  */
 export interface VideoDetail extends VideoCard {
   subtitles: Subtitle[];
-  /** D0 解锁制：当前观看者的访问权限（后端 video detail 返回）。 */
-  access?: VideoAccessInfo;
-}
-
-/** 观看权限信息（解锁制）：Pro/admin 的 remaining_this_month 为 null（无限）。 */
-export interface VideoAccessInfo {
-  unlocked: boolean;
-  remaining_this_month: number | null;
-  quota: number;
 }
 
 export interface LearningRecord {
@@ -400,8 +389,6 @@ export interface AdminUser {
   /** 默认头像跟随性别（与后端 AdminUserResponse 对齐；null = 按 id 哈希兜底）。 */
   gender: "male" | "female" | null;
   level: string | null;
-  plan: string;
-  plan_expires_at: string | null;
   timezone: string | null;
   role: string;
   is_banned: boolean;
@@ -418,7 +405,7 @@ export interface AdminStatsTrend {
   active_users: number[];
 }
 
-export type RecentActivityType = "signup" | "payment";
+export type RecentActivityType = "signup";
 
 export interface RecentActivity {
   id: string;
@@ -430,7 +417,6 @@ export interface RecentActivity {
 export interface AdminStats {
   total_users: number;
   new_users_7d: number;
-  pro_users: number;
   total_videos: number;
   videos_ready: number;
   total_vocabulary: number;
@@ -443,15 +429,12 @@ export interface AdminStats {
   signups_today: number;
   trend: AdminStatsTrend;
   videos_by_status: { status: string; count: number }[];
-  users_by_plan: { plan: string; count: number }[];
   recent_activity: RecentActivity[];
   // Prototype 31 extensions
-  pro_expired_count: number;
   funnel: {
     registered: number;
     watched: number;
     vocab_saved: number;
-    pro: number;
   };
   videos_by_topic: { topic: string; count: number }[];
 }
@@ -459,8 +442,6 @@ export interface AdminStats {
 /** Singleton admin settings (prototype 32 系统设置). */
 export interface AdminSettings {
   site_name: string;
-  wechat_shop_url: string | null;
-  payments_enabled: boolean;
   registration_enabled: boolean;
   quality_block_enabled: boolean;
   quality_block_threshold: number;
@@ -479,49 +460,6 @@ export interface AdminAccount {
   name: string | null;
   phone: string | null;
   last_active_at: string | null;
-}
-
-/** 金数据付款记录状态（后端 JinshujuPaymentStatus）。 */
-export type AdminPaymentStatus = "applied" | "pending" | "ignored" | "refunded" | "error";
-
-/**
- * One 金数据 (Jinshuju) payment row — mirrors backend `AdminPaymentRow`.
- * `raw_json` 是外部表单原始载荷（含买家信息），后端不返回，前端也不该有。
- * `phone` 是展示用手机号：已绑定账号优先，其次金数据表单填写值；
- * `user_phone` / `user_name` 是绑定账号自身的字段（未绑定时为 null）。
- */
-export interface AdminPayment {
-  id: string;
-  entry_token: string | null;
-  serial_number: number;
-  phone: string | null;
-  user_id: string | null;
-  user_phone: string | null;
-  user_name: string | null;
-  tier_name: string | null;
-  amount_fen: number | null;
-  duration_days: number | null;
-  trade_status: string | null;
-  trade_no: string | null;
-  payment_method: string | null;
-  status: AdminPaymentStatus;
-  error_message: string | null;
-  entry_created_at: string | null;
-  created_at: string | null;
-  applied_at: string | null;
-}
-
-/** Mirrors backend `AdminPaymentSummaryResponse` (金额单位：分). */
-export interface AdminPaymentSummary {
-  applied: number;
-  pending: number;
-  ignored: number;
-  refunded: number;
-  error: number;
-  paid_total_fen: number;
-  paid_30d_fen: number;
-  paid_today_fen: number;
-  applied_today: number;
 }
 
 /* ── Profile ── */
@@ -707,16 +645,6 @@ export interface AdminWeeklyVolume {
   volume_rate: number | null;
 }
 
-export interface AdminEntitlementDistribution {
-  registered: number;
-  watched: number;
-  vocab_saved: number;
-  active_pro: number;
-  paid_pro: number;
-  trial_or_granted_pro: number;
-  paid_share_of_active_pro: number | null;
-}
-
 export interface AdminEventTypeQuality {
   event_type: string;
   events: number;
@@ -760,7 +688,6 @@ export interface AdminLearningMetrics {
   activation: AdminActivationMetrics;
   cohorts: AdminCohortRow[];
   weekly: AdminWeeklyVolume;
-  entitlement: AdminEntitlementDistribution;
   event_quality: AdminEventQuality;
   performance: AdminPerformanceMetrics;
 }

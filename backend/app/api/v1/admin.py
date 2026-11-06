@@ -1,13 +1,11 @@
 """Admin API router — all admin-only endpoints under /api/v1/admin.
 
 This router consolidates the admin management endpoints that don't belong
-in existing domain routers (videos, orders, users). Those keep their admin
+in existing domain routers (videos, users). Those keep their admin
 routes in-place; this file adds the missing ones:
 
   - Dashboard stats
-  - User management (list, ban, role change, plan grant/revoke)
-  - 金数据 payment records + revenue summary (read-only; the legacy ``orders``
-    surface is gone — real revenue lives in ``jinshuju_payments``)
+  - User management (list, ban, role change)
 """
 
 from typing import Literal
@@ -22,16 +20,11 @@ from app.models.user import User
 from app.schemas.admin import (
     AdminAccountItem,
     AdminLearningMetricsResponse,
-    AdminPaymentRow,
-    AdminPaymentSummaryResponse,
-    AdminPaymentSyncResponse,
     AdminSettingsResponse,
     AdminSettingsUpdate,
     AdminStatsResponse,
     AdminUserBanRequest,
     AdminUserBanResponse,
-    AdminUserPlanRequest,
-    AdminUserPlanResponse,
     AdminUserRoleRequest,
     AdminUserRoleResponse,
     AdminUserRow,
@@ -43,10 +36,8 @@ from app.services import admin_service, admin_stats
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 #: Admin user-list filters are validated by FastAPI (422 instead of silently
-#: ignoring unknown values, ADM-11). ``expired`` is a synthetic plan bucket.
+#: ignoring unknown values, ADM-11).
 AdminRoleFilter = Literal["user", "admin"]
-AdminPlanFilter = Literal["free", "pro", "expired"]
-AdminPaymentStatusFilter = Literal["applied", "pending", "ignored", "refunded", "error"]
 
 
 # ---------------------------------------------------------------------------
@@ -114,15 +105,12 @@ async def list_admin_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     role: AdminRoleFilter | None = Query(None, description="Filter by role: user / admin"),
-    plan: AdminPlanFilter | None = Query(None, description="Filter by plan: free / pro / expired"),
     keyword: str | None = Query(None, max_length=100, description="Search name or phone"),
     current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List users with aggregated stats. Admin only."""
-    return await admin_service.list_admin_users(
-        db, page=page, page_size=page_size, role=role, plan=plan, keyword=keyword
-    )
+    return await admin_service.list_admin_users(db, page=page, page_size=page_size, role=role, keyword=keyword)
 
 
 @router.patch("/users/{user_id}/ban", response_model=AdminUserBanResponse)
@@ -159,74 +147,6 @@ async def change_user_role(
     }
 
 
-@router.patch("/users/{user_id}/plan", response_model=AdminUserPlanResponse)
-@rate_limit("10/minute")
-async def change_user_plan(
-    request: Request,
-    user_id: str,
-    payload: AdminUserPlanRequest,
-    current_user: User = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Grant or revoke Pro membership. Admin only."""
-    user = await admin_service.change_user_plan(db, user_id, payload.plan, payload.duration_days, current_user.id)
-    return {
-        "id": user.id,
-        "plan": user.plan.value,
-        "plan_expires_at": user.plan_expires_at.isoformat() if user.plan_expires_at else None,
-        # ADM-17: additively expose the entitlement provenance so the panel can
-        # tell an admin grant from a purchase/trial.
-        "plan_source": user.plan_source,
-    }
-
-
-# ---------------------------------------------------------------------------
-# 金数据 payment records / revenue (read-only; replaces the dead orders list)
-# ---------------------------------------------------------------------------
-
-
-@router.get("/payments", response_model=PaginatedResponse[AdminPaymentRow])
-@rate_limit("30/minute")
-async def list_admin_payments(
-    request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    status: AdminPaymentStatusFilter | None = Query(
-        None, description="Filter by payment status: applied / pending / ignored / refunded / error"
-    ),
-    keyword: str | None = Query(None, max_length=100, description="Search phone / trade number / tier / serial"),
-    current_user: User = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """List 金数据 payment records (raw_json never exposed). Admin only."""
-    return await admin_service.list_admin_payments(db, page=page, page_size=page_size, status=status, keyword=keyword)
-
-
-@router.get("/payments/summary", response_model=AdminPaymentSummaryResponse)
-@rate_limit("30/minute")
-async def get_payment_summary(
-    request: Request,
-    current_user: User = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Status counters + revenue sums for the payments page. Admin only."""
-    return await admin_service.payment_summary(db)
-
-
-@router.post("/payments/sync", response_model=AdminPaymentSyncResponse)
-@rate_limit("5/minute")
-async def sync_admin_payments(
-    request: Request,
-    current_user: User = Depends(get_admin_user),
-):
-    """Enqueue the Jinshuju sync Celery task (no inline external HTTP).
-
-    Returns ``{"queued": false}`` when 金数据 integration is disabled or not
-    configured — there is nothing to sync in that case.
-    """
-    return {"queued": admin_service.enqueue_payment_sync(current_user.id)}
-
-
 # ---------------------------------------------------------------------------
 # Platform settings (prototype 32 系统设置)
 # ---------------------------------------------------------------------------
@@ -243,8 +163,6 @@ async def get_settings(
     settings = await admin_service.get_admin_settings(db)
     return {
         "site_name": settings.site_name,
-        "wechat_shop_url": settings.wechat_shop_url,
-        "payments_enabled": settings.payments_enabled,
         "registration_enabled": settings.registration_enabled,
         "quality_block_enabled": settings.quality_block_enabled,
         "quality_block_threshold": float(settings.quality_block_threshold),
@@ -270,8 +188,6 @@ async def update_settings(
     settings = await admin_service.update_admin_settings(db, payload.model_dump(exclude_unset=True))
     return {
         "site_name": settings.site_name,
-        "wechat_shop_url": settings.wechat_shop_url,
-        "payments_enabled": settings.payments_enabled,
         "registration_enabled": settings.registration_enabled,
         "quality_block_enabled": settings.quality_block_enabled,
         "quality_block_threshold": float(settings.quality_block_threshold),

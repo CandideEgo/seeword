@@ -16,7 +16,6 @@ class TestUserOverview:
         assert data["words"]["total"] == 0
         assert data["videos"] == {"started": 0, "completed": 0}
         assert data["library"] == {"favorite_videos": 0, "favorite_sentences": 0, "notes": 0}
-        assert data["membership"]["is_pro"] is False
         assert len(data["this_week"]["daily"]) == 7
         assert data["this_week"]["days_active"] == 0
 

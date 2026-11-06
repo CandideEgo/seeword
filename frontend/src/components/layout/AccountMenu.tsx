@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsUpDown, Crown, HelpCircle, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { ChevronsUpDown, HelpCircle, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { useThemeContext } from "@/components/common/ThemeProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -11,10 +11,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
-  { label: "账户设置", icon: Settings, href: "/profile?tab=settings" },
-  { label: "会员", icon: Crown, href: "/upgrade" },
-];
+const LINKS = [{ label: "账户设置", icon: Settings, href: "/profile?tab=settings" }];
 
 export function AccountMenu({
   placement,

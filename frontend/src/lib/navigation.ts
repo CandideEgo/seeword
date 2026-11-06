@@ -1,14 +1,4 @@
-import {
-  Bell,
-  BookOpen,
-  Bookmark,
-  Crown,
-  GraduationCap,
-  History,
-  Home,
-  Layers,
-  User,
-} from "lucide-react";
+import { Bell, BookOpen, Bookmark, GraduationCap, History, Home, Layers, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -35,7 +25,6 @@ export const SECONDARY_NAV: NavItem[] = [
   { label: "收藏", href: "/favorites", icon: Bookmark },
   { label: "学习记录", href: "/history", icon: History },
   { label: "通知", href: "/notifications", icon: Bell },
-  { label: "会员", href: "/upgrade", icon: Crown },
 ];
 
 /**
@@ -44,8 +33,7 @@ export const SECONDARY_NAV: NavItem[] = [
  * - 键必须是导航项的真实 href；表里没有的 href 回退到「自己认领自己」。
  * - `/` 组写成显式清单，**不能**用 `startsWith("/")`：那会吞掉全站、造成双高亮。
  * - 各组的 scope 前缀两两不相交，任意 pathname 最多命中一项。
- * - `/search`（顶栏能力的落地页）、`/pricing`、`/checkout`（服务端重定向、
- *   pathname 停留不了）刻意不进表 —— 停在它们上面不高亮。
+ * - `/search`（顶栏能力的落地页）刻意不进表 —— 停在它上面不高亮。
  */
 export const ACTIVE_SCOPE: Record<string, string[]> = {
   "/": ["/", "/watch", "/rankings"],
@@ -56,7 +44,6 @@ export const ACTIVE_SCOPE: Record<string, string[]> = {
   "/favorites": ["/favorites"],
   "/history": ["/history"],
   "/notifications": ["/notifications"],
-  "/upgrade": ["/upgrade"],
 };
 
 /** 精确匹配自身，或其子路径（`/watch` 命中 `/watch/1`，不命中 `/watchlist`）。 */

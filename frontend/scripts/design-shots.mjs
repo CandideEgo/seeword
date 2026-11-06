@@ -28,7 +28,6 @@ const ROUTES = ROUTE_ARG
       "/favorites",
       "/history",
       "/notifications",
-      "/upgrade",
       "/rankings",
       "/search?q=english",
     ];

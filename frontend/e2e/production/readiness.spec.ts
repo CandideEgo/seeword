@@ -75,7 +75,6 @@ test("用户页面三档视口与亮暗主题布局", async ({ page }, testInfo)
         "/practice",
         "/practice/exams",
         "/profile",
-        "/upgrade",
         "/contact",
         "/favorites",
         "/history",
@@ -103,10 +102,6 @@ test("用户页面三档视口与亮暗主题布局", async ({ page }, testInfo)
           // 改版后首页是「发现」流：导航在 375 宽度收进折叠菜单，所以断言发现流
           // 本身（视频列表区 + level-1 标题），而不是导航里那个「发现视频」旧入口。
           await expect(page.getByRole("region", { name: "视频列表" })).toBeVisible();
-        if (route === "/upgrade") {
-          await expect(page.getByText("会员购买暂不可用，请稍后再来。")).toBeVisible();
-          await expect(page.getByText("二维码生成中…")).toHaveCount(0);
-        }
         await page.screenshot({
           path: testInfo.outputPath(`${route.replace(/\W/g, "-") || "home"}-${width}-${theme}.png`),
           fullPage: true,

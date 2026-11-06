@@ -18,7 +18,7 @@ from sqlalchemy import delete, select
 from app.core.cache import cache_get_json, cache_set_json
 from app.models.behavior import BehaviorEvent
 from app.models.favorite import UserFavorite
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.models.video import Video, VideoReviewStatus, VideoStatus
 from app.services.ranking_service import (
     RANKING_SCOPES,
@@ -56,7 +56,7 @@ async def _owner(db) -> User:
 
 
 async def _make_user(db, phone: str) -> User:
-    u = User(phone=phone, hashed_password="hashed", name="Rank Test", plan=PlanType.free, role=RoleType.user)
+    u = User(phone=phone, hashed_password="hashed", name="Rank Test", role=RoleType.user)
     db.add(u)
     await db.commit()
     await db.refresh(u)

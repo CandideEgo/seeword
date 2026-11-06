@@ -103,12 +103,6 @@ def _print_human(payload: dict) -> None:
     print("\n[激活/留存] 分母固定为入组人数")
     print(f"  24h 激活率={activation['rate']} ({activation['activated_within_24h']}/{activation['window_registered']})")
     print(f"  近 7 日活跃={payload['weekly']['active_7d']} 至少 2 天={payload['weekly']['multi_day_7d']}")
-    entitlement = payload["entitlement"]
-    print(
-        "\n[权益] "
-        f"有效 Pro={entitlement['active_pro']} 已付款={entitlement['paid_pro']} "
-        f"试用/赠送={entitlement['trial_or_granted_pro']}"
-    )
 
     flows = payload["event_quality"]["flows"]
     if flows:

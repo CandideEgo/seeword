@@ -5,11 +5,10 @@ Two jobs live here so the Celery task and the drift tests share one inventory:
 ``gather_export``
     Reads every user-scoped dataset this product actually stores — profile,
     preferences, vocabulary, learning records/events/profile, favorites, notes,
-    sentence favorites, channel subscriptions, likes, unlocks, vocab sets,
-    study sessions, listening attempts, exam attempts + answers, orders,
-    payment ledger rows, notifications, feedback, mastery/milestone history,
-    behavior events, and the metadata of videos the user uploaded — plus the
-    on-disk media originals (avatar, uploaded video files, historical shadowing
+    sentence favorites, channel subscriptions, likes, vocab sets, study
+    sessions, listening attempts, exam attempts + answers, notifications,
+    feedback, mastery/milestone history, behavior events, and the metadata of
+    videos the user uploaded — plus the on-disk media originals (avatar, uploaded video files, historical shadowing
     audio). Every query is scoped by ``user.id``; child rows are reached only
     through that user's parent ids, so an export can never contain another
     user's rows.
@@ -31,7 +30,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from app.core.logging import get_logger
 
@@ -47,21 +46,19 @@ CSV_SECTIONS = frozenset(
         "learning_events",
         "favorites",
         "notes",
-        "orders",
         "notifications",
         "feedbacks",
         "listening_sessions",
         "video_likes",
-        "video_unlocks",
         "behavior_events",
     }
 )
 
 #: Tables deleted with the account are every table with a ``user_id`` FK to
-#: ``users.id`` except the three whose columns were designed to survive:
-#: behavior events are anonymized, the external payment ledger is anonymized,
-#: and videos are handled explicitly (official catalog rows survive).
-PURGE_EXCLUDED_TABLES = frozenset({"users", "behavior_events", "jinshuju_payments", "videos"})
+#: ``users.id`` except the two whose columns were designed to survive:
+#: behavior events are anonymized, and videos are handled explicitly (official
+#: catalog rows survive).
+PURGE_EXCLUDED_TABLES = frozenset({"users", "behavior_events", "videos"})
 
 
 def scalar(value: Any) -> Any:
@@ -110,12 +107,10 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
     from app.models.listening import ListeningSession
     from app.models.milestone import MasterySnapshot, UserMilestone
     from app.models.notification import Notification
-    from app.models.order import Order
     from app.models.preferences import UserPreferences
     from app.models.question_exposure import UserExposureMappingState, UserQuestionExposure
     from app.models.study_session import StudySession, StudySessionItem
     from app.models.user_content import ChannelSubscription, SentenceFavorite
-    from app.models.user_video_unlock import UserVideoUnlock
     from app.models.vocab_set import VocabSet, VocabSetWord
 
     sections: list[tuple[str, Any, Any]] = [
@@ -127,14 +122,12 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
         ("sentence_favorites", SentenceFavorite, SentenceFavorite.created_at),
         ("channel_subscriptions", ChannelSubscription, ChannelSubscription.created_at),
         ("video_likes", VideoLike, VideoLike.created_at),
-        ("video_unlocks", UserVideoUnlock, UserVideoUnlock.unlocked_at),
         ("vocab_sets", VocabSet, VocabSet.created_at),
         ("study_sessions", StudySession, StudySession.started_at),
         ("listening_sessions", ListeningSession, ListeningSession.started_at),
         ("exam_sessions", ExamSession, ExamSession.started_at),
         ("question_exposures", UserQuestionExposure, UserQuestionExposure.updated_at),
         ("exposure_mapping_states", UserExposureMappingState, UserExposureMappingState.user_id),
-        ("orders", Order, Order.created_at),
         ("notifications", Notification, Notification.created_at),
         ("feedbacks", Feedback, Feedback.created_at),
         ("mastery_snapshots", MasterySnapshot, MasterySnapshot.snapshot_date),
@@ -208,19 +201,6 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
     ).scalar_one_or_none()
     data["learning_profile"] = row_to_dict(profile) if profile is not None else {}
 
-    # ---- external payment ledger: the user's own rows, without the raw form ----
-    from app.models.jinshuju_payment import JinshujuPayment
-
-    payments = (
-        (
-            await db.execute(
-                select(JinshujuPayment).where(JinshujuPayment.user_id == user.id).order_by(JinshujuPayment.created_at)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    data["payments"] = [row_to_dict(payment, exclude=frozenset({"raw_json"})) for payment in payments]
     data.update(await _gather_teaching_data(db, user.id))
     return data
 
@@ -340,16 +320,12 @@ async def _gather_teaching_data(db: Any, user_id: str) -> dict[str, Any]:
 
 def profile_dict(user: Any) -> dict[str, Any]:
     """The account row as exported: every user-facing field except the hash."""
-    plan = getattr(user.plan, "value", user.plan)
     role = getattr(user.role, "value", user.role)
     return {
         "id": user.id,
         "phone": user.phone,
         "name": user.name,
         "level": user.level,
-        "plan": plan,
-        "plan_expires_at": scalar(user.plan_expires_at),
-        "plan_source": user.plan_source,
         "role": role,
         "onboarding_completed": user.onboarding_completed,
         "native_language": user.native_language,
@@ -395,7 +371,6 @@ EXPORT_ORDER = (
     "sentence_favorites",
     "channel_subscriptions",
     "video_likes",
-    "video_unlocks",
     "listening_sessions",
     "exam_sessions",
     "question_exposures",
@@ -409,8 +384,6 @@ EXPORT_ORDER = (
     "external_connections",
     "teaching_runs",
     "videos",
-    "orders",
-    "payments",
     "notifications",
     "feedbacks",
     "mastery_snapshots",
@@ -629,19 +602,3 @@ async def prune_media_cleanup(db: Any, *, older_than_days: int = 30, now: dateti
     )
     await db.commit()
     return int(getattr(result, "rowcount", 0) or 0)
-
-
-async def anonymize_payment_ledger(db: Any, user_id: str) -> None:
-    """Keep the financial record, drop the account identifiers.
-
-    The external ledger is the accounting source of truth (amount / status /
-    trade no). The account link, phone number and raw form payload are personal
-    data and are cleared. This matches the privacy page's "会员订单" promise.
-    """
-    from app.models.jinshuju_payment import JinshujuPayment
-
-    await db.execute(
-        update(JinshujuPayment)
-        .where(JinshujuPayment.user_id == user_id)
-        .values(user_id=None, phone=None, raw_json=None)
-    )

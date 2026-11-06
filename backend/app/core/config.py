@@ -9,10 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # development defaults nor the production guards in ``model_post_init``, so the
 # app booted with an empty ``jwt_secret`` — JWTs signed with an empty key — and
 # silently skipped every guard. ``.env.example`` documents the same three values.
-# ``prod`` is folded into ``production`` because payment_provider already treats
-# it as production; case/whitespace variants are normalized so an accepted
-# spelling cannot miss the downstream ``settings.env == "production"`` checks
-# (HSTS/CSP, JSON logs, mock-payment router, rate limits).
+# ``prod`` is folded into ``production``; case/whitespace variants are
+# normalized so an accepted spelling cannot miss the downstream
+# ``settings.env == "production"`` checks (HSTS/CSP, JSON logs, rate limits).
 _ENV_ALIASES = {"prod": "production"}
 _ENV_VALUES = ("development", "testing", "production")
 
@@ -209,54 +208,6 @@ class Settings(BaseSettings):
     oss_raw_prefix: str = "video/raw"
     oss_raw_bucket_public: bool = False  # False → use signed URLs (private bucket)
     oss_signed_url_expiry: int = 7200  # seconds; must exceed max queue wait + transcribe
-
-    # Payment configuration
-    default_payment_provider: str = "mock"  # mock | alipay | wechat
-    alipay_app_id: str = ""
-    alipay_public_key: str = ""
-    alipay_private_key: str = ""
-    wechat_mch_id: str = ""
-    wechat_api_v3_key: str = ""
-    wechat_serial_no: str = ""
-    payment_verify_signature: bool = True
-    # 审计 H12：默认必须 fail-closed。旁路「env=development 且本 flag 为 False」
-    # 才生效（alipay/wechat _verify_*），而 env 默认也是 development —— 两个默认
-    # 叠加曾构成「漏配 ENV + 开支付 = 可伪造回调」。dev 要跳过验签须显式
-    # PAYMENT_VERIFY_SIGNATURE=False（有 warning 日志）。
-    # ICP 合规：个体工商户无 ICP 经营许可证，不能站内收款。默认禁用站内支付，
-    # create-order 端点返回合规提示；取得相应资质后置 True 恢复站内支付链路。
-    payments_enabled: bool = False
-
-    # 金数据（外部收款页）→ 自动开通 Pro。站内仍不开收款（ICP 合规），会员在
-    # 托管于金数据的收款页成交后，由 Celery beat 定时同步 + 可选的数据推送
-    # webhook 落账，并按买家手机号延长对应账号的 plan_expires_at。
-    # Access Token 与表单 token 只允许放服务端 env，不要进前端或仓库。
-    jinshuju_enabled: bool = False
-    jinshuju_access_token: str = ""
-    jinshuju_form_token: str = ""  # 表单 token，例如 ed8TXL
-    # 数据推送 URL 上要求的共享密钥；为空时 webhook 一律拒绝（fail-closed）。
-    jinshuju_webhook_secret: str = ""
-    # 表单里「档位」商品字段与「手机号」字段的 api_code（表单字段改版时同步改）。
-    jinshuju_tier_field: str = "field_2"
-    jinshuju_phone_field: str = "field_5"
-    # 每轮同步回看多少小时内的数据（补漏 webhook；公测量级下一次请求足够）。
-    jinshuju_sync_lookback_hours: int = 72
-    # 站内购买：快捷收款页地址 + 写在 x_field_1 里的签名 token。
-    # x_field_1 本身没有签名保护，所以值做成「user_id + 过期时间 + HMAC」的
-    # 紧凑 token：篡改/过期都会验签失败，不会把会员发错人。
-    jinshuju_purchase_url: str = ""  # 例如 https://xxx.jsjform.com/p/ed8TXL
-    # 站内购买 token 的 HMAC 密钥。**不回退 JWT_SECRET**：一把密钥同时保护
-    # 「用户会话」与「购买凭证」两个不同用途，密钥分离就没了。缺失时签发与
-    # 验签一律失败（见 ``jinshuju_service._purchase_secret``）。
-    jinshuju_purchase_token_secret: str = ""
-    jinshuju_purchase_token_ttl_minutes: int = 1440
-
-    # Free-tier video unlock quota (产品设计规划 §2.2): Free users may unlock
-    # this many videos per calendar month; each unlock is permanent. Quotas
-    # reset on the 1st, unused quotas do not roll over.
-    free_monthly_unlock_quota: int = 3
-    # Signup trial: new registrations get Pro for this many days (plan_source='trial').
-    trial_days: int = 3
 
     # Proxy for external services (yt-dlp, AI)
     http_proxy: str = ""  # e.g. http://172.25.176.1:7897
@@ -491,15 +442,6 @@ class Settings(BaseSettings):
                     "SMS_DEV_FAKE_ENABLED must not be enabled in production "
                     "(the fixed code '1234' would let anyone log into any phone account)"
                 )
-            # 站内微信/支付宝回调验签目前是 stub（HMAC 而非平台 RSA 证书），
-            # 一旦被误开，合法回调会被拒、伪造回调可能开通会员。生产入口是
-            # 金数据收款页；要开站内支付必须先实现官方验签并删掉这条 guard。
-            if self.payments_enabled:
-                raise RuntimeError(
-                    "PAYMENTS_ENABLED must stay false in production: the WeChat/Alipay callback "
-                    "verification is a stub until the official RSA/signature SDK is wired. "
-                    "Use the Jinshuju payment flow instead."
-                )
             # The guard is "an LLM key must exist", not "the OpenAI key must
             # exist": production may run entirely on the Command Code provider.
             # An empty pair is still fatal — features would fail at call time.
@@ -518,22 +460,6 @@ class Settings(BaseSettings):
                 raise RuntimeError("REDIS_URL must be set in production")
             if not self.transcription_callback_secret:
                 raise RuntimeError("TRANSCRIPTION_CALLBACK_SECRET must be set in production")
-            # 金数据站内购买 token 的 HMAC 密钥：必须显式配置，且不得复用
-            # JWT_SECRET —— 同一把密钥保护「用户会话」与「购买凭证」两个不同
-            # 用途就是密钥分离被破坏。只在开启金数据时要求（关着就无所谓）。
-            if self.jinshuju_enabled:
-                if not self.jinshuju_purchase_token_secret:
-                    raise RuntimeError(
-                        "JINSHUJU_PURCHASE_TOKEN_SECRET must be set in production "
-                        "when JINSHUJU_ENABLED=true (it does NOT fall back to JWT_SECRET)"
-                    )
-                if self.jinshuju_purchase_token_secret == self.jwt_secret:
-                    raise RuntimeError("JINSHUJU_PURCHASE_TOKEN_SECRET must differ from JWT_SECRET in production")
-                if not (self.jinshuju_access_token.strip() and self.jinshuju_form_token.strip()):
-                    raise RuntimeError(
-                        "JINSHUJU_ACCESS_TOKEN and JINSHUJU_FORM_TOKEN must be set in production "
-                        "when JINSHUJU_ENABLED=true"
-                    )
 
 
 @lru_cache

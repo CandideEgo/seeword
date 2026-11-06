@@ -107,8 +107,8 @@ class VideoResponse(BaseModel):
     favorited_at: str | None = None
     # Fork lineage (Phase 2 standard version): null for originals, UUID of source video for forks
     forked_from: str | None = None
-    # D0: demo/tutorial videos are watchable without consuming unlock quotas;
-    # card grids skip the lock badge for them.
+    # Demo/tutorial flag: anonymous viewers may stream the *media file* without
+    # a token (api/v1/media.py); the detail payload still follows the login wall.
     is_demo: bool = False
     # 内容三态（需求 §5.1）：local / proxy / offline。前端据此渲染「已下架」态；
     # 默认 local 让历史缓存 JSON 与旧客户端仍可解析。
@@ -145,9 +145,6 @@ class SubtitleResponse(BaseModel):
 
 class VideoDetailResponse(VideoResponse):
     subtitles: list[SubtitleResponse]
-    # D0 membership gate: how the current viewer may watch this video.
-    # ``remaining_this_month`` is null for Pro/admin (unlimited).
-    access: dict | None = None
 
 
 class VideoAdminResponse(VideoResponse):
@@ -173,7 +170,8 @@ class VideoAdminResponse(VideoResponse):
     external_meta: dict | None = None
     # ADR-0014 in-site curated channel (null = unassigned).
     channel_ref: str | None = None
-    # D0: demo/tutorial videos are watchable without consuming unlock quotas.
+    # Demo/tutorial flag (admin view): anonymous viewers may stream the media
+    # file, but the detail payload still follows the login wall.
     is_demo: bool = False
 
     @field_validator("submitted_at", "reviewed_at", mode="before")
@@ -514,22 +512,6 @@ class SearchSuggestionsResponse(BaseModel):
 
 class HotSearchesResponse(BaseModel):
     hot: list[str]
-
-
-class UnlockedVideoIdsResponse(BaseModel):
-    video_ids: list[str]
-    remaining_this_month: int | None = None
-    quota: int | None = None
-
-
-class VideoAccessInfo(BaseModel):
-    unlocked: bool
-    remaining_this_month: int | None = None
-    quota: int
-
-
-class VideoUnlockResponse(BaseModel):
-    access: VideoAccessInfo
 
 
 class PendingCountsResponse(BaseModel):

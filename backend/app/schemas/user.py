@@ -103,8 +103,6 @@ class UserResponse(BaseModel):
     phone: str | None = None
     name: str | None
     level: str | None
-    plan: str
-    plan_expires_at: datetime | None = None
     role: str | None = None
     avatar_url: str | None = None
     gender: str | None = None
@@ -117,7 +115,7 @@ class UserResponse(BaseModel):
     has_password: bool = False
     created_at: datetime
 
-    @field_serializer("plan_expires_at", "last_active_at", "created_at")
+    @field_serializer("last_active_at", "created_at")
     def serialize_datetime(self, v: datetime | None) -> str | None:
         return v.isoformat() if v is not None else None
 

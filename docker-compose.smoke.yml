@@ -41,7 +41,6 @@ services:
       # The e2e helpers register through the fixed dev code ("1234"); without this
       # the fake is off and every spec dies in beforeAll with 验证码错误或已失效.
       SMS_DEV_FAKE_ENABLED: "true"
-      JINSHUJU_ENABLED: "false"
       EXAM_PDF_DIR: /reference-exam-pdfs
     volumes:
       - smoke-media:/app/media

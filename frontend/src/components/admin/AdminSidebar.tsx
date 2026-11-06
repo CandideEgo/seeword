@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   BarChart3,
   ChevronLeft,
-  CreditCard,
   LayoutDashboard,
   LayoutTemplate,
   Megaphone,
@@ -58,7 +57,6 @@ const NAV: NavSection[] = [
     title: "运营",
     items: [
       { label: "用户管理", href: "/admin/users", icon: UserCog },
-      { label: "付费记录", href: "/admin/payments", icon: CreditCard },
       { label: "反馈公告", href: "/admin/feedback", icon: Megaphone },
     ],
   },

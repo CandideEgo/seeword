@@ -112,7 +112,6 @@ export async function setupWatch(
         name: "Watch Test",
         phone: "13800000000",
         role: "user",
-        plan: "free",
         onboarding_completed: true,
         created_at: "2026-10-20T00:00:00Z",
         avatar_url: null,
@@ -132,7 +131,6 @@ export async function setupWatch(
         difficulty_level: "B1",
         is_official: true,
         like_count: 0,
-        access: { unlocked: true },
         subtitles: options.empty
           ? []
           : options.short

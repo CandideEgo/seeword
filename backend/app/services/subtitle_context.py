@@ -7,7 +7,6 @@ from app.core.errors import AppError, ErrorCode, NotFoundError
 from app.models.subtitle import Subtitle
 from app.models.user import User
 from app.models.video import Video
-from app.services.unlock_service import get_video_access_info
 from app.services.video_access import check_video_access, should_use_snapshot
 
 
@@ -17,9 +16,6 @@ async def resolve_context(db: AsyncSession, user: User, video_id: str | None, su
     video = await db.get(Video, video_id)
     if video is None or not check_video_access(video, user):
         raise NotFoundError("原句不存在或不可访问")
-    access = await get_video_access_info(db, user, video)
-    if not access["unlocked"]:
-        raise AppError(403, ErrorCode.FORBIDDEN, "当前账号尚不能查看该视频原句")
     if should_use_snapshot(video, user):
         from app.services.video_publish import subtitles_from_snapshot
 

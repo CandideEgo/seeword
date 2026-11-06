@@ -85,19 +85,6 @@ async def test_reject_mismatched_source_without_writing(client, auth_headers, en
         assert (await db.scalar(select(func.count()).select_from(Vocabulary))) == 0
 
 
-async def test_source_reuses_membership_gate(client, auth_headers, monkeypatch):
-    video, _, _, second = await seed_source()
-
-    async def locked(*args, **kwargs):
-        return {"unlocked": False}
-
-    monkeypatch.setattr("app.services.subtitle_context.get_video_access_info", locked)
-    resp = await client.post(
-        "/api/v1/vocabulary", headers=auth_headers, params={"word": "walk", "video_id": video, "subtitle_id": second}
-    )
-    assert resp.status_code == 403
-
-
 @pytest.mark.parametrize("scope,source", [("video", "video:test"), ("general", "global")])
 async def test_gloss_labels_hint_scope_without_new_ai(client, auth_headers, monkeypatch, scope, source):
     async def cached(*args, **kwargs):

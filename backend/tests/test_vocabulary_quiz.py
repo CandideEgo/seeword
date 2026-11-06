@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.learning import Vocabulary
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services import ecdict, practice_service
 from tests.conftest import TestSessionLocal, hash_password
 
@@ -183,7 +183,6 @@ async def test_drill_builds_full_options_with_ecdict_fallback(fake_redis, monkey
             phone="13800138020",
             hashed_password=hash_password("Vocabpass1!"),
             name="Quiz",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)
@@ -221,7 +220,6 @@ async def _submit_user(phone: str) -> str:
             phone=phone,
             hashed_password=hash_password("Vocabpass1!"),
             name="Submit",
-            plan=PlanType.free,
             role=RoleType.user,
         )
         db.add(user)

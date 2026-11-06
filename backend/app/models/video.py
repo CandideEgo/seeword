@@ -248,4 +248,3 @@ class Video(Base):
     favorites = relationship("UserFavorite", back_populates="video", cascade="all, delete-orphan")
     notes = relationship("UserNote", back_populates="video", cascade="all, delete-orphan")
     likes = relationship("VideoLike", back_populates="video", cascade="all, delete-orphan")
-    unlocks = relationship("UserVideoUnlock", back_populates="video", cascade="all, delete-orphan")

@@ -136,13 +136,7 @@ const WHITELISTS = {
     ],
   ]),
   5: new Map(),
-  6: new Map([
-    [
-      "frontend/src/app/(main)/upgrade/page.tsx",
-      "微信扫码支付的二维码底板：扫码识别要求纯白底 + 静区，暗色模式下也必须是白纸，" +
-        "没有语义 token 能表达「一张白纸」（bg-on-primary 语义是「品牌面上的前景」，不是纸）。",
-    ],
-  ]),
+  6: new Map(),
   7: new Map(),
   8: new Map([
     [

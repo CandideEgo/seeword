@@ -42,7 +42,7 @@ GPU 依赖集 `backend/requirements.txt` **已删除**，现在在 `gpu-worker/r
 
 - **迁移只由 backend 容器跑**：`entrypoint.sh` 按 `RUN_MIGRATIONS` 门控，`celery` 与 `celery-beat` 都是 `RUN_MIGRATIONS=0`。三个容器并发 `alembic upgrade head` 会在同一 revision 上竞争，实测表现为 celery 容器里的唯一约束冲突（backfill INSERT 的 `duplicate key`），落败的容器只能走「继续启动」分支，留下迁移到一半的 schema。
 - `entrypoint.sh` **不会**因为迁移失败而阻断启动（失败的迁移通常意味着 DB 不可达，gunicorn 会经 `/health` 暴露出来）。
-- 生产 `ENV` 漏配即按 dev 形态运行：`ENV` 默认 `development`，意味着**支付签名旁路 + mock 支付路由挂载 + 没有 HSTS/CSP**。部署后必须核对。
+- 生产 `ENV` 漏配即按 dev 形态运行：`ENV` 默认 `development`，意味着**没有 HSTS/CSP**、JSON 日志与限流按 dev 口径。部署后必须核对。
 - 生产启动时若短信凭据缺失，`lifespan` 会打 warning 并**fail closed**（发码 502、校验一律拒绝）。固定的测试码 `1234` 不再自动回退：只有 `SMS_DEV_FAKE_ENABLED=true` 且 `ENV` 为 `development`/`testing` 才生效，production 启动即拒绝该开关；dev-fake 模式下也必须先发过码（Redis 有记录）才接受。
 
 ## 常用脚本（`backend/scripts/`）

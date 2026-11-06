@@ -5,20 +5,18 @@ instances that the route handler serialises via Pydantic schemas.
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
 from enum import Enum
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import commit_refresh
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
-from app.core.time_utils import iso_or_none, to_aware_utc
+from app.core.time_utils import iso_or_none
 from app.models.admin_setting import SETTINGS_ROW_ID, AdminSetting
-from app.models.jinshuju_payment import JinshujuPayment, JinshujuPaymentStatus
 from app.models.learning import LearningRecord, Vocabulary
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.schemas.pagination import paginated
 
 logger = logging.getLogger(__name__)
@@ -31,9 +29,6 @@ logger = logging.getLogger(__name__)
 
 #: 管理列表 keyword 的长度上限（ADM-11：避免把整段文本当 LIKE 模式拖慢全表扫描）。
 _ADMIN_KEYWORD_MAX_LEN = 100
-
-#: PostgreSQL INTEGER（``jinshuju_payments.serial_number``）的上界。
-_INT32_MAX = 2_147_483_647
 
 
 def _like_escape(value: str) -> str:
@@ -65,21 +60,15 @@ async def list_admin_users(
     page: int = 1,
     page_size: int = 20,
     role: str | None = None,
-    plan: str | None = None,
     keyword: str | None = None,
 ) -> dict:
-    """List users with aggregated stats, filtered by role/plan/keyword.
-
-    ``plan`` accepts ``free`` / ``pro`` / ``expired`` — the latter matches
-    users whose Pro membership has lapsed (prototype 28 已过期 filter).
+    """List users with aggregated stats, filtered by role/keyword.
 
     Filter values are validated instead of silently ignored (ADM-11), the
     keyword is LIKE-escaped and length-capped, and ordering carries an ``id``
     tiebreaker so OFFSET pagination cannot duplicate/skip rows with equal
     ``created_at`` timestamps (ADM-10).
     """
-
-    now = datetime.now(UTC)
 
     # Subqueries for aggregated counts.
     # Note: speaking-attempt counts are intentionally omitted — AI speaking
@@ -99,15 +88,6 @@ async def list_admin_users(
     def _apply_filters(s):
         if role:
             s = s.where(User.role == _parse_enum_filter(role, RoleType, "角色"))
-        if plan:
-            if plan == "expired":
-                s = s.where(
-                    User.plan == PlanType.pro,
-                    User.plan_expires_at.is_not(None),
-                    User.plan_expires_at < now,
-                )
-            else:
-                s = s.where(User.plan == _parse_enum_filter(plan, PlanType, "方案"))
         if keyword and keyword.strip():
             k = keyword.strip().lower()
             if len(k) > _ADMIN_KEYWORD_MAX_LEN:
@@ -138,8 +118,6 @@ async def list_admin_users(
                 "avatar_url": user.avatar_url,
                 "gender": user.gender,
                 "level": user.level,
-                "plan": user.plan.value if user.plan else "free",
-                "plan_expires_at": iso_or_none(user.plan_expires_at),
                 "timezone": user.timezone,
                 "role": user.role.value if user.role else "user",
                 "is_banned": user.is_banned,
@@ -246,7 +224,7 @@ async def list_admin_accounts(db: AsyncSession) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# User actions (ban / role / plan)
+# User actions (ban / role)
 # ---------------------------------------------------------------------------
 
 
@@ -319,246 +297,3 @@ async def change_user_role(db: AsyncSession, user_id: str, role: str, admin_user
     await commit_refresh(db, user)
     logger.info("admin_action change_user_role actor=%s target=%s role=%s", admin_user_id, user_id, role)
     return user
-
-
-async def change_user_plan(db: AsyncSession, user_id: str, plan: str, duration_days: int, admin_user_id: str) -> User:
-    # Lock the User row to prevent race with concurrent payment callback
-    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
-    user = result.scalar_one_or_none()
-    if not user:
-        raise NotFoundError("User not found")
-    new_plan = _parse_enum_filter(plan, PlanType, "方案")
-    user.plan = new_plan
-    if new_plan == PlanType.pro:
-        now = datetime.now(UTC)
-        current_expires = to_aware_utc(user.plan_expires_at) if user.plan_expires_at else now
-        base = max(current_expires, now)
-        user.plan_expires_at = base + timedelta(days=duration_days)
-        # ADM-17: provenance must say "admin" — otherwise a manual grant keeps
-        # whatever source the account had before (e.g. "trial") or stays NULL,
-        # and exports/source breakdowns lie about where Pro came from.
-        user.plan_source = "admin"
-    else:
-        user.plan_expires_at = None
-        user.plan_source = None
-    await commit_refresh(db, user)
-    logger.info(
-        "admin_action change_user_plan actor=%s target=%s plan=%s duration_days=%s",
-        admin_user_id,
-        user_id,
-        plan,
-        duration_days,
-    )
-    return user
-
-
-# ---------------------------------------------------------------------------
-# 金数据 payments (replaces the dead legacy ``orders`` admin surface)
-# ---------------------------------------------------------------------------
-
-#: Valid ``JinshujuPayment.status`` filter values. The route already restricts
-#: via ``Literal`` (422); this set is the service-layer guard for direct calls.
-_PAYMENT_STATUS_VALUES = frozenset(
-    {
-        JinshujuPaymentStatus.APPLIED,
-        JinshujuPaymentStatus.PENDING,
-        JinshujuPaymentStatus.IGNORED,
-        JinshujuPaymentStatus.REFUNDED,
-        JinshujuPaymentStatus.ERROR,
-    }
-)
-
-#: 已发放（= 钱到账且会员已开）才计入收入；退款/挂起/异常一律不算。
-_PAID_STATUS = JinshujuPaymentStatus.APPLIED
-
-
-def _parse_payment_status(value: str) -> str:
-    if value not in _PAYMENT_STATUS_VALUES:
-        allowed = "/".join(sorted(_PAYMENT_STATUS_VALUES))
-        raise BadRequestError(f"无效的付款状态过滤值：{value}（可选 {allowed}）")
-    return value
-
-
-def _payment_paid_at():
-    """Payment time expression: Jinshuju entry time, falling back to ingest time."""
-    return func.coalesce(JinshujuPayment.entry_created_at, JinshujuPayment.created_at)
-
-
-async def list_admin_payments(
-    db: AsyncSession,
-    page: int = 1,
-    page_size: int = 20,
-    status: str | None = None,
-    keyword: str | None = None,
-) -> dict:
-    """List 金数据 payment records (LEFT JOIN the linked account), paginated.
-
-    - ``phone`` in each row is the display phone: linked account phone first,
-      then the phone typed on the Jinshuju form (``COALESCE``). Records that
-      have not been matched to an account yet (``user_id IS NULL``) still show
-      the buyer's phone.
-    - ``keyword`` matches the payment phone / linked account phone / trade
-      number / tier name, plus an exact numeric ``serial_number`` match; LIKE
-      metacharacters are escaped.
-    - Stable ordering: ``entry_created_at DESC NULLS LAST, created_at DESC,
-      id DESC`` so OFFSET pagination cannot duplicate/skip rows.
-    - ``raw_json`` is never selected or returned.
-    """
-
-    def _apply_filters(s):
-        if status:
-            s = s.where(JinshujuPayment.status == _parse_payment_status(status))
-        if keyword and keyword.strip():
-            k = keyword.strip().lower()
-            if len(k) > _ADMIN_KEYWORD_MAX_LEN:
-                raise BadRequestError(f"搜索关键词最长 {_ADMIN_KEYWORD_MAX_LEN} 个字符")
-            pattern = f"%{_like_escape(k)}%"
-            conditions = or_(
-                func.lower(JinshujuPayment.phone).like(pattern, escape="\\"),
-                func.lower(User.phone).like(pattern, escape="\\"),
-                func.lower(JinshujuPayment.trade_no).like(pattern, escape="\\"),
-                func.lower(JinshujuPayment.tier_name).like(pattern, escape="\\"),
-            )
-            if k.isdigit() and 0 < int(k) <= _INT32_MAX:
-                # 数据序号可以整段输入（例如 1024）→ 精确匹配，避免被 like 吃掉。
-                # 必须挡 int32：``serial_number`` 是 INTEGER（4 字节），把 11 位
-                # 手机号塞进去会让 asyncpg 抛 "value out of int32 range" → 500。
-                # （SQLite 测试库不校验整数范围，这个坑只在 Postgres 上暴露。）
-                conditions = or_(conditions, JinshujuPayment.serial_number == int(k))
-            s = s.where(conditions)
-        return s
-
-    stmt = _apply_filters(
-        select(
-            JinshujuPayment,
-            User.phone.label("user_phone"),
-            User.name.label("user_name"),
-            func.coalesce(User.phone, JinshujuPayment.phone).label("display_phone"),
-        ).outerjoin(User, JinshujuPayment.user_id == User.id)
-    )
-
-    count_stmt = _apply_filters(
-        select(func.count(JinshujuPayment.id))
-        .select_from(JinshujuPayment)
-        .outerjoin(User, JinshujuPayment.user_id == User.id)
-    )
-    total = (await db.execute(count_stmt)).scalar_one()
-
-    stmt = (
-        stmt.order_by(
-            JinshujuPayment.entry_created_at.desc().nullslast(),
-            JinshujuPayment.created_at.desc(),
-            JinshujuPayment.id.desc(),
-        )
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
-    rows = (await db.execute(stmt)).all()
-
-    items = []
-    for payment, user_phone, user_name, display_phone in rows:
-        items.append(
-            {
-                "id": payment.id,
-                "entry_token": payment.entry_token,
-                "serial_number": payment.serial_number,
-                "phone": display_phone,
-                "user_id": payment.user_id,
-                "user_phone": user_phone,
-                "user_name": user_name,
-                "tier_name": payment.tier_name,
-                "amount_fen": payment.amount_fen,
-                "duration_days": payment.duration_days,
-                "trade_status": payment.trade_status,
-                "trade_no": payment.trade_no,
-                "payment_method": payment.payment_method,
-                "status": payment.status,
-                "error_message": payment.error_message,
-                "entry_created_at": iso_or_none(payment.entry_created_at),
-                "created_at": iso_or_none(payment.created_at),
-                "applied_at": iso_or_none(payment.applied_at),
-            }
-        )
-
-    return paginated(items, page=page, page_size=page_size, total=total)
-
-
-async def payment_summary(db: AsyncSession) -> dict:
-    """Status counters + revenue sums for the payments page (single query).
-
-    Revenue = sum of ``amount_fen`` for ``applied`` records (paid **and**
-    granted); refunded/pending/ignored/error rows are excluded. ``paid_today_*``
-    and ``paid_30d_*`` window on the payment time (``entry_created_at`` with
-    ``created_at`` fallback) using a UTC day boundary, while ``applied_today``
-    counts grants applied today (``applied_at``).
-    """
-    now = datetime.now(UTC)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    ago_30d = now - timedelta(days=30)
-    paid_at = _payment_paid_at()
-
-    row = (
-        await db.execute(
-            select(
-                func.count(JinshujuPayment.id).filter(JinshujuPayment.status == JinshujuPaymentStatus.APPLIED),
-                func.count(JinshujuPayment.id).filter(JinshujuPayment.status == JinshujuPaymentStatus.PENDING),
-                func.count(JinshujuPayment.id).filter(JinshujuPayment.status == JinshujuPaymentStatus.IGNORED),
-                func.count(JinshujuPayment.id).filter(JinshujuPayment.status == JinshujuPaymentStatus.REFUNDED),
-                func.count(JinshujuPayment.id).filter(JinshujuPayment.status == JinshujuPaymentStatus.ERROR),
-                func.coalesce(func.sum(JinshujuPayment.amount_fen).filter(JinshujuPayment.status == _PAID_STATUS), 0),
-                func.coalesce(
-                    func.sum(JinshujuPayment.amount_fen).filter(
-                        JinshujuPayment.status == _PAID_STATUS, paid_at >= ago_30d
-                    ),
-                    0,
-                ),
-                func.coalesce(
-                    func.sum(JinshujuPayment.amount_fen).filter(
-                        JinshujuPayment.status == _PAID_STATUS, paid_at >= today_start
-                    ),
-                    0,
-                ),
-                func.count(JinshujuPayment.id).filter(
-                    JinshujuPayment.status == _PAID_STATUS, JinshujuPayment.applied_at >= today_start
-                ),
-            )
-        )
-    ).one()
-
-    return {
-        "applied": int(row[0] or 0),
-        "pending": int(row[1] or 0),
-        "ignored": int(row[2] or 0),
-        "refunded": int(row[3] or 0),
-        "error": int(row[4] or 0),
-        "paid_total_fen": int(row[5] or 0),
-        "paid_30d_fen": int(row[6] or 0),
-        "paid_today_fen": int(row[7] or 0),
-        "applied_today": int(row[8] or 0),
-    }
-
-
-def enqueue_payment_sync(admin_user_id: str) -> bool:
-    """Enqueue the existing Jinshuju sync Celery task. Never does inline HTTP.
-
-    Returns ``False`` when the integration is disabled/unconfigured (there is
-    nothing to sync) or when the broker rejects the dispatch. The task itself
-    re-checks configuration and failures bubble up to Celery (autoretry).
-    """
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    if not (
-        settings.jinshuju_enabled and settings.jinshuju_access_token.strip() and settings.jinshuju_form_token.strip()
-    ):
-        logger.info("admin_action payments_sync actor=%s skipped=unconfigured", admin_user_id)
-        return False
-    from app.tasks.payment_tasks import sync_jinshuju_payments
-
-    try:
-        sync_jinshuju_payments.delay()
-    except Exception:
-        logger.warning("admin_action payments_sync actor=%s enqueue_failed", admin_user_id, exc_info=True)
-        return False
-    logger.info("admin_action payments_sync actor=%s queued", admin_user_id)
-    return True

@@ -156,7 +156,7 @@ class TestListNotifications:
 
         # Retired types stay hidden in the unfiltered list too
         unfiltered = (await client.get("/api/v1/notifications", headers=auth_headers)).json()
-        assert unfiltered["total"] == 2
+        assert unfiltered["total"] == 1
 
         # A type nobody used yet is an empty list, not an error
         empty = (await client.get("/api/v1/notifications?type=streak_warning", headers=auth_headers)).json()
@@ -203,13 +203,12 @@ class TestMarkAsRead:
     async def test_cannot_mark_other_users_notification(self, client: AsyncClient, auth_headers: dict):
         # Create a notification owned by a *different* user
         async with TestSessionLocal() as db:
-            from app.models.user import PlanType, RoleType, User
+            from app.models.user import RoleType, User
 
             other = User(
                 phone="13800138005",
                 hashed_password="x",
                 name="Other",
-                plan=PlanType.free,
                 role=RoleType.user,
             )
             db.add(other)

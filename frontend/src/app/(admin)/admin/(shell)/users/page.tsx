@@ -9,15 +9,12 @@ import {
   Activity,
   Ban,
   ChevronDown,
-  Crown,
-  Flame,
   RefreshCw,
   Shield,
   ShieldCheck,
   ShieldOff,
   UserCog,
   Users,
-  UserX,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -36,7 +33,7 @@ import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import type { AdminStats, AdminUser } from "@/types";
-import { getAdminStats, listUsers, promoteUser, setUserBanned, setUserPlan } from "@/lib/adminData";
+import { getAdminStats, listUsers, promoteUser, setUserBanned } from "@/lib/adminData";
 import { Card } from "@/components/ui/Card";
 
 // ---------------------------------------------------------------------------
@@ -49,33 +46,18 @@ const ROLE_FILTERS = [
   { key: "user", label: "普通用户" },
 ];
 
-const PLAN_FILTERS = [
-  { key: "", label: "全部方案" },
-  { key: "pro", label: "Pro 会员" },
-  { key: "free", label: "Free" },
-  { key: "expired", label: "已过期" },
-];
-
 const PAGE_SIZE = 20;
 
-type RowAction = "ban" | "promote" | "grant" | "revoke";
+type RowAction = "ban" | "promote";
 
 // ---------------------------------------------------------------------------
 // Stat chip (prototype 28 .stat-chip)
 // ---------------------------------------------------------------------------
 
-/** Pro 会员是否已过期（plan 仍为 pro 但到期时间已过）。 */
-function isExpiredPro(u: AdminUser): boolean {
-  return (
-    u.plan === "pro" && !!u.plan_expires_at && new Date(u.plan_expires_at).getTime() < Date.now()
-  );
-}
-
 /** 当前筛选条件的可读描述（用于筛选后为空时的空状态）。 */
-function filterSummary(roleFilter: string, planFilter: string, keyword: string): string {
+function filterSummary(roleFilter: string, keyword: string): string {
   const parts: string[] = [];
   if (roleFilter) parts.push(`角色「${ROLE_FILTERS.find((f) => f.key === roleFilter)?.label}」`);
-  if (planFilter) parts.push(`方案「${PLAN_FILTERS.find((f) => f.key === planFilter)?.label}」`);
   if (keyword.trim()) parts.push(`关键词「${keyword.trim()}」`);
   return parts.join(" · ");
 }
@@ -86,7 +68,6 @@ function filterSummary(roleFilter: string, planFilter: string, keyword: string):
 
 export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState("");
-  const [planFilter, setPlanFilter] = useState("");
   const [keyword, setKeyword] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -128,11 +109,10 @@ export default function AdminUsersPage() {
         page: pg,
         page_size: PAGE_SIZE,
         role: roleFilter,
-        plan: planFilter,
         keyword,
       }),
     mode: "replace",
-    filters: [roleFilter, planFilter, keyword],
+    filters: [roleFilter, keyword],
   });
 
   const patchUser = useCallback(
@@ -185,42 +165,10 @@ export default function AdminUsersPage() {
     });
   }
 
-  function handleGrantPro(user: AdminUser, days: number) {
-    return withBusy(user, "grant", async () => {
-      try {
-        const updated = await setUserPlan(user.id, "pro", days);
-        patchUser(user.id, updated);
-        toast.success(`已赠送 Pro ${days} 天`);
-      } catch (err) {
-        toastApiError(err);
-      }
-    });
-  }
-
-  function handleRevokePro(user: AdminUser) {
-    setConfirmPrompt({
-      title: "撤销 Pro 会员",
-      description: `确认撤销「${user.name || user.phone}」的 Pro 会员？此操作不可撤销。`,
-      danger: true,
-      confirmLabel: "确认撤销",
-      onConfirm: () =>
-        withBusy(user, "revoke", async () => {
-          try {
-            const updated = await setUserPlan(user.id, "free", 0);
-            patchUser(user.id, updated);
-            toast.success("已撤销 Pro");
-          } catch (err) {
-            toastApiError(err);
-          }
-        }),
-    });
-  }
-
-  const hasFilters = Boolean(roleFilter || planFilter || keyword.trim());
+  const hasFilters = Boolean(roleFilter || keyword.trim());
 
   function clearFilters() {
     setRoleFilter("");
-    setPlanFilter("");
     setKeyword("");
   }
 
@@ -247,7 +195,7 @@ export default function AdminUsersPage() {
       return (
         <AdminEmptyState
           text="没有匹配的用户"
-          description={`当前筛选：${filterSummary(roleFilter, planFilter, keyword)}`}
+          description={`当前筛选：${filterSummary(roleFilter, keyword)}`}
           action={
             <Button onClick={clearFilters} variant="secondary" size="sm">
               清除筛选
@@ -288,30 +236,16 @@ export default function AdminUsersPage() {
           iconClass="bg-brand-50 text-brand-600"
         />
         <StatChip
-          icon={Crown}
-          value={stats ? stats.pro_users.toLocaleString() : "—"}
-          label="Pro 会员"
-          iconClass="bg-warning-soft text-warning"
-        />
-        <StatChip
           icon={Activity}
           value={stats ? stats.active_users_today.toLocaleString() : "—"}
           label="今日活跃"
           iconClass="bg-success-soft text-success"
-        />
-        <StatChip
-          icon={Flame}
-          value={stats ? stats.pro_expired_count.toLocaleString() : "—"}
-          label="已过期"
-          iconClass="bg-error/10 text-error"
         />
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <FilterPills options={ROLE_FILTERS} value={roleFilter} onChange={setRoleFilter} />
-        <div className="h-5 w-px bg-hairline" />
-        <FilterPills options={PLAN_FILTERS} value={planFilter} onChange={setPlanFilter} />
         <AdminSearchInput
           value={keyword}
           onChange={setKeyword}
@@ -331,8 +265,6 @@ export default function AdminUsersPage() {
                 {[
                   ["用户", "text-left"],
                   ["角色", "text-left"],
-                  ["方案", "text-left"],
-                  ["到期", "text-left"],
                   ["学习", "text-left"],
                   ["状态", "text-left"],
                   ["注册时间", "text-left"],
@@ -353,10 +285,10 @@ export default function AdminUsersPage() {
             </thead>
             <tbody className="divide-y divide-hairline">
               {loading ? (
-                <AdminSkeleton.TableRows rows={5} cols={8} />
+                <AdminSkeleton.TableRows rows={5} cols={6} />
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-0">
+                  <td colSpan={6} className="p-0">
                     {renderEmpty()}
                   </td>
                 </tr>
@@ -372,7 +304,6 @@ export default function AdminUsersPage() {
                       isExpanded={isExpanded}
                       isSelf={isSelf}
                       busy={rowBusy}
-                      granting={rowBusy && busyAction?.kind === "grant"}
                       returnFocusRef={menuTriggerRef}
                       onToggleExpand={() => setExpandedId(isExpanded ? null : u.id)}
                       onBan={() => {
@@ -399,8 +330,6 @@ export default function AdminUsersPage() {
                           onConfirm: () => doPromote(u),
                         });
                       }}
-                      onGrantPro={(days) => handleGrantPro(u, days)}
-                      onRevokePro={() => handleRevokePro(u)}
                     />
                   );
                 })
@@ -448,30 +377,22 @@ function UserRow({
   isExpanded,
   isSelf,
   busy,
-  granting,
   onToggleExpand,
   onBan,
   onPromote,
-  onGrantPro,
-  onRevokePro,
   returnFocusRef,
 }: {
   user: AdminUser;
   isExpanded: boolean;
   isSelf: boolean;
   busy: boolean;
-  granting: boolean;
   onToggleExpand: () => void;
   onBan: () => void;
   onPromote: () => void;
-  onGrantPro: (days: number) => void;
-  onRevokePro: () => void;
   /** 见 `AdminDropdownProps.returnFocusRef`：确认框关闭后焦点回到这里。 */
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
-  const [days, setDays] = useState(30);
   const detailId = `user-detail-${u.id}`;
-  const grantDaysId = `user-grant-days-${u.id}`;
   const displayName = u.name || u.phone || "用户";
   // 自我保护（A-36）：后端会 400 拒绝，前端把不可用动作直接置灰并说明原因。
   const selfTitle = "不能对自己执行该操作";
@@ -530,29 +451,6 @@ function UserRow({
           {isSelf && <span className="ml-2 text-caption text-muted-soft">（本人）</span>}
         </td>
         <td className="px-4 py-3">
-          {u.plan === "pro" ? (
-            <Badge tone={isExpiredPro(u) ? "red" : "amber"} icon={Crown}>
-              {isExpiredPro(u) ? "已过期" : "Pro"}
-            </Badge>
-          ) : (
-            <span className="text-meta text-muted">Free</span>
-          )}
-        </td>
-        <td className="px-4 py-3">
-          {u.plan_expires_at ? (
-            <span
-              className={cn(
-                "font-mono text-meta",
-                isExpiredPro(u) ? "text-error-text" : "text-body"
-              )}
-            >
-              {new Date(u.plan_expires_at).toLocaleDateString("zh-CN")}
-            </span>
-          ) : (
-            <span className="text-meta text-muted">—</span>
-          )}
-        </td>
-        <td className="px-4 py-3">
           <span className="font-mono text-copy text-body">{u.learned_words ?? 0}</span>
           <span className="text-meta text-muted"> 词 · {u.videos_watched ?? 0} 视频</span>
         </td>
@@ -592,14 +490,6 @@ function UserRow({
                   disabled: isSelf || busy,
                   onClick: onPromote,
                 },
-                {
-                  key: "revoke",
-                  label: "撤销 Pro",
-                  icon: UserX,
-                  danger: true,
-                  disabled: u.plan !== "pro" || isSelf || busy,
-                  onClick: onRevokePro,
-                },
               ]}
             />
           </div>
@@ -609,48 +499,14 @@ function UserRow({
       {/* Expanded detail */}
       {isExpanded && (
         <tr id={detailId} className="bg-surface-soft/40">
-          <td colSpan={8} className="px-4 py-4">
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <DetailStat label="观看视频" value={u.videos_watched ?? 0} />
-                <DetailStat label="等级" value={u.level || "-"} />
-                <DetailStat
-                  label="Pro 到期"
-                  value={
-                    u.plan_expires_at
-                      ? new Date(u.plan_expires_at).toLocaleDateString("zh-CN")
-                      : "-"
-                  }
-                />
-              </div>
-
-              {/* Pro management */}
-              <div className="flex items-end gap-3">
-                <div>
-                  <label htmlFor={grantDaysId} className="block text-meta text-muted mb-1.5">
-                    赠送天数
-                  </label>
-                  <input
-                    id={grantDaysId}
-                    type="number"
-                    value={days}
-                    onChange={(e) => setDays(Number(e.target.value))}
-                    min={1}
-                    max={3650}
-                    className="w-24 rounded-lg border border-hairline bg-canvas px-3 py-2 text-copy focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                  />
-                </div>
-                <Button
-                  onClick={() => onGrantPro(Math.max(1, Math.min(3650, Math.round(days))))}
-                  icon={Crown}
-                  size="sm"
-                  loading={granting}
-                  disabled={busy}
-                >
-                  赠送 Pro
-                </Button>
-              </div>
+          <td colSpan={6} className="px-4 py-4">
+            <div className="grid grid-cols-3 gap-3">
+              <DetailStat label="观看视频" value={u.videos_watched ?? 0} />
+              <DetailStat label="等级" value={u.level || "-"} />
+              <DetailStat
+                label="注册时间"
+                value={new Date(u.created_at).toLocaleDateString("zh-CN")}
+              />
             </div>
           </td>
         </tr>

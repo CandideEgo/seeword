@@ -325,7 +325,7 @@ class TestAnswers:
 
     async def test_another_users_round_is_404(self, client: AsyncClient, auth_headers: dict):
         from app.core.security import create_token, hash_password
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
 
         user_id = await _get_user_id(client, auth_headers)
         await _seed_new_words(user_id, 30)
@@ -336,7 +336,6 @@ class TestAnswers:
                 phone="13700137000",
                 hashed_password=hash_password("Testpass123!"),
                 name="Intruder",
-                plan=PlanType.free,
                 role=RoleType.user,
             )
             db.add(intruder)

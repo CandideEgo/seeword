@@ -35,7 +35,6 @@ from app.api.v1 import (
     media,
     notes,
     notifications,
-    payments,
     presence,
     recommendations,
     shadowing,
@@ -356,11 +355,6 @@ def create_app() -> FastAPI:
     app.include_router(videos.router, prefix="/api/v1")
     app.include_router(favorites.router, prefix="/api/v1")
     app.include_router(presence.router, prefix="/api/v1")
-    app.include_router(payments.router, prefix="/api/v1")
-    if settings.env in ("development", "testing"):
-        from app.api.v1 import mock_payments
-
-        app.include_router(mock_payments.router, prefix="/api/v1")
     app.include_router(vocabulary.router, prefix="/api/v1")
     app.include_router(vocab_sets.router, prefix="/api/v1")
     app.include_router(words.router, prefix="/api/v1")

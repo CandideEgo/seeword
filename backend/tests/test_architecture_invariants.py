@@ -35,7 +35,6 @@ API_DIR = Path(__file__).resolve().parent.parent / "app" / "api"
 USER_SIDE_ENGAGEMENT: dict[str, str] = {
     f"{VIDEO_PREFIX}/{{video_id}}/like": "a user's own like",
     f"{VIDEO_PREFIX}/{{video_id}}/favorite": "a user's own favorite",
-    f"{VIDEO_PREFIX}/{{video_id}}/unlock": "a user's own unlock record",
     f"{VIDEO_PREFIX}/{{video_id}}/note": "a user's own note on a video (UserNote, scoped by user_id)",
 }
 
@@ -378,6 +377,10 @@ DROPPED_TABLES = frozenset(
         "shadowing_attempts",
         "weekly_reports",
         "video_practice_questions",
+        # 2026-11 paid-membership chain removal (migration d4e5f6a7b8c9)
+        "orders",
+        "jinshuju_payments",
+        "user_video_unlocks",
     }
 )
 
@@ -389,6 +392,15 @@ REMOVED_PLAN_ROUTE_FRAGMENTS = (
     "/plan/history",
     "/plan/items/",
     "/plan/generate/",
+)
+
+# 2026-11 下线会员收费链路：收款、订单、解锁端点与后台付费记录都不许复活。
+REMOVED_PAYMENT_ROUTE_FRAGMENTS = (
+    "/payments",
+    "/videos/{video_id}/unlock",
+    "/videos/unlocked",
+    "/admin/payments",
+    "/admin/users/{user_id}/plan",
 )
 
 
@@ -430,6 +442,11 @@ def test_services_and_tasks_do_not_import_http_adapters():
             if any(name == "app.api" or name.startswith("app.api.") for name in modules):
                 offenders.append(f"{path.relative_to(app_dir)}:{node.lineno}")
     assert not offenders, f"services/tasks import HTTP adapters: {offenders}"
+
+    @pytest.mark.parametrize("fragment", REMOVED_PAYMENT_ROUTE_FRAGMENTS)
+    def test_removed_payment_routes_stay_removed(self, fragment):
+        offenders = [path for path in _route_paths() if fragment in path]
+        assert not offenders, f"已下线会员收费链路的端点又出现了：{offenders}"
 
 
 def test_model_chat_endpoint_lives_in_exactly_one_module():

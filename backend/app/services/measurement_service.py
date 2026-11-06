@@ -6,10 +6,7 @@
 1. **分母写死并随结果一起返回**。激活率的分母是「窗口内注册的非管理员账号」，
    D1/D7 的分母是「该激活日 cohort 的去重用户」，而不是「今天还在的人」。
    没成熟的 cohort 返回 ``eligible=False``，不拿后来的用户补分母。
-2. **付费只认付款事实**。金数据 ``applied`` 且能匹配账号的流水才算付费；试用
-   与人工赠送分开计数（MET-02：旧的「Pro 转化漏斗」是四个互不相关的累计人数，
-   不能读成逐步转化）。
-3. **性能数字必须带样本量**。p75 用最近秩法（nearest-rank），样本 <20 时
+2. **性能数字必须带样本量**。p75 用最近秩法（nearest-rank），样本 <20 时
    只作参考；没有样本就返回 ``None``，不返回 0 冒充「很快」。
 
 时间边界：注册/激活用 UTC 时间戳；学习日与 D1/D7 用
@@ -28,11 +25,9 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from app.models.behavior import BehaviorEvent
-from app.models.jinshuju_payment import JinshujuPayment, JinshujuPaymentStatus
-from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent
 from app.models.pipeline_dispatch import DISPATCH_STATUS_PENDING, PipelineDispatch
-from app.models.user import PlanType, RoleType, User
+from app.models.user import RoleType, User
 from app.services.event_contract import (
     CLIENT_FIRST_PLAY,
     CLIENT_FLOW_RESULT,
@@ -59,7 +54,6 @@ DEFINITIONS: dict[str, str] = {
     "activation": "注册后 24 小时内出现首个有效学习事件；分母 = 窗口内注册的非管理员账号",
     "cohort": "激活日 cohort（首次有效学习所在的用户本地日）；分母 = 该日首次学习的去重用户",
     "d1_d7": "激活日后第 1/7 个本地日仍有有效学习；只统计已成熟 cohort，不用后来的用户补分母",
-    "paid": "金数据已付款且匹配到账号（applied）；试用与人工赠送单独计数，不计入付费",
     "percentile": "p75 最近秩法；返回样本量，样本 <20 时仅作参考",
     "boundary": "注册/激活用 UTC 时间戳；学习日与 D1/D7 用 LearningEvent.event_date（用户本地日，写入时冻结）",
 }
@@ -209,44 +203,6 @@ async def _cohorts(db: AsyncSession, first_date: date, today: date) -> tuple[lis
         "multi_day_7d": multi_day_7d,
         # MET 字典的主指标：每周至少 2 个有效学习日的人占「至少 1 天」的比例。
         "volume_rate": _rate(multi_day_7d, active_7d),
-    }
-
-
-async def _entitlement(db: AsyncSession, now: datetime) -> dict[str, Any]:
-    """权益分布：付费事实与试用/赠送分开，不让累计人数伪装成转化。"""
-    active_pro = (
-        await db.execute(
-            select(func.count(User.id)).where(
-                User.plan == PlanType.pro,
-                User.plan_expires_at.is_not(None),
-                User.plan_expires_at > now,
-            )
-        )
-    ).scalar_one()
-    total_users = (await db.execute(select(func.count(User.id)).where(User.role != RoleType.admin))).scalar_one()
-    paid_users = (
-        await db.execute(
-            select(func.count(func.distinct(JinshujuPayment.user_id))).where(
-                JinshujuPayment.status == JinshujuPaymentStatus.APPLIED,
-                JinshujuPayment.user_id.is_not(None),
-            )
-        )
-    ).scalar_one()
-    watched_users = (await db.execute(select(func.count(func.distinct(LearningRecord.user_id))))).scalar_one()
-    vocab_users = (await db.execute(select(func.count(func.distinct(Vocabulary.user_id))))).scalar_one()
-
-    paid = int(paid_users or 0)
-    active = int(active_pro or 0)
-    return {
-        "registered": int(total_users or 0),
-        "watched": int(watched_users or 0),
-        "vocab_saved": int(vocab_users or 0),
-        "active_pro": active,
-        "paid_pro": paid,
-        # 「有效 Pro 但没有任何已付款流水」= 试用/人工赠送/历史兑换。它和付费
-        # 人数相加不应大于 active_pro；若大于，说明付款流水匹配漏了账号。
-        "trial_or_granted_pro": max(active - paid, 0),
-        "paid_share_of_active_pro": _rate(min(paid, active), active) if active else None,
     }
 
 
@@ -411,7 +367,6 @@ async def learning_metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
 
     activation = await _activation(db, window_start)
     cohorts, weekly = await _cohorts(db, window_start.date(), today)
-    entitlement = await _entitlement(db, now)
     event_quality = await _event_quality(db, window_start)
     performance = await _performance(db, window_start, now)
 
@@ -421,7 +376,6 @@ async def learning_metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
         "activation": activation,
         "cohorts": cohorts,
         "weekly": weekly,
-        "entitlement": entitlement,
         "event_quality": event_quality,
         "performance": performance,
     }

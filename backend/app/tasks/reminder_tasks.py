@@ -7,8 +7,9 @@ Two reminder families, all delivered as in-app notifications via
   reminder when the user's local clock hits their ``vocabulary_reminder_time``
   hour and they have due words. The former streak-at-risk warning was
   retired; ``sent["streak_warning"]`` stays at 0 for compatibility.
-- ``send_pro_expiring_reminders``: daily sweep for Pro (incl. trial) that
-  expires in 3 / 1 days.
+
+The former ``send_pro_expiring_reminders`` sweep was removed with the retired
+paid-membership chain (2026-11).
 
 Timezone handling comes from the single authority in
 ``app.services.local_time`` (BUG-16 / DEC-079): the user's
@@ -146,77 +147,3 @@ def send_hourly_reminders(now: datetime | None = None):
     except Exception:
         logger.exception("send_hourly_reminders failed")
         return {"vocabulary_reminder": 0, "streak_warning": 0}
-
-
-@celery_app.task
-def send_pro_expiring_reminders(now: datetime | None = None):
-    """Daily sweep: warn Pro users (incl. trial) 3 days and 1 day before expiry.
-
-    Runs on a Celery beat schedule (crontab minute=0, hour=1 UTC = 09:00
-    Beijing). Dedup key includes the days-left bucket so the 3-day and 1-day
-    notices are distinct even if sweeps overlap.
-    """
-    from app.core.database import async_session
-
-    async def _process():
-        from sqlalchemy import select
-
-        from app.models.preferences import UserPreferences
-        from app.models.user import PlanType, User
-        from app.services.notification_service import commit_and_push, create_notification
-
-        now_utc = now or datetime.now(UTC)
-        sent = 0
-
-        async with async_session() as db:
-            rows = (
-                await db.execute(
-                    select(User, UserPreferences)
-                    .outerjoin(UserPreferences, UserPreferences.user_id == User.id)
-                    .where(User.plan == PlanType.pro, User.plan_expires_at.is_not(None))
-                )
-            ).all()
-
-            notifications = []
-            for user, prefs in rows:
-                nprefs = _merged_prefs(prefs)
-                if not nprefs.get("pro_expiring", True):
-                    continue
-
-                local_now = _to_local(now_utc, prefs.reminder_timezone if prefs else None)
-                expires = user.plan_expires_at
-                if expires.tzinfo is None:
-                    expires = expires.replace(tzinfo=UTC)
-                days_left = (expires.astimezone(local_now.tzinfo).date() - local_now.date()).days
-                if days_left not in (1, 3):
-                    continue
-
-                message = (
-                    "您的 Pro 会员明天到期，续费后继续无限观看所有视频"
-                    if days_left == 1
-                    else f"您的 Pro 会员将于 {days_left} 天后到期，续费后继续无限观看所有视频"
-                )
-                key = f"reminder:pro_expiring:{user.id}:{local_now.date().isoformat()}:{days_left}"
-                if await _claim_daily_slot(key):
-                    notifications.append(
-                        await create_notification(
-                            user_id=user.id,
-                            type="pro_expiring",
-                            title="Pro 会员即将到期",
-                            message=message,
-                            db=db,
-                            related_url="/upgrade",
-                        )
-                    )
-                    sent += 1
-
-            if sent:
-                await commit_and_push(db, notifications)
-            logger.info("pro_expiring_reminders_sent", count=sent)
-            return sent
-
-    try:
-        return run_async(_process())
-    except Exception:
-        logger.exception("send_pro_expiring_reminders failed")
-        return 0

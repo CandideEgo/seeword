@@ -104,12 +104,12 @@ async def get_video_detail(
     bypassed (used by the admin detail endpoint so admins can view UGC
     drafts they don't own).
 
-    D0 membership gate: Free viewers who have not unlocked the video get the
-    metadata (cover/title/difficulty) but empty subtitles and no media URLs —
-    the watch page renders the unlock panel from the ``access`` field.
+    Every feature is free (2026-11): there is no membership/unlock gate. The
+    login wall is the only remaining boundary — anonymous callers get the
+    metadata but empty subtitles and no media URLs, so the content itself is
+    never served without an account.
     """
     from app.core.cache import cache_get, cache_set
-    from app.services.unlock_service import get_video_access_info
 
     result = await db.execute(select(Video).options(selectinload(Video.subtitles)).where(Video.id == video_id))
     video = result.scalar_one_or_none()
@@ -121,22 +121,15 @@ async def get_video_detail(
     if not skip_access_check and not check_video_access(video, current_user):
         return None
 
-    # Membership gate (D0): admins (skip path) and Pro see everything; Free
-    # viewers need an unlock (demo videos are always open).
-    if skip_access_check:
-        from app.core.config import get_settings
-
-        access = {"unlocked": True, "remaining_this_month": None, "quota": get_settings().free_monthly_unlock_quota}
-    else:
-        access = await get_video_access_info(db, current_user, video)
-    can_watch = bool(access["unlocked"])
+    # 匿名（登录墙之外）：只给元信息，不下发字幕与播放地址。
+    # ``skip_access_check`` 是管理员入口（调用方已鉴权），没有 current_user 也要放行。
+    can_watch = skip_access_check or current_user is not None
     # 已下线（需求 §5.1 offline）：不再可播。字幕/词标注仍下发（学习记录不断链，
     # 收藏夹与集合页「回看原视频」落到一个显示「已下架」的 watch 页）。
     is_offline = video.storage_mode == "offline"
     playable = can_watch and not is_offline
 
-    # Create LearningRecord on first view for authenticated viewers — only
-    # once they can actually watch (locked panel views don't count). Runs
+    # Create LearningRecord on first view for authenticated viewers. Runs
     # before the cache lookup: a cached payload must not skip view-history.
     if current_user and can_watch:
         lr_result = await db.execute(
@@ -157,17 +150,11 @@ async def get_video_detail(
                 if "uq_learning_record_user_video" not in str(exc):
                     raise
 
-    # 内测免费期：登录用户即放行（见 unlock_service.get_video_access_info）。
-    # access 不再含 per-user 额度，故登录用户的响应可共用 key；但**匿名**响应
-    # 是 locked 形状（空字幕/空 URL），绝不能缓存后回给登录用户，因此只有
+    # 登录用户的详情响应不含任何 viewer 相关字段，可以共用同一个 key；**匿名**
+    # 响应是 locked 形状（空字幕/空 URL），绝不能缓存后回给登录用户，因此只有
     # can_watch 的响应才读写缓存。
-    #
-    # 安全前提显式化：缓存 payload 不含任何 viewer 相关字段。免费额度恢复后
-    # `remaining_this_month` 会变成 per-user；那时不能再走共享 key（否则跨用户
-    # 泄漏），下面的谓词会让这条详情直接不缓存，而不是悄悄复用旧缓存。
-    viewer_independent = access.get("remaining_this_month") is None
     cache_key = f"video:detail:{video_id}"
-    cacheable = can_watch and viewer_independent
+    cacheable = can_watch
     if cacheable:
         cached = await cache_get(cache_key)
         if cached:
@@ -259,12 +246,11 @@ async def get_video_detail(
         channel_slug=channel_slug,
         channel_cover_url=channel_cover_url,
         subtitles=subtitle_responses,
-        access=access,
     )
 
     # Cache official video details for 5 minutes.
-    # Only cache if owner-only fields are None to prevent leaking them
-    # to anonymous/free users via the shared cache.
+    # Only cache when owner-only fields are None so the shared entry cannot
+    # leak them to other viewers.
     if cacheable and video.is_official and detail.rejection_reason is None and detail.error_message is None:
         await cache_set(cache_key, detail.model_dump_json(), ttl=300)
 

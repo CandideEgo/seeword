@@ -11,6 +11,12 @@
 4. 只读孤儿盘点脚本能识别故意留下的孤儿文件，且不删除任何东西。
 
 证据写到 ``docs/evidence/iteration-3/a08-<日期>.json``。
+
+.. note::
+   这是 **2026-10** 的演练记录。2026-11 会员收费链路下线后，收款流水表
+   （``jinshuju_payments``）、``orders`` 与导出/注销里的对应区段都已删除
+   （迁移 ``d4e5f6a7b8c9``），因此本脚本不能直接重跑；现行"无收款数据"的
+   导出与注销行为以 ``backend/tests/test_account_data.py`` 为准。
 """
 
 from __future__ import annotations

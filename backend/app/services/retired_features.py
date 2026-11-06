@@ -13,6 +13,7 @@ RETIRED_NOTIFICATION_TYPES = frozenset(
         "streak_warning",
         "streak_reminder",
         "speaking_feedback",
+        "pro_expiring",
     }
 )
 RETIRED_NOTIFICATION_PREFS = frozenset({*RETIRED_NOTIFICATION_TYPES, "streak_warning_enabled"})

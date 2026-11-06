@@ -20,7 +20,7 @@ function allScopes(): string[] {
   return Object.values(ACTIVE_SCOPE).flat();
 }
 
-describe("导航项：一级 5 项 + 资料库 4 项", () => {
+describe("导航项：一级 5 项 + 资料库 3 项", () => {
   it("MAIN_NAV 恰好 5 项，href 顺序固定", () => {
     expect(MAIN_NAV).toHaveLength(5);
     expect(MAIN_NAV.map((item) => item.href)).toEqual([
@@ -32,26 +32,25 @@ describe("导航项：一级 5 项 + 资料库 4 项", () => {
     ]);
   });
 
-  it("SECONDARY_NAV 恰好 4 项，href 顺序固定", () => {
-    expect(SECONDARY_NAV).toHaveLength(4);
+  it("SECONDARY_NAV 恰好 3 项，href 顺序固定", () => {
+    expect(SECONDARY_NAV).toHaveLength(3);
     expect(SECONDARY_NAV.map((item) => item.href)).toEqual([
       "/favorites",
       "/history",
       "/notifications",
-      "/upgrade",
     ]);
   });
 
-  it("两组 href 无重复，合计 9 项", () => {
+  it("两组 href 无重复，合计 8 项", () => {
     const hrefs = ALL_NAV.map((item) => item.href);
-    expect(new Set(hrefs).size).toBe(9);
-    expect(hrefs).toHaveLength(9);
+    expect(new Set(hrefs).size).toBe(8);
+    expect(hrefs).toHaveLength(8);
   });
 
   it("label 非空且不重复", () => {
     const labels = ALL_NAV.map((item) => item.label);
     expect(labels.every((label) => label.trim().length > 0)).toBe(true);
-    expect(new Set(labels).size).toBe(9);
+    expect(new Set(labels).size).toBe(8);
   });
 
   it("每项 icon 非空", () => {
@@ -119,7 +118,6 @@ describe("navigationActive：归属", () => {
     ["/favorites", "/favorites"],
     ["/history", "/history"],
     ["/notifications", "/notifications"],
-    ["/upgrade", "/upgrade"],
   ];
 
   it.each(ATTRIBUTION)("%s 归属 %s", (pathname, href) => {
@@ -150,7 +148,6 @@ describe("navigationActive：不双高亮", () => {
     "/favorites",
     "/history",
     "/notifications",
-    "/upgrade",
   ];
 
   it.each(PATHNAMES)("%s 最多命中一项", (pathname) => {
@@ -158,7 +155,7 @@ describe("navigationActive：不双高亮", () => {
   });
 
   it("无归属路径命中 0 项", () => {
-    for (const pathname of ["/search", "/pricing", "/checkout"]) {
+    for (const pathname of ["/search"]) {
       expect(activeHrefs(pathname), `${pathname} 不该高亮`).toEqual([]);
     }
   });

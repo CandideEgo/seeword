@@ -17,7 +17,6 @@ class TestAdminSettings:
         assert resp.status_code == 200
         data = resp.json()
         assert data["site_name"] == "SeeWord"
-        assert data["payments_enabled"] is False  # non-commercial platform
         assert data["registration_enabled"] is True
         assert data["quality_block_enabled"] is True
         assert data["quality_block_threshold"] == 0.6
@@ -35,8 +34,6 @@ class TestAdminSettings:
         data = resp.json()
         assert data["site_name"] == "SeeWord Beta"
         assert data["quality_warn_threshold"] == 0.85
-        # untouched fields keep their previous value
-        assert data["payments_enabled"] is False
 
         # persisted across requests
         again = await client.get("/api/v1/admin/settings", headers=admin_headers)
@@ -71,57 +68,16 @@ class TestAdminUsersEnhanced:
         for item in items:
             assert "learned_words" in item
 
-    async def test_expired_filter(self, client: AsyncClient, admin_headers: dict):
-        """No expired-Pro users in a fresh test DB — filter must return zero rows."""
-        resp = await client.get("/api/v1/admin/users?plan=expired", headers=admin_headers)
-        assert resp.status_code == 200
-        assert resp.json()["total"] == 0
-
 
 class TestAdminStatsEnhanced:
     async def test_stats_new_fields(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/stats", headers=admin_headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["pro_expired_count"] >= 0
         assert isinstance(data["videos_by_topic"], list)
         funnel = data["funnel"]
-        assert {"registered", "watched", "vocab_saved", "pro"} <= set(funnel.keys())
+        assert {"registered", "watched", "vocab_saved"} <= set(funnel.keys())
         assert funnel["registered"] >= 1
-
-
-class TestAdminStatsActivePro:
-    """ADM-05: Pro KPIs count unexpired memberships, not the stored ``plan``."""
-
-    async def test_expired_pro_excluded_from_pro_users_and_funnel(
-        self, client: AsyncClient, db_session, admin_headers: dict
-    ):
-        from datetime import datetime
-
-        from app.models.user import PlanType, User
-
-        # admin_headers fixture user is Pro until 2099 → active.
-        # Stored-plan distribution: admin + active + expired + null-expiry = 4.
-        # A13/FE-04: a null expiry is invalid, not an infinite membership — it
-        # must not inflate ``pro_users`` (that was the old definition) and it
-        # stays visible in ``pro_expired_count``.
-        db_session.add_all(
-            [
-                User(phone="13600136001", name="Expired Pro", plan=PlanType.pro, plan_expires_at=datetime(2020, 1, 1)),
-                User(phone="13500135001", name="Active Pro", plan=PlanType.pro, plan_expires_at=datetime(2099, 1, 1)),
-                User(phone="13400134001", name="Null Expiry Pro", plan=PlanType.pro, plan_expires_at=None),
-            ]
-        )
-        await db_session.commit()
-
-        resp = await client.get("/api/v1/admin/stats", headers=admin_headers)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["pro_users"] == 2  # admin + active; expired and null excluded
-        assert data["pro_expired_count"] == 2  # expired + null-expiry (both invalid)
-        assert data["funnel"]["pro"] == data["pro_users"]
-        pro_bucket = next(b for b in data["users_by_plan"] if b["plan"] == "pro")
-        assert pro_bucket["count"] == 4  # stored-plan bucket stays as-stored
 
 
 class TestAdminUserFilterValidation:
@@ -129,11 +85,6 @@ class TestAdminUserFilterValidation:
 
     async def test_invalid_role_is_422(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/users", params={"role": "bogus"}, headers=admin_headers)
-        assert resp.status_code == 422
-        assert resp.json()["code"] == "VALIDATION_ERROR"
-
-    async def test_invalid_plan_is_422(self, client: AsyncClient, admin_headers: dict):
-        resp = await client.get("/api/v1/admin/users", params={"plan": "bogus"}, headers=admin_headers)
         assert resp.status_code == 422
         assert resp.json()["code"] == "VALIDATION_ERROR"
 
@@ -186,12 +137,11 @@ class TestLastAdminProtection:
     """
 
     async def _make_admin(self, db, phone: str) -> "object":
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
 
         user = User(
             phone=phone,
             name="Second Admin",
-            plan=PlanType.pro,
             role=RoleType.admin,
             is_banned=False,
         )
@@ -202,10 +152,10 @@ class TestLastAdminProtection:
 
     async def test_cannot_ban_last_usable_admin(self, db_session):
         from app.core.errors import ConflictError
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
         from app.services import admin_service
 
-        only_admin = User(phone="13600136009", name="Only Admin", plan=PlanType.free, role=RoleType.admin)
+        only_admin = User(phone="13600136009", name="Only Admin", role=RoleType.admin)
         db_session.add(only_admin)
         await db_session.commit()
         await db_session.refresh(only_admin)
@@ -224,10 +174,10 @@ class TestLastAdminProtection:
 
     async def test_cannot_demote_last_usable_admin(self, db_session):
         from app.core.errors import ConflictError
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
         from app.services import admin_service
 
-        only_admin = User(phone="13600136010", name="Only Admin", plan=PlanType.free, role=RoleType.admin)
+        only_admin = User(phone="13600136010", name="Only Admin", role=RoleType.admin)
         db_session.add(only_admin)
         await db_session.commit()
         await db_session.refresh(only_admin)
@@ -243,11 +193,11 @@ class TestLastAdminProtection:
         assert only_admin.role.value == "admin"
 
     async def test_can_ban_admin_when_another_remains(self, db_session):
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
         from app.services import admin_service
 
-        survivor = User(phone="13600136011", name="Survivor", plan=PlanType.free, role=RoleType.admin)
-        target = User(phone="13600136012", name="Target", plan=PlanType.free, role=RoleType.admin)
+        survivor = User(phone="13600136011", name="Survivor", role=RoleType.admin)
+        target = User(phone="13600136012", name="Target", role=RoleType.admin)
         db_session.add_all([survivor, target])
         await db_session.commit()
         await db_session.refresh(survivor)
@@ -259,13 +209,11 @@ class TestLastAdminProtection:
     async def test_banned_admin_does_not_count_as_usable(self, db_session):
         """A banned admin is not a fallback — it cannot take over the panel."""
         from app.core.errors import ConflictError
-        from app.models.user import PlanType, RoleType, User
+        from app.models.user import RoleType, User
         from app.services import admin_service
 
-        survivor = User(phone="13600136013", name="Survivor", plan=PlanType.free, role=RoleType.admin)
-        banned_admin = User(
-            phone="13600136014", name="Banned Admin", plan=PlanType.free, role=RoleType.admin, is_banned=True
-        )
+        survivor = User(phone="13600136013", name="Survivor", role=RoleType.admin)
+        banned_admin = User(phone="13600136014", name="Banned Admin", role=RoleType.admin, is_banned=True)
         db_session.add_all([survivor, banned_admin])
         await db_session.commit()
         await db_session.refresh(survivor)
@@ -284,53 +232,6 @@ class TestLastAdminProtection:
         assert ban.status_code == 400
         role = await client.patch(f"/api/v1/admin/users/{admin_id}/role", json={"role": "user"}, headers=admin_headers)
         assert role.status_code == 400
-
-
-class TestAdminPlanSource:
-    """ADM-17: admin grant stamps plan_source='admin', revoke clears it."""
-
-    async def _make_user(self, db, phone: str, plan_source: str | None = None):
-        from app.models.user import PlanType, User
-
-        user = User(phone=phone, name="Plan User", plan=PlanType.free, plan_source=plan_source)
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    async def test_grant_sets_admin_source_and_revoke_clears(
-        self, client: AsyncClient, db_session, admin_headers: dict
-    ):
-        from sqlalchemy import select
-
-        from app.models.user import User
-
-        user = await self._make_user(db_session, "13600136020", plan_source="trial")
-
-        grant = await client.patch(
-            f"/api/v1/admin/users/{user.id}/plan",
-            json={"plan": "pro", "duration_days": 30},
-            headers=admin_headers,
-        )
-        assert grant.status_code == 200
-        body = grant.json()
-        assert body["plan"] == "pro"
-        assert body["plan_source"] == "admin"
-
-        stored = (await db_session.execute(select(User).where(User.id == user.id))).scalar_one()
-        await db_session.refresh(stored)
-        assert stored.plan_source == "admin"
-
-        revoke = await client.patch(
-            f"/api/v1/admin/users/{user.id}/plan",
-            json={"plan": "free", "duration_days": 0},
-            headers=admin_headers,
-        )
-        assert revoke.status_code == 200
-        assert revoke.json()["plan_source"] is None
-        assert revoke.json()["plan_expires_at"] is None
-        await db_session.refresh(stored)
-        assert stored.plan_source is None
 
 
 class TestAdminSettingsConcurrencySafety:
