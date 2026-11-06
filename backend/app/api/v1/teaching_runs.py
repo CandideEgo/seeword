@@ -87,7 +87,13 @@ def resume_cursor(after: int, last_event_id: str | None) -> int:
 
 
 @router.get("/runs/{run_id}")
-async def get_run(run_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_run(
+    run_id: str,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    response.headers["Cache-Control"] = "no-store"
     return await service.get(db, Principal(user.id), run_id)
 
 

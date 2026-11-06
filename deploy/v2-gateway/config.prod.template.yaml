@@ -15,6 +15,23 @@ model_list:
       output_cost_per_token: ${V2_OUTPUT_COST_PER_TOKEN}
       max_input_tokens: ${V2_MAX_INPUT_TOKENS}
       max_output_tokens: ${V2_MAX_OUTPUT_TOKENS}
+  # P02.2 streamed tutor: its own alias so widening the output envelope never
+  # widens the 128-token cards/content-verification path. Absent from this
+  # template until a deployment enables streaming; enabling requires verifying
+  # the real model's output capability and setting ADAPTER_MODEL_OUTPUT_CAPS.
+  - model_name: teaching-tutor
+    litellm_params:
+      model: openai/${COMMANDCODE_MODEL}
+      api_base: http://llm-gateway-shim:4100/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+    model_info:
+      id: seeword-teaching-tutor
+      input_cost_per_token: ${V2_INPUT_COST_PER_TOKEN}
+      output_cost_per_token: ${V2_OUTPUT_COST_PER_TOKEN}
+      max_input_tokens: ${V2_MAX_INPUT_TOKENS}
+      # Declared cap; raise only after real provider verification. Kept as a
+      # literal because render_config.py only substitutes registered placeholders.
+      max_output_tokens: 1024
 
 router_settings:
   num_retries: 0

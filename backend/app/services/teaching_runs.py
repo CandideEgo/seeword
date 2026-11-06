@@ -1,5 +1,6 @@
 """Durable execution and independently reconnectable, permission-projected events."""
 
+import asyncio
 import hashlib
 import json
 import uuid
@@ -182,6 +183,18 @@ async def events(db: AsyncSession, principal, run_id: str, after: int) -> tuple[
                 kind, payload = "content.restricted", {"message_id": payload.get("message_id")}
             else:
                 payload = {"message": message}
+        elif kind == "message.block":
+            projected = await dialogue.event_block(
+                db,
+                principal,
+                run.session_id,
+                payload.get("message_id", ""),
+                payload.get("block_id", ""),
+            )
+            if projected is None:
+                kind, payload = "content.restricted", {"message_id": payload.get("message_id")}
+            else:
+                payload = projected
         result.append(
             {
                 "schema_version": 1,
@@ -305,6 +318,17 @@ async def execute(run_id: str) -> None:
                 return await dialogue.model_input(check_db, principal, checked)
             return (await get_learning_context(check_db, principal, session.id)).model_dump(mode="json")
 
+    from app.core.config import get_settings
+
+    if (
+        run.response_mode == "conversation"
+        and get_settings().teaching_streaming_enabled
+        and any(card["kind"] == "analysis" for card in state["cards"])
+    ):
+        # P02.2: publish validated text blocks as the model writes them.
+        await _stream_turn(maker, principal, run_id, run.session_id, epoch, deadline, message, item.content_revision_id)
+        return
+
     try:
         # Before reveal, only trusted hint/actions are displayed; no answer is sent to a model.
         if run.response_mode == "conversation":
@@ -400,15 +424,27 @@ async def sweep(db: AsyncSession) -> list[str]:
             select(AgentRun).where(AgentRun.status.in_(["queued", "running"])).with_for_update(skip_locked=True)
         )
     ).scalars()
-    dispatch = []
+    dispatch, expired_runs = [], []
     for run in rows:
         deadline = run.queue_deadline_at if run.status == "queued" else run.lease_expires_at
-        expired = deadline is None or utc(deadline) < now
-        if expired:
+        if deadline is None or utc(deadline) < now:
             run.status, run.error_code, run.finished_at = "needs_retry", "EXECUTION_UNCERTAIN", now
             append_event(db, run, "run.failed", {"error_code": run.error_code})
+            expired_runs.append(run.id)
         elif run.status == "queued":
             dispatch.append(run.id)
+    if expired_runs:
+        from sqlalchemy import update
+
+        from app.models.v2_runtime import TeachingMessage as _TeachingMessage
+        from app.services.v2_schema import has_tables
+
+        if await has_tables(db, ("teaching_messages",)):
+            await db.execute(
+                update(_TeachingMessage)
+                .where(_TeachingMessage.run_id.in_(expired_runs), _TeachingMessage.status == "streaming")
+                .values(status="interrupted")
+            )
     old = select(AgentRun.id).where(AgentRun.created_at < now - timedelta(hours=24), AgentRun.status.in_(TERMINAL))
     await db.execute(delete(AgentRunEvent).where(AgentRunEvent.run_id.in_(old)))
     await db.execute(delete(AgentStep).where(AgentStep.run_id.in_(old)))
@@ -420,3 +456,223 @@ async def sweep(db: AsyncSession) -> list[str]:
     await db.execute(delete(TeachingFeedback).where(TeachingFeedback.expires_at <= now))
     await db.commit()
     return dispatch
+
+
+class _StreamStoppedError(Exception):
+    """Publication stopped mid-stream; ``reason`` decides how the run settles."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+async def _stream_turn(
+    maker,
+    principal,
+    run_id: str,
+    session_id: str,
+    epoch: int,
+    deadline,
+    message: str,
+    content_revision_id: str,
+) -> None:
+    """Consume the model stream, publish committed blocks, then settle the run.
+
+    Every block is its own short transaction under the session lock, then the
+    run lock; the model request never holds either. A cancelled/fenced run
+    stops publishing but the generator keeps draining upstream for settlement.
+    """
+    from app.models.teaching import ExamAnalysisRevision
+    from app.models.v2_runtime import AgentStep, TeachingMessage
+    from app.services.teaching import dialogue
+    from app.services.teaching.content import may_disclose
+    from app.services.teaching.context import get_learning_context
+    from app.services.teaching.streaming import CitationStream
+    from app.services.teaching_gateway import stream_tutor_reply
+
+    held: dict = {}
+    message_id: str | None = None
+    ordinal = 0
+    published_text: list[str] = []
+
+    async def dispatch_context():
+        async with maker() as db:
+            session = await core.owned_session(db, principal, session_id, lock=True)
+            checked = await _owned(db, principal.user_id, run_id, lock=True)
+            await require_access(db, checked.user_id, "teaching_runs_enabled")
+            await require_access(db, checked.user_id, "teaching_dialogue_enabled")
+            if (
+                checked.status != "running"
+                or checked.lease_epoch != epoch
+                or checked.cancel_requested_at
+                or session.revision != checked.bound_session_revision
+            ):
+                raise AppError(409, "TEACHING_CONTEXT_CHANGED", "教学状态已变化")
+            revision = await db.get(ExamAnalysisRevision, content_revision_id, with_for_update=True)
+            if revision is None or not may_disclose(revision, principal, "model"):
+                raise AppError(409, "CONTENT_RESTRICTED", "材料当前不允许模型处理")
+            value = await dialogue.model_input(db, principal, checked)
+            held["context"] = value
+            held["source_ids"] = [card["card_id"] for card in dialogue.sources(value["learning_context"])]
+            return value
+
+    async def publish(text: str) -> None:
+        nonlocal message_id, ordinal
+        async with maker() as db:
+            # Same lock order as every other writer: session, then run.
+            session = await core.owned_session(db, principal, session_id, lock=True)
+            current = await _owned(db, principal.user_id, run_id, lock=True)
+            if current.status != "running" or current.lease_epoch != epoch or current.cancel_requested_at:
+                raise _StreamStoppedError("cancelled")
+            await require_access(db, current.user_id, "teaching_runs_enabled")
+            await require_access(db, current.user_id, "teaching_dialogue_enabled")
+            if session.revision != current.bound_session_revision:
+                raise _StreamStoppedError("rights")
+            revision = await db.get(ExamAnalysisRevision, content_revision_id)
+            if revision is None or not may_disclose(revision, principal, "model"):
+                raise _StreamStoppedError("rights")
+            if message_id is None:
+                context = (await get_learning_context(db, principal, session_id)).model_dump(mode="json")
+                row = await dialogue.append_streaming(db, current, context)
+                message_id = row.id
+            else:
+                row = await db.get(TeachingMessage, message_id)
+            ordinal += 1
+            block = await dialogue.append_block(db, row, ordinal, text)
+            append_event(
+                db,
+                current,
+                "message.block",
+                {"message_id": row.id, "block_id": block.id, "ordinal": ordinal},
+            )
+            published_text.append(text)
+            await db.commit()
+
+    def remember_text() -> None:
+        if parser is None:
+            return
+        source_ids = held.get("source_ids") or []
+        # Only text that was actually committed as blocks may appear in the
+        # message body: a cancelled/failed tail was never published.
+        held["text"] = "".join(published_text)
+        held["citations"] = [source_ids[index - 1] for index in parser.citations if 0 < index <= len(source_ids)]
+
+    async def settle(error_code: str | None, done: dict | None) -> None:
+        remember_text()
+        async with maker() as db:
+            session = await core.owned_session(db, principal, session_id, lock=True)
+            current = await _owned(db, principal.user_id, run_id, lock=True)
+            step = (
+                await db.execute(select(AgentStep).where(AgentStep.run_id == run_id, AgentStep.seq == 1))
+            ).scalar_one()
+            row = await db.get(TeachingMessage, message_id) if message_id else None
+
+            def mark_interrupted() -> None:
+                if row is not None and row.status == "streaming":
+                    dialogue.finalize(
+                        row,
+                        {
+                            "text": held.get("text", ""),
+                            "citation_ids": held.get("citations", []),
+                            "suggested_answer": None,
+                        },
+                        "interrupted",
+                    )
+
+            if current.status != "running" or current.lease_epoch != epoch:
+                # Cancelled or superseded: publication stays stopped; the step
+                # record is the only bookkeeping we may still write.
+                mark_interrupted()
+                step.status = "uncertain"
+                await db.commit()
+                return
+            if error_code is None:
+                # Re-check what the last block transaction checked: a user
+                # action, a withdrawal or the deadline may have landed between
+                # the final block and this commit.
+                revision = await db.get(ExamAnalysisRevision, content_revision_id)
+                if session.revision != current.bound_session_revision:
+                    error_code = "TEACHING_CONTEXT_CHANGED"
+                elif revision is None or not may_disclose(revision, principal, "model"):
+                    error_code = "CONTENT_RESTRICTED"
+                elif datetime.now(UTC) > utc(deadline):
+                    error_code = "EXECUTION_TIMEOUT"
+            if error_code is not None:
+                mark_interrupted()
+                current.status, current.error_code = "needs_retry", error_code
+                step.status = "uncertain"
+                append_event(db, current, "run.failed", {"error_code": error_code})
+            else:
+                citations = held.get("citations") or []
+                if row is None or not (held.get("text") or "").strip() or not citations:
+                    mark_interrupted()
+                    current.status, current.error_code = "needs_retry", "AI_SERVICE_UNAVAILABLE"
+                    step.status = "uncertain"
+                    append_event(db, current, "run.failed", {"error_code": current.error_code})
+                else:
+                    dialogue.finalize(
+                        row,
+                        {"text": held["text"], "citation_ids": citations, "suggested_answer": None},
+                        "complete",
+                    )
+                    step.status = "completed"
+                    step.safe_result = {
+                        "streamed": True,
+                        "usage": (done or {}).get("usage"),
+                        "usage_status": (done or {}).get("usage_status", "missing"),
+                    }
+                    current.status = "succeeded"
+                    append_event(db, current, "message.upsert", {"message_id": row.id})
+                    append_event(db, current, "run.completed", {"status": "succeeded"})
+            current.finished_at = datetime.now(UTC)
+            await db.commit()
+
+    parser = None
+    done = None
+    error_code = None
+    stopped = None
+    try:
+        # The whole turn — model stream and block commits — shares one budget.
+        remaining = (deadline - datetime.now(UTC)).total_seconds()
+        async with asyncio.timeout(max(0.001, remaining)):
+            async for event in stream_tutor_reply(
+                principal.user_id, run_id, str(uuid.uuid4()), message, deadline, before_dispatch=dispatch_context
+            ):
+                if event["type"] == "delta":
+                    if parser is None:
+                        context = held.get("context")
+                        if context is None:
+                            raise AppError(409, "TEACHING_CONTEXT_CHANGED", "教学状态已变化")
+                        parser = CitationStream(len(dialogue.sources(context["learning_context"])))
+                    for block in parser.feed(event["text"]):
+                        await publish(block)
+                elif event["type"] == "done":
+                    done = event
+    except TimeoutError:
+        error_code = "EXECUTION_TIMEOUT"
+    except _StreamStoppedError as exc:
+        stopped = exc.reason
+    except AppError as exc:
+        error_code = exc.code
+    except Exception:
+        # A database/gateway fault must still settle, not leave the message
+        # in ``streaming`` (the sweep is the crash-only safety net).
+        error_code = "AI_SERVICE_UNAVAILABLE"
+
+    if parser is not None and stopped is None:
+        try:
+            for block in parser.finish():
+                await publish(block)
+        except _StreamStoppedError as exc:
+            stopped = exc.reason
+        except AppError as exc:
+            error_code = exc.code
+    elif parser is None and error_code is None and stopped is None:
+        error_code = "AI_SERVICE_UNAVAILABLE"
+
+    if stopped == "cancelled":
+        await settle(None, done)
+        return
+    if stopped == "rights":
+        error_code = error_code or "CONTENT_RESTRICTED"
+    await settle(error_code, done)

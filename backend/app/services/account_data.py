@@ -227,6 +227,13 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
 
 async def _gather_teaching_data(db: Any, user_id: str) -> dict[str, Any]:
     """Export current user-readable teaching views, never internal content snapshots."""
+    from app.services.v2_schema import EXPORT_TABLES, has_tables
+
+    # Export is a legal right, not a V2 feature: on a database whose V2
+    # migration never ran there is no teaching data to disclose, and the
+    # export must still succeed instead of failing on a missing table.
+    if not await has_tables(db, EXPORT_TABLES):
+        return {}
     from app.models.teaching import TeachingFeedback, TeachingOperation, TeachingSession, UserQuestionDisclosure
     from app.models.v2_runtime import AgentRun, ExternalConnection, ExternalCredential
     from app.services.external_connection_service import view as connection_view

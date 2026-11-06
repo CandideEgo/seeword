@@ -38,6 +38,12 @@ def view(row: ExternalConnection) -> dict:
 
 
 async def owned(db: AsyncSession, user_id: str, connection_id: str) -> ExternalConnection:
+    from app.services.v2_schema import has_tables
+
+    # Revocation must stay reachable with the feature switched off, but on a
+    # database without the V2 tables there is no connection to own.
+    if not await has_tables(db, ("external_connections",)):
+        raise NotFoundError("连接不存在")
     row = (
         await db.execute(
             select(ExternalConnection)

@@ -390,10 +390,18 @@ def create_app() -> FastAPI:
     app.include_router(teaching.router, prefix="/api/v1")
     app.include_router(teaching_runs.router, prefix="/api/v1")
     app.include_router(external_connections.router, prefix="/api/v1")
+    mcp_app = None
     if settings.mcp_sdk_enabled:
-        from app.integrations.mcp.server import create_mcp_app
+        try:
+            from app.integrations.mcp.server import create_mcp_app
 
-        mcp_app = create_mcp_app()
+            mcp_app = create_mcp_app()
+        except ImportError:
+            # The MCP SDK is deliberately absent from the cloud dependency set
+            # (it conflicts with the pinned Uvicorn). A switch alone must not
+            # take the whole API down: degrade to the same 503 as "disabled".
+            logger.warning("MCP_SDK_ENABLED is set but the MCP SDK is not installed; serving 503")
+    if mcp_app is not None:
         app.state.mcp_app = mcp_app
         app.mount("/api/v1/mcp", mcp_app)
     else:

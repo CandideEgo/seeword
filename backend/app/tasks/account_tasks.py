@@ -268,10 +268,14 @@ async def _purge_user(db, user) -> None:
     # 5. Every remaining table with a user_id FK to users.id, children before
     #    parents. The excluded ones were handled above; DB-level ON DELETE
     #    CASCADE covers nested rows (exam answers, study items, …).
+    from app.services.v2_schema import existing_tables
+
+    present = await existing_tables(db)
     user_scoped = [
         t
         for t in Base.metadata.sorted_tables
         if t.name not in account_data.PURGE_EXCLUDED_TABLES
+        and t.name in present
         and "user_id" in t.columns
         and any(fk.target_fullname == "users.id" for fk in t.columns["user_id"].foreign_keys)
     ]
@@ -295,63 +299,83 @@ async def _purge_user(db, user) -> None:
 
 async def _prepare_v2_removal(db, user_id: str) -> None:
     """Revoke access, fence execution, and retain a remote lifecycle intent atomically."""
+    from app.services.v2_schema import existing_tables
+
+    # Deletion must complete even when the V2 migration never ran: a missing
+    # table means there is nothing to revoke or fence, not that the account
+    # should stay alive past its 30-day promise. Alembic applies one revision
+    # at a time, so each group is checked on its own instead of all-or-nothing.
+    present = await existing_tables(db)
+    if not present & {"external_connections", "teaching_sessions", "agent_runs", "gateway_lifecycle_intents"}:
+        return
+
     from sqlalchemy import select
 
     from app.models.teaching import TeachingSession
     from app.models.v2_runtime import AgentRun, ExternalConnection, ExternalCredential, GatewayLifecycleIntent
 
     now = datetime.now(UTC)
-    connections = (
-        (
-            await db.execute(
-                select(ExternalConnection)
-                .where(ExternalConnection.user_id == user_id)
-                .order_by(ExternalConnection.id)
-                .with_for_update()
+    if "external_connections" in present:
+        connections = (
+            (
+                await db.execute(
+                    select(ExternalConnection)
+                    .where(ExternalConnection.user_id == user_id)
+                    .order_by(ExternalConnection.id)
+                    .with_for_update()
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    for connection in connections:
-        connection.revoked_at = connection.revoked_at or now
-        credentials = (
-            await db.execute(select(ExternalCredential).where(ExternalCredential.connection_id == connection.id))
-        ).scalars()
-        for credential in credentials:
-            credential.revoked_at = credential.revoked_at or now
-    await db.execute(
-        select(TeachingSession.id)
-        .where(TeachingSession.user_id == user_id)
-        .order_by(TeachingSession.id)
-        .with_for_update()
-    )
-    runs = (
+        for connection in connections:
+            connection.revoked_at = connection.revoked_at or now
+            if "external_credentials" not in present:
+                continue
+            credentials = (
+                await db.execute(select(ExternalCredential).where(ExternalCredential.connection_id == connection.id))
+            ).scalars()
+            for credential in credentials:
+                credential.revoked_at = credential.revoked_at or now
+    if "teaching_sessions" in present:
         await db.execute(
-            select(AgentRun)
-            .where(AgentRun.user_id == user_id, AgentRun.status.in_(["queued", "running"]))
-            .order_by(AgentRun.id)
+            select(TeachingSession.id)
+            .where(TeachingSession.user_id == user_id)
+            .order_by(TeachingSession.id)
             .with_for_update()
         )
-    ).scalars()
-    for run in runs:
-        run.status = "cancelled"
-        run.cancel_requested_at = now
-        run.finished_at = now
-        run.lease_epoch += 1
-    existing = await db.scalar(
-        select(GatewayLifecycleIntent.id)
-        .where(GatewayLifecycleIntent.subject_ref == user_id, GatewayLifecycleIntent.status == "pending")
-        .limit(1)
-    )
-    if existing is None:
-        db.add(GatewayLifecycleIntent(subject_ref=user_id, status="pending"))
+    if "agent_runs" in present:
+        runs = (
+            await db.execute(
+                select(AgentRun)
+                .where(AgentRun.user_id == user_id, AgentRun.status.in_(["queued", "running"]))
+                .order_by(AgentRun.id)
+                .with_for_update()
+            )
+        ).scalars()
+        for run in runs:
+            run.status = "cancelled"
+            run.cancel_requested_at = now
+            run.finished_at = now
+            run.lease_epoch += 1
+    if "gateway_lifecycle_intents" in present:
+        existing = await db.scalar(
+            select(GatewayLifecycleIntent.id)
+            .where(GatewayLifecycleIntent.subject_ref == user_id, GatewayLifecycleIntent.status == "pending")
+            .limit(1)
+        )
+        if existing is None:
+            db.add(GatewayLifecycleIntent(subject_ref=user_id, status="pending"))
     await db.flush()
 
 
 async def _delete_v2_children(db, user_id: str) -> None:
     """Explicitly erase nested private records, also on SQLite test databases."""
     from sqlalchemy import delete, select
+
+    from app.services.v2_schema import existing_tables
+
+    present = await existing_tables(db)
 
     from app.models.teaching import LearningEventOutbox, TeachingAttempt, TeachingItem, TeachingSession
     from app.models.v2_runtime import (
@@ -361,19 +385,32 @@ async def _delete_v2_children(db, user_id: str) -> None:
         ExternalConnection,
         ExternalCredential,
         TeachingMessage,
+        TeachingMessageBlock,
     )
 
-    run_ids = select(AgentRun.id).where(AgentRun.user_id == user_id)
-    connection_ids = select(ExternalConnection.id).where(ExternalConnection.user_id == user_id)
-    session_ids = select(TeachingSession.id).where(TeachingSession.user_id == user_id)
-    item_ids = select(TeachingItem.id).where(TeachingItem.session_id.in_(session_ids))
-    await db.execute(delete(TeachingMessage).where(TeachingMessage.user_id == user_id))
-    await db.execute(delete(AgentRunEvent).where(AgentRunEvent.run_id.in_(run_ids)))
-    await db.execute(delete(AgentStep).where(AgentStep.run_id.in_(run_ids)))
-    await db.execute(delete(ExternalCredential).where(ExternalCredential.connection_id.in_(connection_ids)))
-    await db.execute(delete(LearningEventOutbox).where(LearningEventOutbox.user_id == user_id))
-    await db.execute(delete(TeachingAttempt).where(TeachingAttempt.item_id.in_(item_ids)))
-    await db.execute(delete(TeachingItem).where(TeachingItem.session_id.in_(session_ids)))
+    if "agent_runs" in present:
+        run_ids = select(AgentRun.id).where(AgentRun.user_id == user_id)
+        if "agent_run_events" in present:
+            await db.execute(delete(AgentRunEvent).where(AgentRunEvent.run_id.in_(run_ids)))
+        if "agent_steps" in present:
+            await db.execute(delete(AgentStep).where(AgentStep.run_id.in_(run_ids)))
+    if "teaching_messages" in present:
+        message_ids = select(TeachingMessage.id).where(TeachingMessage.user_id == user_id)
+        if "teaching_message_blocks" in present:
+            await db.execute(delete(TeachingMessageBlock).where(TeachingMessageBlock.message_id.in_(message_ids)))
+        await db.execute(delete(TeachingMessage).where(TeachingMessage.user_id == user_id))
+    if "external_connections" in present and "external_credentials" in present:
+        connection_ids = select(ExternalConnection.id).where(ExternalConnection.user_id == user_id)
+        await db.execute(delete(ExternalCredential).where(ExternalCredential.connection_id.in_(connection_ids)))
+    if "learning_event_outbox" in present:
+        await db.execute(delete(LearningEventOutbox).where(LearningEventOutbox.user_id == user_id))
+    if "teaching_sessions" in present:
+        session_ids = select(TeachingSession.id).where(TeachingSession.user_id == user_id)
+        if "teaching_attempts" in present and "teaching_items" in present:
+            item_ids = select(TeachingItem.id).where(TeachingItem.session_id.in_(session_ids))
+            await db.execute(delete(TeachingAttempt).where(TeachingAttempt.item_id.in_(item_ids)))
+        if "teaching_items" in present:
+            await db.execute(delete(TeachingItem).where(TeachingItem.session_id.in_(session_ids)))
 
 
 async def _purge_due(now: datetime | None = None) -> int:

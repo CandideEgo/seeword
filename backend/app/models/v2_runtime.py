@@ -3,7 +3,20 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    event,
+    inspect,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -136,7 +149,31 @@ class TeachingMessage(Base):
     role: Mapped[str] = mapped_column(String(20))
     body: Mapped[dict] = mapped_column(JSON)
     requires_reveal: Mapped[bool] = mapped_column(Boolean, default=False)
+    # complete | streaming | interrupted. Only the final projection changes;
+    # the text itself lives in immutable blocks (P02.2).
+    status: Mapped[str] = mapped_column(String(20), default="complete", server_default="complete")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class TeachingMessageBlock(Base):
+    """One immutable piece of streamed reply text; published when committed."""
+
+    __tablename__ = "teaching_message_blocks"
+    # The unique constraint's leading column also serves message_id lookups
+    # (page, export, model history, purge); no separate index is needed.
+    __table_args__ = (UniqueConstraint("message_id", "ordinal", name="uq_teaching_message_block_ordinal"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    message_id: Mapped[str] = mapped_column(String(36), ForeignKey("teaching_messages.id", ondelete="CASCADE"))
+    ordinal: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+@event.listens_for(TeachingMessageBlock, "before_update")
+def _immutable_block(_mapper, _connection, target):
+    for attr in inspect(target).attrs:
+        if attr.history.has_changes():
+            raise ValueError("Teaching message blocks are append-only")
 
 
 class GatewayLifecycleIntent(Base):

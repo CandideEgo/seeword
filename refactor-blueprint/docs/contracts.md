@@ -105,3 +105,16 @@ P02.1 新增 `/api/v1/teaching/sessions/{id}/messages` GET/POST，wire schema �
 - `teaching_messages` 不随 24 小时运行日志清理；导出复用当前站内投影，注销删除消息。导出不在多个任务上累积上下文共享锁，以免与单任务写入构成反向等待。未提供逐条删除/编辑对话 API，运营保留期和用户主动管理仍待补齐。
 
 当前完成后才发 message.upsert，不是 token 级流式生成；显式重试以新 operation_id 形成新回合，旧操作重放不会再次请求模型。自由提示教学、工具循环、流式输出、独立重试体验和外部托管仍是 P02/V2 剩余工作，不由此切片替代。迁移 `9f2c8a7d6b10` 继承 e0，为 run 增 mode 和一张消息表；仅在隔离库验证，未对业务库执行。
+
+## CTX11 流式导师回复与块发布（P02.2）
+
+本节冻结 P02.2 的 wire 与运行语义，实现记录与验证结果见[实施记录](implementation.md)。默认关闭；开关 `TEACHING_STREAMING_ENABLED` 要求 `TEACHING_DIALOGUE_ENABLED` 已开。关闭时对话回合仍走 CTX10 的非流式 JSON 回复，本节的表、事件和适配层改动都不产生行为。
+
+- **回复格式**：流式回合不再使用 `response_format=json_object`。模型输出纯文本，引用用 `[n]` 标记（n 为服务端 `sources(context)` 的 **1 基**序号；P02.1 的 JSON `citations` 仍是 0 基，两种模式不共用索引基准）。服务端逐段剔掉标记并校验范围：出现越界或非数字标记立即终止，不发布该段之后的内容；只有显式 `finish_reason=stop` 才算正常结束（`length`/缺失/其他值都按失败处理）；结束时必须至少有一个有效引用，否则按 `AI_SERVICE_UNAVAILABLE` 结束本 run。
+- **块**：正文按有序、不可变的 `teaching_message_blocks`（`message_id`、`ordinal`、`text`）持久化。模型增量先进入纯解析器，遇到句末（`。！？!?.;；\n`）或累计 120 字符即切块；单条回复正文上限 1000 字符，超出即终止。块一旦写入不允许更新（ORM `before_update` 守卫）；删除只发生在账号注销清理，修改只能新建消息。
+- **消息生命周期**：首个块与 `TeachingMessage` 同事务创建，`status='streaming'`；正常结束在同一事务写最终 `body`（全文、引用、`suggested_answer=null`）、`status='complete'` 和 `message.upsert`。流中断（截断、校验失败、取消、权利变化）保留已发布块，`status='interrupted'`，run 按失败/取消分别记账；已展示的文字不回收。
+- **事务与锁**：每个块的发布是一个独立短事务：锁 run 行 → 校验 `status='running'`、`lease_epoch`、未取消、session revision 未变、材料 `model` 使用权仍有效 → 写块、追加 `message.block` 事件 → 提交。模型网络流期间不持有数据库事务或行锁。序列号沿用 `AgentRunEvent.sequence`，唯一约束 `(run_id, sequence)` 兜底。
+- **事件**：新增 `message.block`，持久化 payload 只存 `{"message_id","block_id","ordinal"}`；订阅时按当前内容权利投影为 `{"message_id","message_status","block":{"id","ordinal","text"}}`，受限时整条降级为 `content.restricted`。客户端按 `sequence` 与 `block_id` 去重、按 `ordinal` 追加；`message.upsert` 到达时以完整投影对账。`after`/`Last-Event-ID` 语义不变（CTX04）。
+- **用量**：只有网关记账。后端读取流末 `usage`，把 `reported`（对象且字段为非负整数）、`missing`（没有 usage 字段）或 `unknown`（`usage:null` 或非对象）写入该 step 的 `safe_result`。任一种都不改写网关费用，也不当作 0；`missing`/`unknown` 不得阻止 run 完成。
+- **期限与预算**：整轮一个 per-run key，签发期限等于剩余执行期限；执行硬期限沿用现有 run 租约 30 秒（整轮，含块提交），单次模型读取超时 25 秒。取消或权限变化后停止发布新块，但读取端继续排空上游流直到结束或超时，让网关按原路径结算；排空结果不写回。
+- **适配层**：入站代理对 `stream:true` 的补全请求做增量转发（不缓冲整包），调用方断线后后台继续排空；出站 shim 按行转发 SSE，只在流结束时注入保守 usage。输出上限按模型查 `ADAPTER_MODEL_OUTPUT_CAPS`，未列出的模型沿用 `MODEL_MAX_OUTPUT_TOKENS`；后端用独立别名 `LLM_GATEWAY_TUTOR_MODEL`（默认 `teaching-tutor`）与独立上限 `LLM_GATEWAY_TUTOR_MAX_TOKENS`（默认 1024，范围 128–4096），超限时适配层 422 `output_cap_exceeded`，不静默改写。

@@ -15,8 +15,17 @@ def execute_teaching_run(run_id: str):
 async def _sweep():
     from app.services.teaching.events import deliver_pending_events
     from app.services.teaching_runs import sweep
+    from app.services.v2_schema import SWEEP_TABLES, has_tables
 
-    async with get_async_session_maker()() as db:
+    maker = get_async_session_maker()
+    async with maker() as db:
+        # The switch does not gate this task: an already-queued run must still
+        # be swept after the feature is turned off. The *schema* does. Beat
+        # schedules this every 10 s, so on a deployment whose V2 migration
+        # never ran it would otherwise fail ~8.6k times a day and leave the
+        # account purge's related cleanup in an unknown state.
+        if not await has_tables(db, SWEEP_TABLES):
+            return {"queued": 0, "skipped": "v2_schema_absent"}
         ids = await sweep(db)
     for run_id in ids:
         try:
@@ -25,7 +34,7 @@ async def _sweep():
             from app.core.logging import get_logger
 
             get_logger(__name__).warning("teaching_dispatch_retry_deferred", run_id=run_id)
-    async with get_async_session_maker()() as db:
+    async with maker() as db:
         await deliver_pending_events(db)
         await db.commit()
     return {"queued": len(ids)}

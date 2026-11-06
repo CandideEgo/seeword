@@ -239,3 +239,54 @@ class TestPaymentSignatureDefault:
 
         monkeypatch.setattr(alipay_payment.settings, "payment_verify_signature", False)
         assert alipay_payment._verify_alipay_signature({}) is True
+
+
+class TestV2FeatureGuards:
+    """V2 switches fail closed at boot; a half-configured capability never starts."""
+
+    def test_streaming_requires_dialogue(self):
+        with pytest.raises(RuntimeError, match="TEACHING_STREAMING_ENABLED"):
+            _settings(env="development", teaching_streaming_enabled=True, teaching_dialogue_enabled=False)
+
+    def test_dialogue_requires_runs(self):
+        with pytest.raises(RuntimeError, match="TEACHING_DIALOGUE_ENABLED"):
+            _settings(env="development", teaching_dialogue_enabled=True, teaching_runs_enabled=False)
+
+    def test_runs_require_verified_gateway(self):
+        with pytest.raises(RuntimeError, match="verified gateway"):
+            _settings(env="development", teaching_runs_enabled=True, llm_gateway_governance_verified=False)
+
+    def test_mcp_write_requires_read(self):
+        with pytest.raises(RuntimeError, match="MCP_WRITE_ENABLED"):
+            _settings(env="development", mcp_write_enabled=True, mcp_read_enabled=False)
+
+    def test_verified_gateway_requires_every_credential(self):
+        with pytest.raises(RuntimeError, match="Verified gateway"):
+            _settings(
+                env="development",
+                llm_gateway_governance_verified=True,
+                llm_gateway_base_url="http://gateway",
+                llm_gateway_api_key="",
+                llm_gateway_admin_key="",
+                llm_gateway_v2_team_id="",
+            )
+
+    def test_content_receipts_require_keys_and_issuer(self):
+        with pytest.raises(RuntimeError, match="Content receipt"):
+            _settings(env="development", content_receipts_enabled=True)
+
+    def test_complete_streaming_chain_is_accepted_and_default_off(self):
+        configured = _settings(
+            env="development",
+            teaching_runs_enabled=True,
+            teaching_dialogue_enabled=True,
+            teaching_streaming_enabled=True,
+            llm_gateway_governance_verified=True,
+            llm_gateway_base_url="http://gateway",
+            llm_gateway_api_key="service",
+            llm_gateway_admin_key="admin",
+            llm_gateway_v2_team_id="team",
+        )
+        assert configured.teaching_streaming_enabled
+        assert configured.llm_gateway_tutor_max_tokens == 1024
+        assert _settings(env="development").teaching_streaming_enabled is False

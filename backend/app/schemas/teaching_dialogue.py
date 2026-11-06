@@ -14,6 +14,13 @@ class TutorReply(BaseModel):
     source: Literal["policy", "model"]
 
 
+class DialogueBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    ordinal: int
+    text: str
+
+
 class DialogueMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -23,7 +30,9 @@ class DialogueMessage(BaseModel):
     run_id: str | None
     run_status: str | None
     role: Literal["user", "assistant"]
+    status: Literal["complete", "streaming", "interrupted"]
     body: dict | None
+    blocks: list[DialogueBlock] = Field(default_factory=list)
     restricted: bool
     created_at: datetime
 

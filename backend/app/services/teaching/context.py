@@ -52,7 +52,10 @@ async def _allowed_actions(db: AsyncSession, principal: Principal, *, active: bo
 
 
 async def get_learning_context(db: AsyncSession, principal: Principal, session_id: str) -> LearningContext:
+    from app.services.v2_schema import require_teaching_schema
+
     require_scope(principal, "teaching:read")
+    await require_teaching_schema(db)
     # A read lock prevents a writer committing between the state-version read
     # and its item/attempt projection. It ends with the adapter's transaction;
     # never keep this transaction open across a model/provider request.

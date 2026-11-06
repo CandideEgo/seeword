@@ -23,17 +23,23 @@ backend ──► adapter:4000 ──► LiteLLM:4000 ──► adapter-shim:410
 ### `app`（入站，4000）
 
 - 对 `/chat/completions`、`/v1/chat/completions`：
-  - 要求 `max_tokens`，且不得超过 `MODEL_MAX_OUTPUT_TOKENS`（默认 128），否则 422
+  - 要求 `max_tokens`，且不得超过该模型的上限（`ADAPTER_MODEL_OUTPUT_CAPS`，
+    未列出的模型用 `MODEL_MAX_OUTPUT_TOKENS`，默认 128），否则 422
     `output_cap_exceeded`；不静默改写请求。
   - 转发后如果调用方断线，**不取消 LiteLLM 请求**，而是让后台任务把响应读完，
     使 LiteLLM 走正常结算，而不是在取消路径释放预占。
 - `/content-verification/{kind}` 是下文定义的专用核验入口；其余路径（`/team/*`、`/key/*`、`/health/*` 等）原样透传到 LiteLLM，查询串保留。
-- 响应是**缓冲后返回**的：适配层不是流式代理；V2 教学回合为非流式 128 token。
+- `stream:true` 的补全请求**增量转发** SSE（不缓冲整包）；调用方断线后后台排空上游。
+  其余 JSON 响应仍缓冲。
 
 ### `shim_app`（出站，4100）
 
 - LiteLLM 的模型 `api_base` 指向本服务；它把请求转发到 `UPSTREAM_BASE_URL`，
   保留 LiteLLM 传来的 `Authorization`（provider key 只在网关侧流转）。
+- 上游 SSE 响应逐行转发；流结束时若没有任何**结构化** usage（缺字段或 `null`），
+  在 `[DONE]` 前补一个 usage chunk，不改变其余 chunk。`"usage"` 字符串出现不算。
+- 保守上界按上游实际模型名查 `ADAPTER_MODEL_OUTPUT_CAPS`；查不到时取「默认值或所有配置上限中的最大值」，
+  宁可高估也不少记（LiteLLM 发给 shim 的 `model` 是供应商模型名，不是路由别名）。
 - 上游返回 2xx 但缺少 `usage` 时，注入保守上界：
   - `prompt_tokens = ceil(请求体字节数 / 2) + 8`（故意的上界，不是 tokenizer 声明）；
   - `completion_tokens = min(请求 max_tokens, MODEL_MAX_OUTPUT_TOKENS)`；
@@ -47,7 +53,8 @@ backend ──► adapter:4000 ──► LiteLLM:4000 ──► adapter-shim:410
 | --- | --- |
 | `LITELLM_BASE_URL` | 入站代理的 LiteLLM 地址（默认 `http://gateway:4000`） |
 | `UPSTREAM_BASE_URL` | shim 的真实 provider 根地址（含 `/v1`） |
-| `MODEL_MAX_OUTPUT_TOKENS` | 已验证的模型输出上限；入站拒绝与 shim 注入共用 |
+| `MODEL_MAX_OUTPUT_TOKENS` | 未在 `ADAPTER_MODEL_OUTPUT_CAPS` 中列出的模型的输出上限（默认 128） |
+| `ADAPTER_MODEL_OUTPUT_CAPS` | JSON：模型别名 → 已验证输出上限，如 `{"tutor": 1024}`；非法配置退回默认值 |
 | `ADAPTER_TIMEOUT_SECONDS` | 中继超时（默认 60） |
 
 ## 接入

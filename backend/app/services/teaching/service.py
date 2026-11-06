@@ -74,7 +74,10 @@ async def check_write_access(db: "AsyncSession", principal: Principal, operation
 
 
 async def owned_session(db: "AsyncSession", principal: Principal, session_id: str, *, lock=False) -> TeachingSession:
+    from app.services.v2_schema import require_teaching_schema
+
     require_scope(principal, "teaching:read")
+    await require_teaching_schema(db)
     query = (
         select(TeachingSession)
         .where(TeachingSession.id == session_id, TeachingSession.user_id == principal.user_id)
@@ -360,7 +363,10 @@ async def get_session(db: "AsyncSession", principal: Principal, session_id: str)
 
 
 async def list_sessions(db: "AsyncSession", principal: Principal) -> dict:
+    from app.services.v2_schema import require_teaching_schema
+
     require_scope(principal, "teaching:read")
+    await require_teaching_schema(db)
     rows = (
         await db.execute(
             select(TeachingSession)

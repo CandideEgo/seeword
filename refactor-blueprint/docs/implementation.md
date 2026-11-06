@@ -619,3 +619,68 @@ $env:DATABASE_URL = $env:PG_TEST_URL
 - 按用户指令，本轮完成后暂停。恢复需用户明确指令，不自动启动 P02.2。真实素材依据及真实网关/模型证据仍缺失；完整自由导师、工具循环、流式回复、重试体验、其他材料、记忆、四宿主和商业/上线目标全部保留。
 - 当前只新增后端对话入口，已有前端仍使用兼容 cards 路径；不把后端消息 API 当作已交付用户端完整老师。默认关闭新开关，业务环境没有应用新迁移，恢复时先核查环境及真实消费者。
 - 回退先关闭对话写开关并停止新模式派发，保留当前消息/运行事实供恢复与导出；成组恢复入口、服务、schema、注册和生命周期消费者。生产应保留新增列/表作前向兼容回退，本次 downgrade 会删除消息，仅适用于一次性测试库，不能删除生产对话作为回退。
+
+
+## P02.2 · 流式导师回复、块发布与用量三态
+
+日期：2026-11-06。承接[开工前准备](preparation.md)：先修默认全关时的 V2 表依赖与发布边界，再实现本切片。范围为「揭晓后」的单轮导师回复流式化；未揭晓仍返回 policy 引导，不请求模型。没有独立聊天/跨任务关联（P02.3）、工具循环、token 级 SSE 或前端；没有调用真实模型、迁移业务库或部署。
+
+### 归属与消费者
+
+| 落点（相对 `backend/`） | 职责与变化 |
+| --- | --- |
+| `services/teaching/streaming.py` | 纯解析器：剥掉 `[n]` 引用标记、按句末/120 字符切块、越界标记立即失败、1000 字符上限。无数据库、无时钟 |
+| `models/v2_runtime.py`、`models/__init__.py` | 新表 `teaching_message_blocks`（`message_id`+`ordinal` 唯一，append-only 的 `before_update` 守卫）；`teaching_messages.status`（`complete/streaming/interrupted`） |
+| `migrations/versions/b8e2f4a6c901_teaching_stream_blocks.py` | 继承 `9f2c8a7d6b10`；新表 + `status` 列，含 downgrade |
+| `services/teaching_gateway.py::stream_tutor_reply` | 复用同一 run 凭据/预算/准入；`stream=true` + `include_usage`，纯文本提示；逐块产出 delta，结束时报告 `reported/missing/unknown`；截断、工具调用、异常状态均归一为可解释错误 |
+| `services/teaching_runs.py::_stream_turn` | 每个块一个短事务：会话锁 → run 锁 → 状态/epoch/取消/revision/材料使用权复查 → 写块 + `message.block` 事件 → 提交；取消与撤权分别结算 |
+| `services/teaching/dialogue.py` | 流式消息创建、块追加、最终投影；历史/分页/导出/事件都带 `status` 与 `blocks`，按当前权利投影 |
+| `api/v1/teaching_runs.py` | `message.block` 事件投影；`GET /runs/{id}` 补 `no-store` |
+| `schemas/teaching_dialogue.py` | `DialogueMessage.status`、`blocks` 与 `DialogueBlock` |
+| `services/v2_access.py`、`services/v2_schema.py`、`services/teaching/service.py`、`account_data.py`、`tasks/account_tasks.py`、`tasks/teaching_tasks.py`、`api/v1/external_connections.py`、`services/external_connection_service.py` | 默认全关时的惰性边界：开关先于表读取；sweep/导出/注销/连接列表按实际存在的表决定是否执行 |
+| `app/main.py` | `MCP_SDK_ENABLED=true` 但 SDK 缺失时降级 503，不再拖垮整个 API |
+| `deploy/v2-gateway/adapter/app.py` | 入站代理对 `stream:true` 增量转发 SSE（断线后台排空）；shim 逐行转发并在流末补保守 usage；输出上限按模型查 `ADAPTER_MODEL_OUTPUT_CAPS` |
+| `core/config.py`、`.env.example`、`docker-compose.prod.yml` | `TEACHING_STREAMING_ENABLED`（依赖 dialogue）、`LLM_GATEWAY_TUTOR_MODEL/MAX_TOKENS`；补齐生产 env 白名单与适配层上限变量 |
+
+未揭晓时的 policy 回复、P02.1 的非流式 JSON 路径、`max_tokens=128` 的 cards/核验出口都保持原样；切换只看 `TEACHING_STREAMING_ENABLED`，关闭即回退。
+
+wire、事件与用量语义只在 [CTX11](contracts.md#ctx11-流式导师回复与块发布p022)。1 基引用标记只属于流式路径，P02.1 的 JSON 索引仍是 0 基。
+
+### 实际验证
+
+| 检查 | 实际结果 | 范围与局限 |
+| --- | --- | --- |
+| 最终相关快速回归 | 已执行通过：214 passed、5 warnings | 教学/对话/导师网关/runtime/context/发布/核验/CLI/账号导出与注销/架构/配置/流式/惰性边界/celery 任务；warnings 仍是既有 structlog 格式提示 |
+| 新增流式回归 | 已包含在上行 | 解析器切块与标记；增量 delta 与 done；`reported/null/missing` 三态；块与事件同事务；取消只保留已提交块且 body 不含未发布文本；撤权中止；截断/缺失 finish_reason 标 interrupted；受限块事件降级 |
+| 新增惰性回归 | 已包含在上行 | 缺表时 sweep 不发 SQL、导出跳过 V2 段、注销照常、关闭功能 503 不读授权表 |
+| 隔离 PostgreSQL 迁移 | 已执行通过 | 空库 `initial → b8e2f4a6c901`；`downgrade -1 → upgrade head` 删除/恢复块表与 status 列；列类型/可空性/FK CASCADE/唯一约束逐项核对 |
+| 隔离 PostgreSQL 并发 | 已执行通过：6 passed | 流式取消后只保留已提交块、step=uncertain、run=cancelled；既有对话并发 5 项复验 |
+| schema drift 门 | 已执行通过：0 已知、0 新增 | 迁移生成的库对照 ORM metadata |
+| 适配层回归 | 已执行通过：27 passed | 按模型上限、非法上限配置回退、入站/出站 SSE 增量转发、usage 注入不重复 |
+| ruff check / format | 已执行通过 | app/、tests/、新迁移、adapter |
+| mypy baseline | 已执行通过：无新增 `file:code` | 原始 exit 1 仍为存量条目，未改基线 |
+| 全后端套件/覆盖率、真实网关/模型/预算、前端与部署 | 未执行 | 合成上游与 MockTransport 不替代真实供应商能力、账目与质量 |
+
+首轮实现暴露过三处真实问题：`/messages` 响应模型缺 `status/blocks` 导致 FastAPI 422；跨 delta 的半个引用标记被当成普通文本；`published` dict 让 mypy 推出 `int | None`。均已按实际契约修复，未放宽检查器。
+
+独立审查又发现并已修复的有效问题：网关模板新增了未注册的 `${V2_TUTOR_MAX_OUTPUT_TOKENS}` 占位符（会让 gateway 容器启动失败）→ 改为字面量；受限投影下 `event_block` 因 `blocks[0]` 越界 → 改为返回受限；流式消息 body 曾写 `citations` 而非 `citation_ids`，绕过引用失效检查 → 统一键名；没有 `finish_reason` 的流被当成功 → 必须显式 `stop`；`interrupted` 的 body 混入未发布文本 → 只写已提交块；`asyncio.timeout` 放在生成器内会取消消费者 task → 移到 `_stream_turn` 包住整轮；入站代理 `aiter_raw` + 去掉 `content-encoding` → 改 `aiter_bytes`、禁止上游压缩，并用独立 pump 保证断线排空；shim 保守 usage 按供应商模型名查不到别名上限 → 未知时取最大配置上限；`sweep` 兜底把崩溃遗留的 `streaming` 消息标 `interrupted`；教学读门禁改用完整 V2 表检查；补了 V2 表清单/ORM 同步、受限事件、缺失 finish_reason 与事件 payload 形状断言。
+
+### 复跑命令（工作目录 `backend/`，Windows 设置 `PYTHONUTF8=1`）
+
+```powershell
+.venv/Scripts/python.exe -m pytest tests/test_teaching_streaming.py tests/test_v2_schema_gating.py tests/test_teaching_dialogue.py tests/test_tutor_gateway.py tests/test_teaching.py tests/test_v2_runtime.py tests/test_learning_context.py tests/test_content_publication.py tests/test_content_receipts.py tests/test_content_receipt_publication.py tests/test_teaching_content_cli.py tests/test_content_verification_job.py tests/test_v2_account_data.py tests/test_account_data.py tests/test_account_deletion.py tests/test_architecture_invariants.py tests/test_config_env_guard.py tests/test_celery_tasks.py -q -m 'not integration'
+$env:PG_TEST_URL = '<一次性隔离测试库 URL；fixture 会重建整个 schema>'
+$env:DATABASE_URL = $env:PG_TEST_URL
+.venv/Scripts/python.exe -m pytest tests/test_teaching_streaming_pg.py tests/test_teaching_dialogue_pg.py -q -rs
+# 迁移演练使用另一个空库：
+#   alembic upgrade head → downgrade -1 → upgrade head
+.venv/Scripts/python.exe scripts/check_schema_drift.py
+.venv/Scripts/python.exe -m pytest ../deploy/v2-gateway/adapter/test_adapter.py ../deploy/v2-gateway/adapter/test_content_receipts.py -q
+```
+
+### 回退与剩余边界
+
+- 回退先关闭 `TEACHING_STREAMING_ENABLED`（回到 P02.1 非流式），再成组恢复 gateway/runs/dialogue/schema 与适配层；已写入的块与消息保留可读，不以删数据回退。生产保留新表/新列作前向兼容回退。
+- 仍未实现：独立聊天与跨任务关联（P02.3）、统一 actions/学习组件（P02.4）、工具循环与 token 级流式、真实模型质量与预算实证；块级发布受数据库事务粒度限制，不是逐 token 推送。
+- `TeachingAccessGrant` 仍无生产写入路径；真实网关的 1024 输出上限必须实测后再配置 `ADAPTER_MODEL_OUTPUT_CAPS`，否则适配层会按失败关闭返回 422。
+- 全后端套件、真实供应商/网关账目、浏览器与部署均未执行；不能把合成流当作完整导师验收。

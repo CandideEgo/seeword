@@ -13,17 +13,27 @@ import pytest
 
 import app as adapter
 
+# Captured before any test replaces it: adapter code and this helper share the module.
+_REAL_CLIENT = httpx.AsyncClient
+
 
 @pytest.fixture(autouse=True)
 def restore_env(monkeypatch):
     monkeypatch.setattr(adapter, "MODEL_MAX_OUTPUT_TOKENS", 128)
+    monkeypatch.delenv("ADAPTER_MODEL_OUTPUT_CAPS", raising=False)
     yield
+
+
+def use_transport(monkeypatch, handler):
+    monkeypatch.setattr(
+        adapter.httpx, "AsyncClient", lambda *a, **kw: _REAL_CLIENT(*a, transport=httpx.MockTransport(handler), **kw)
+    )
 
 
 def run(application, method, url, **kwargs):
     async def go():
         transport = httpx.ASGITransport(app=application)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with _REAL_CLIENT(transport=transport, base_url="http://testserver") as client:
             return await client.request(method, url, **kwargs)
 
     return __import__("asyncio").run(go())
@@ -111,3 +121,124 @@ def test_shim_defaults_to_model_cap_when_max_tokens_missing(monkeypatch):
     monkeypatch.setattr(adapter, "_forward_upstream", fake_upstream)
     response = run(adapter.shim_app, "POST", "/v1/chat/completions", json={"model": "m", "messages": []})
     assert response.json()["usage"]["completion_tokens"] == 128
+
+
+def test_per_model_cap_only_widens_the_listed_model(monkeypatch):
+    monkeypatch.setenv("ADAPTER_MODEL_OUTPUT_CAPS", '{"tutor": 1024}')
+
+    async def boom(*_args, **_kwargs):
+        raise AssertionError("upstream must not be called")
+
+    monkeypatch.setattr(adapter, "_call", boom)
+    too_wide = run(adapter.app, "POST", "/chat/completions", json={"model": "teaching", "max_tokens": 1024})
+    assert too_wide.status_code == 422 and too_wide.json()["error"]["type"] == "output_cap_exceeded"
+    assert adapter._model_cap({"model": "tutor"}) == 1024
+    assert adapter._model_cap({"model": "unknown"}) == 128
+
+
+def test_invalid_caps_configuration_falls_back_to_the_default(monkeypatch):
+    monkeypatch.setenv("ADAPTER_MODEL_OUTPUT_CAPS", '{"tutor": "wide"}')
+    assert adapter._model_cap({"model": "tutor"}) == 128
+
+
+def test_inbound_proxy_relays_sse_incrementally(monkeypatch):
+    async def handler(request):
+        assert json.loads(request.content)["stream"] is True
+
+        async def body():
+            yield b'data: {"choices":[{"delta":{"content":"he"}}]}\n\n'
+            yield b'data: {"choices":[{"delta":{"content":"llo"}}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body())
+
+    use_transport(monkeypatch, handler)
+    response = run(
+        adapter.app,
+        "POST",
+        "/v1/chat/completions",
+        json={"model": "teaching", "max_tokens": 64, "stream": True},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.text.count("data:") == 3
+    assert "hello" not in response.text  # relayed verbatim, never assembled
+
+
+def test_shim_streams_upstream_and_appends_conservative_usage(monkeypatch):
+    async def handler(request):
+        async def body():
+            yield b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body())
+
+    use_transport(monkeypatch, handler)
+    response = run(
+        adapter.shim_app,
+        "POST",
+        "/v1/chat/completions",
+        json={"model": "tutor", "max_tokens": 1024, "stream": True},
+        headers={"Authorization": "Bearer provider-key"},
+    )
+    text = response.text
+    assert '"usage"' in text and text.index('"usage"') < text.index("[DONE]")
+    assert '"completion_tokens": 128' in text  # default cap without the per-model override
+
+
+def test_shim_does_not_duplicate_provider_stream_usage(monkeypatch):
+    async def handler(request):
+        async def body():
+            yield b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'
+            yield b'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body())
+
+    use_transport(monkeypatch, handler)
+    response = run(
+        adapter.shim_app,
+        "POST",
+        "/v1/chat/completions",
+        json={"model": "tutor", "max_tokens": 1024, "stream": True},
+    )
+    assert response.text.count('"usage"') == 1
+
+
+def test_stream_relay_keeps_draining_after_client_disconnect(monkeypatch):
+    """The pump owns the upstream iterator, so a disconnect still settles the call."""
+    import asyncio
+
+    from starlette.requests import Request
+
+    release = asyncio.Event()
+    upstream_finished = asyncio.Event()
+
+    async def handler(request):
+        async def body():
+            yield b'data: {"a":1}\n\n'
+            await release.wait()
+            yield b'data: {"a":2}\n\n'
+            yield b"data: [DONE]\n\n"
+            upstream_finished.set()
+
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body())
+
+    use_transport(monkeypatch, handler)
+
+    async def go():
+        request = Request({"type": "http", "method": "POST", "path": "/chat/completions", "headers": []})
+        response = await adapter._stream_proxy(
+            request,
+            "http://gateway.test/chat/completions",
+            b'{"model": "tutor", "max_tokens": 1024, "stream": true}',
+        )
+        iterator = response.body_iterator
+        first = await iterator.__anext__()
+        assert b'"a":1' in first
+        await iterator.aclose()  # the client goes away mid-stream
+        release.set()
+        await asyncio.wait_for(upstream_finished.wait(), 5)
+        await asyncio.sleep(0)
+
+    asyncio.run(go())

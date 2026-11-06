@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     teaching_enabled: bool = False
     teaching_runs_enabled: bool = False
     teaching_dialogue_enabled: bool = False
+    # P02.2: streamed tutor replies. Requires dialogue; off keeps the legacy
+    # non-streaming JSON reply and never touches the block tables.
+    teaching_streaming_enabled: bool = False
     teaching_allowed_user_ids: str = ""
     mcp_read_enabled: bool = False
     mcp_write_enabled: bool = False
@@ -113,6 +116,10 @@ class Settings(BaseSettings):
     llm_gateway_admin_key: str = ""
     llm_gateway_governance_verified: bool = False
     llm_gateway_model: str = "teaching"
+    # The streamed tutor uses its own alias/cap so the verified 128-token
+    # cards/content-verification envelope is never silently widened.
+    llm_gateway_tutor_model: str = "teaching-tutor"
+    llm_gateway_tutor_max_tokens: int = Field(default=1024, ge=128, le=4096)
     llm_gateway_v2_team_id: str = ""
     content_receipts_enabled: bool = False
     content_verification_api_key: str = Field(default="", repr=False)
@@ -430,6 +437,8 @@ class Settings(BaseSettings):
             raise RuntimeError("TEACHING_RUNS_ENABLED requires verified gateway governance")
         if self.teaching_dialogue_enabled and not self.teaching_runs_enabled:
             raise RuntimeError("TEACHING_DIALOGUE_ENABLED requires TEACHING_RUNS_ENABLED")
+        if self.teaching_streaming_enabled and not self.teaching_dialogue_enabled:
+            raise RuntimeError("TEACHING_STREAMING_ENABLED requires TEACHING_DIALOGUE_ENABLED")
         if self.llm_gateway_governance_verified and not all(
             (
                 self.llm_gateway_base_url,

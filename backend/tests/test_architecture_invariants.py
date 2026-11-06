@@ -430,3 +430,19 @@ def test_services_and_tasks_do_not_import_http_adapters():
             if any(name == "app.api" or name.startswith("app.api.") for name in modules):
                 offenders.append(f"{path.relative_to(app_dir)}:{node.lineno}")
     assert not offenders, f"services/tasks import HTTP adapters: {offenders}"
+
+
+def test_model_chat_endpoint_lives_in_exactly_one_module():
+    """INV: every model completion request goes through ``teaching_gateway``.
+
+    ``TID251`` bans importing provider SDKs outside the service layer; this
+    pins the other half: hand-rolled HTTP to an OpenAI-compatible endpoint must
+    not grow a second home (and with it a second budget/cap path).
+    """
+    app_root = Path(__file__).resolve().parent.parent / "app"
+    offenders = [
+        str(path.relative_to(app_root))
+        for path in app_root.rglob("*.py")
+        if path.name != "teaching_gateway.py" and '"/chat/completions"' in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == []

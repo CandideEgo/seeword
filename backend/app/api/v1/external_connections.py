@@ -20,6 +20,12 @@ class ConnectionCreate(BaseModel):
 
 @router.get("")
 async def list_connections(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    from app.services.v2_schema import has_tables
+
+    # The settings page renders this for every account; an unmigrated database
+    # holds no connections, so answer empty instead of failing the request.
+    if not await has_tables(db, ("external_connections",)):
+        return {"items": [], "can_create": False}
     rows = (
         await db.execute(
             select(ExternalConnection)

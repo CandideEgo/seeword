@@ -49,6 +49,7 @@ from app.models.v2_runtime import (
     GatewayLifecycleIntent,
     TeachingAccessGrant,
     TeachingMessage,
+    TeachingMessageBlock,
 )
 from app.models.video import Video
 from app.models.video_quality_report import VideoQualityReport
