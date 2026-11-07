@@ -15,7 +15,7 @@ def execute_teaching_run(run_id: str):
 async def _sweep():
     from app.services.teaching.events import deliver_pending_events
     from app.services.teaching_runs import sweep
-    from app.services.v2_schema import SWEEP_TABLES, has_tables
+    from app.services.v2_schema import SWEEP_TABLES, conversation_columns_ready, has_tables
 
     maker = get_async_session_maker()
     async with maker() as db:
@@ -26,6 +26,11 @@ async def _sweep():
         # account purge's related cleanup in an unknown state.
         if not await has_tables(db, SWEEP_TABLES):
             return {"queued": 0, "skipped": "v2_schema_absent"}
+        # A database stopped before P02.3 has every swept table but not the
+        # conversation columns the ORM now selects; sweeping it would raise
+        # every 10 s instead of doing nothing.
+        if not await conversation_columns_ready(db):
+            return {"queued": 0, "skipped": "v2_conversation_columns_absent"}
         ids = await sweep(db)
     for run_id in ids:
         try:

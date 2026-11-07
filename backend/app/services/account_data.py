@@ -227,9 +227,9 @@ async def _gather_teaching_data(db: Any, user_id: str) -> dict[str, Any]:
         )
     ).scalars()
     projected = [await get_session(db, Principal(user_id), session.id) for session in sessions]
-    from app.services.teaching.dialogue import export_messages
+    from app.services.teaching.dialogue import export_all
 
-    conversations = await export_messages(db, Principal(user_id), projected)
+    conversation_rows, conversations = await export_all(db, Principal(user_id))
     feedbacks = (
         await db.execute(
             select(TeachingFeedback)
@@ -292,6 +292,7 @@ async def _gather_teaching_data(db: Any, user_id: str) -> dict[str, Any]:
     ).scalars()
     return {
         "teaching_sessions": projected,
+        "tutor_conversations": conversation_rows,
         "teaching_messages": conversations,
         "teaching_attempts": [attempt for session in projected for attempt in session["attempts"]],
         "question_disclosures": await _rows_for_user(
@@ -376,6 +377,7 @@ EXPORT_ORDER = (
     "question_exposures",
     "exposure_mapping_states",
     "teaching_sessions",
+    "tutor_conversations",
     "teaching_messages",
     "teaching_attempts",
     "question_disclosures",

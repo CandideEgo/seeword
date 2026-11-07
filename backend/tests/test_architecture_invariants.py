@@ -422,6 +422,11 @@ class TestCutFeaturesStayCut:
         offenders = [path for path in _route_paths() if fragment in path]
         assert not offenders, f"已删的 '{fragment}' 路由又出现了：{offenders}"
 
+    @pytest.mark.parametrize("fragment", REMOVED_PAYMENT_ROUTE_FRAGMENTS)
+    def test_removed_payment_routes_stay_removed(self, fragment):
+        offenders = [path for path in _route_paths() if fragment in path]
+        assert not offenders, f"已下线会员收费链路的端点又出现了：{offenders}"
+
 
 def test_services_and_tasks_do_not_import_http_adapters():
     """Business transactions and worker entry points must not depend on routes."""
@@ -442,11 +447,6 @@ def test_services_and_tasks_do_not_import_http_adapters():
             if any(name == "app.api" or name.startswith("app.api.") for name in modules):
                 offenders.append(f"{path.relative_to(app_dir)}:{node.lineno}")
     assert not offenders, f"services/tasks import HTTP adapters: {offenders}"
-
-    @pytest.mark.parametrize("fragment", REMOVED_PAYMENT_ROUTE_FRAGMENTS)
-    def test_removed_payment_routes_stay_removed(self, fragment):
-        offenders = [path for path in _route_paths() if fragment in path]
-        assert not offenders, f"已下线会员收费链路的端点又出现了：{offenders}"
 
 
 def test_model_chat_endpoint_lives_in_exactly_one_module():

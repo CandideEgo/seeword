@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     # P02.2: streamed tutor replies. Requires dialogue; off keeps the legacy
     # non-streaming JSON reply and never touches the block tables.
     teaching_streaming_enabled: bool = False
+    # P02.3: standalone tutor chats. Requires dialogue; the legacy per-session
+    # chat keeps working without it.
+    teaching_conversations_enabled: bool = False
     teaching_allowed_user_ids: str = ""
     mcp_read_enabled: bool = False
     mcp_write_enabled: bool = False
@@ -388,6 +391,10 @@ class Settings(BaseSettings):
             raise RuntimeError("TEACHING_RUNS_ENABLED requires verified gateway governance")
         if self.teaching_dialogue_enabled and not self.teaching_runs_enabled:
             raise RuntimeError("TEACHING_DIALOGUE_ENABLED requires TEACHING_RUNS_ENABLED")
+        if self.teaching_conversations_enabled and not self.teaching_dialogue_enabled:
+            raise RuntimeError("TEACHING_CONVERSATIONS_ENABLED requires TEACHING_DIALOGUE_ENABLED")
+        if self.teaching_conversations_enabled and not self.teaching_enabled:
+            raise RuntimeError("TEACHING_CONVERSATIONS_ENABLED requires TEACHING_ENABLED")
         if self.teaching_streaming_enabled and not self.teaching_dialogue_enabled:
             raise RuntimeError("TEACHING_STREAMING_ENABLED requires TEACHING_DIALOGUE_ENABLED")
         if self.llm_gateway_governance_verified and not all(

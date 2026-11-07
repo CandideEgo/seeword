@@ -684,3 +684,74 @@ $env:DATABASE_URL = $env:PG_TEST_URL
 - 仍未实现：独立聊天与跨任务关联（P02.3）、统一 actions/学习组件（P02.4）、工具循环与 token 级流式、真实模型质量与预算实证；块级发布受数据库事务粒度限制，不是逐 token 推送。
 - `TeachingAccessGrant` 仍无生产写入路径；真实网关的 1024 输出上限必须实测后再配置 `ADAPTER_MODEL_OUTPUT_CAPS`，否则适配层会按失败关闭返回 422。
 - 全后端套件、真实供应商/网关账目、浏览器与部署均未执行；不能把合成流当作完整导师验收。
+
+## P02.3 · 独立聊天、消息与任务关联
+
+日期：2026-11-06。承接 P02.2 的块发布与用量三态：本切片把「聊天」从教学会话中拆出，使一段对话可无任务、可跨多个任务，同时保持旧消息入口同源。未改前端、未调用真实模型、未迁移业务库或部署；新增开关默认关闭。
+
+### 归属与消费者
+
+| 落点（相对 `backend/`） | 职责与变化 |
+| --- | --- |
+| `models/v2_runtime.py`、`models/__init__.py` | 新表 `tutor_conversations`（`kind=chat/task`，`task_session_id` 每会话唯一）与 `tutor_conversation_tasks`（聊天↔会话多对多）。`teaching_messages` 增加 `conversation_id`，`session_id`/`content_revision_id`/`session_revision` 改为可空，序号唯一键从 `(session_id, sequence)` 改为 `(conversation_id, sequence)`；`agent_runs` 增加 `conversation_id`、`session_id` 与 `bound_session_revision` 可空；`agent_run_events.session_revision` 可空 |
+| `migrations/versions/c4a1b2c3d4e5_tutor_conversations.py` | 继承 `d4e5f6a7b8c9`：建两表、按 `session_id` 回填 `kind=task` 聊天与关联、迁移唯一键、放宽三处非空；`downgrade` 反向删除。仅在隔离库演练 |
+| `services/teaching/dialogue.py` | 聊天归属与投影：`owned`/`owned_chat`/`task_conversation`/`task_revision_id`/`associate`/`task_views`/`touch`；`page_conversation` 与 `page_session`；`project` 对无任务消息只认所有权，对有任务消息沿用当前权利；`model_input` 返回可空 `learning_context`；`validate_reply` 增加无来源分支；`export_all` 输出聊天与消息 |
+| `services/tutor_conversations.py` | 独立聊天 CRUD 与删除：创建、分页列表（仅 chat）、详情含任务、改名/归档、删除消息/块/执行日志但保留教学事实 |
+| `services/teaching_runs.py` | `start_conversation_turn`（无任务或绑定任务、必须版本）、`dispatch_run`、锁序聊天→会话→运行、`_lock_target` 只按 `conversation_id` 解析聊天（`events` 对 P02.3 之前的运行另行按会话查任务聊天）、`get`/`events`/`cancel` 支持无会话运行、`_stream_turn` 支持无任务纯文本流并允许零引用 |
+| `services/teaching_gateway.py` | `_model_completion` 支持按调用指定模型与上限；无任务聊天走 `LLM_GATEWAY_TUTOR_MODEL`/`LLM_GATEWAY_TUTOR_MAX_TOKENS` 的 JSON 与流式提示，服务端拒绝引用或 ABCD 建议；任务回复仍是原 128-token 出口 |
+| `services/teaching/streaming.py` | `CitationStream(general=True)`：无来源聊天丢弃 `[n]` 标记而非报越界 |
+| `services/v2_schema.py` | `V2_TABLES`/`EXPORT_TABLES`/`DELETE_TABLES` 新增两表；新增 `CONVERSATION_TABLES` 与 `require_conversation_schema`，缺表 503 |
+| `api/v1/tutor.py`、`app/main.py` | 新 `/api/v1/tutor` 路由并注册；全部响应 `no-store`，删除返回 204 |
+| `api/v1/teaching_runs.py` | 旧消息 GET 改用 `page_session`（读不建聊天）；`dispatch` 指向服务层 `dispatch_run` |
+| `core/config.py`、`.env.example`、`docker-compose.prod.yml` | `TEACHING_CONVERSATIONS_ENABLED`（要求 dialogue 与 teaching），补生产 env 白名单 |
+| `services/account_data.py`、`tasks/account_tasks.py` | 导出新增 `tutor_conversations` 并覆盖无任务消息；注销显式删除聊天与关联 |
+
+未任务化的消息不伪造引用，也不写 `requires_reveal`；任务聊天仍只由旧入口与其任务聊天维护，`/tutor` 不管理 `kind='task'` 聊天（详情/删除均 404）。旧消息端点保持同一张表、同一投影与同一 ID/顺序。
+
+### 实际验证
+
+| 检查 | 实际结果 | 范围与局限 |
+| --- | --- | --- |
+| 新增 P02.3 回归 | 已执行通过：25 passed（`test_tutor_conversations.py`） | 聊天 CRUD/归档/删除且保留任务事实、无任务回合与宽上限、引用与 ABCD 拒绝、聊天内两任务切换、取消不发布、列表分页与排序、旧入口同源且不建空聊天、导出（含撤权后 restricted）/注销、开关与越权、关闭后读取也 503、schema 503、无任务流式块与零引用 |
+| 既有教学/运行回归 | 已执行通过：39 passed | 教学对话、流式、V2 运行时、schema gating、V2 账号导出 |
+| 宽回归 | 已执行通过：155 passed | 上列 + 教学服务、内容发布、学习上下文、账号导出/注销、架构、配置、celery |
+| 隔离 PostgreSQL 迁移 | 已执行通过 | 空库 `head`、`downgrade -1 → upgrade head`；在旧库插入临时教学会话与两条消息后升级，回填出 1 个 `kind=task` 聊天 + 1 条任务关联，消息 ID/顺序/会话引用不变 |
+| schema drift 门 | 已执行通过：0 已知、0 新增 | 迁移生成库对照 ORM metadata |
+| ruff check / format | 已执行通过 | app/、tests/、新迁移；规则未变 |
+| mypy baseline | 已执行通过：无新增 `file:code` | 用 baseline 对比，新增集合为空 |
+| 隔离 PostgreSQL 并发 | 已执行通过：7 passed（`test_tutor_conversations_pg.py` + 既有对话并发） | 两个并发创建共享一个聊天/一个 run/一条用户消息；运行中删除聊天后 runner 正常结束、无残留 run/事件/步骤/消息 |
+| 全后端套件 | 已执行通过：1689 passed、1 skipped（`-m 'not integration'`，21:58） | 跳过项为既有条件跳过；集成用例单独在隔离 PG 执行（本切片 2 项 + 既有对话/流式/运行时 16 项） |
+| 隔离 PostgreSQL 全量 integration | 已执行：60 passed、1 skipped、2 failed | 2 项失败是 `test_listening_pg.py` 的既有测试顺序耦合（在 HEAD `bfd642d5` 的干净 worktree 上以同一隔离库、同序复现同样 2 项失败），与本切片无关；本切片涉及的 PG 用例全绿 |
+| 真实网关/模型、前端与部署 | 未执行 | 合成上游不替代真实供应商能力、账目与质量 |
+
+独立审查（维度评审 + 逐条对抗核实）发现并已修复的有效问题：
+
+- `execute()` 在聊天/任务已消失的分支先 `db.rollback()` 再读 `found.user_id`，实例已过期 → `MissingGreenlet`，本应「结算排队运行」的路径每次都崩、只能等 sweep；改为回滚前取 owner id，并补回归。
+- 无任务回合会把同一聊天里的**任务消息**喂进模型输入（违反跨任务隔离），且任务消息内容可能包含已揭晓答案；`model_input` 的历史查询改为按本 run 的 `session_id`（无任务时为 NULL）过滤，并补「任务历史不得进入无任务回合」回归。
+- P02.3 给既有表加列后，表存在性门禁不再能证明 ORM 可查询：停在旧 head 的库上 beat `sweep-teaching-runs`（每 10 秒）与注销 `_prepare_v2_removal`/`_delete_v2_children` 会因缺列抛 `ProgrammingError` 并无限重试。新增 `conversation_columns_ready` / `existing_columns`，sweep 与注销按列决定是否触碰这三张表，并补对应回归。
+- `tests/test_architecture_invariants.py` 的「下线支付路由不得复活」参数化测试被嵌套在另一个测试函数体内，从未被收集（27 项 → 之前从未执行）；移到 `TestCutFeaturesStayCut` 后收集 32 项并通过。
+- `teaching_runs.get`/`events`/`cancel` 以及 cards 模式的 `create` 直接 `select(AgentRun)`，从不经过 schema 门；停在旧 head 的库上返回 500。现在它们先 `require_teaching_schema`，返回 503，并补回归。
+- 迁移回填改为从 `teaching_sessions` 取 owner，而不是从消息行取，避免两个用户映射到同一个唯一的 `task_session_id`。
+
+补齐的测试缺口（评审以变异测试证明原先「删掉实现也照样通过」）：任务聊天不可经 `/tutor` 读取、归档后可读、关闭开关后读写都 503、同 `operation_id` 换消息必须 409、新回合更新标题并置顶、跨聊天读取隔离、注销删除任务聊天及其关联但保留任务事实、删除聊天不影响旧任务聊天、导出顺序包含新段、任务上下文消失后消息必须 restricted、无任务回合不携带任务历史、旧任务聊天不出现在聊天列表、迁移回填（两个用户各得一个任务聊天、会话已消失的孤儿消息不被收编）。
+
+首次实现暴露并修复的问题：`execute()` 曾把已构建的上下文变量重置为 `None`；旧消息 GET 曾通过 `page` 名称被删除；测试直接插入 `teaching_messages` 时缺少 `conversation_id`；`create()` 曾在绑定任务聊天时把聊天锁放到会话锁之后，已改为先解析/创建任务聊天再锁会话；`_lock_target` 只按 `conversation_id` 解析聊天，缺聊天列的旧运行按状态冲突结算，不现场创建 transcript。mypy 对 `str | None` 会话/聊天 ID 的窄化也已按真实类型修正，未改基线。
+
+### 复跑命令（工作目录 `backend/`，Windows 设置 `PYTHONUTF8=1`）
+
+```powershell
+.venv/Scripts/python.exe -m pytest tests/test_tutor_conversations.py tests/test_teaching_dialogue.py tests/test_teaching_streaming.py tests/test_v2_runtime.py tests/test_v2_schema_gating.py tests/test_v2_account_data.py -q -m 'not integration'
+$env:PG_TEST_URL = '<一次性隔离测试库 URL；fixture 会重建整个 schema>'
+$env:DATABASE_URL = $env:PG_TEST_URL
+.venv/Scripts/python.exe -m pytest tests/test_tutor_conversations_pg.py tests/test_teaching_dialogue_pg.py tests/test_teaching_streaming_pg.py tests/test_v2_runtime_pg.py -q -rs
+# 迁移演练使用另一个空库：alembic upgrade head → downgrade -1 → upgrade head
+.venv/Scripts/python.exe scripts/check_schema_drift.py
+```
+
+### 回退与剩余边界
+
+- 回退先关闭 `TEACHING_CONVERSATIONS_ENABLED`（独立聊天 503，旧任务聊天不受影响），再成组恢复 `/tutor` 路由、聊天服务、模型出口分支、`v2_schema` 清单与迁移。生产保留新表/新列作前向兼容回退；`downgrade` 会删聊天与消息，只用于一次性测试库。
+- 仍未实现：统一 actions 与学习组件（P02.4）、工具循环、跨任务长期记忆、外部宿主接力；聊天内的即时小测、记忆写入/纠错与跨材料恢复仍属后续切片。
+- 同一用户仍只允许一个活跃运行（`uq_agent_run_active_user`），因此「切换任务」是串行恢复而非并发执行；是否放宽留待运行时治理单独决定。
+- 读取端点（`GET /runs`、`/events`、`/messages`、旧 `/context`）仍沿用既有「不按功能开关关闭」的口径，只校验当前身份与资源权利；新增 `/tutor` 读取则按新能力开关关闭。此差异已记录，未在本切片统一。
+- `TeachingAccessGrant` 仍无生产写入路径；真实网关的 1024 输出上限必须实测后才能配置 `ADAPTER_MODEL_OUTPUT_CAPS`。

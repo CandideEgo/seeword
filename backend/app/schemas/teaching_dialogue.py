@@ -24,9 +24,11 @@ class DialogueBlock(BaseModel):
 class DialogueMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    session_id: str
+    conversation_id: str
+    # Both stay null for a chat that never bound a teaching task.
+    session_id: str | None
     sequence: int
-    session_revision: int
+    session_revision: int | None
     run_id: str | None
     run_status: str | None
     role: Literal["user", "assistant"]

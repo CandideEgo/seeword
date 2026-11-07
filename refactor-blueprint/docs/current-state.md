@@ -37,6 +37,7 @@
 | 教学运行时 | `services/teaching_runs.py`、`tasks/teaching_tasks.py`、`api/v1/teaching_runs.py` | AgentRun/Step/Event、租约、取消、事件恢复与队列派发 |
 | 任务对话（P02.1） | `services/teaching/dialogue.py`、`schemas/teaching_dialogue.py`、`models/v2_runtime.py`、同一 run 服务 | 新 messages 入口复用既有运行机制；任务独立历史、当前权限投影、揭晓后带引用/草稿建议的模型回复；持久消息与短期执行日志分离。开关默认关闭，新迁移仅隔离演练 |
 | 流式导师回复（P02.2） | `services/teaching/streaming.py`、`teaching_gateway.py::stream_tutor_reply`、`teaching_runs.py::_stream_turn`、`models/v2_runtime.py::TeachingMessageBlock` | 纯文本 `[n]` 引用 + 有序不可变块；每块独立短事务发布，`message.block` 事件；用量 `reported/missing/unknown`；默认关闭，关闭时回到 P02.1 非流式 |
+| 独立聊天（P02.3） | `api/v1/tutor.py`、`services/tutor_conversations.py`、`services/teaching/dialogue.py`、`models/v2_runtime.py::TutorConversation` | `/api/v1/tutor/conversations` CRUD 与回合；聊天可无任务、可关联多个教学会话；旧 `/teaching/sessions/{id}/messages` 同源；无任务回复走导师别名且无引用；默认关闭 |
 | 外部接入 | `integrations/mcp/server.py`、`services/external_connection_service.py` | opaque 凭据、scope、过期/轮换/撤销；共享教学服务 |
 | V2 开放控制 | `services/v2_access.py`、`models/v2_runtime.py` | 功能开关、白名单、账号有效性；不是现成的商业会员准入 |
 | 收款与会员 | **已下线（2026-11）** | 会员收费链路整体删除（端点/服务/任务/表/配置）；全站功能对登录用户免费，本表其余能力不受影响 |
@@ -65,6 +66,6 @@
 
 ## 已有验证落点
 
-`backend/tests/test_architecture_invariants.py` 保护架构不变量；教学见 `test_teaching.py`、`test_teaching_pg.py`；运行时见 `test_v2_runtime.py`、`test_v2_runtime_pg.py`；流式与惰性边界见 `test_teaching_streaming.py`、`test_teaching_streaming_pg.py`、`test_v2_schema_gating.py`；另有 `test_teaching_gateway.py`、`test_mcp_adapter.py`、`test_v2_account_data.py`、考试快照测试及 `backend/scripts/check_v2_gateway.py`。
+`backend/tests/test_architecture_invariants.py` 保护架构不变量；教学见 `test_teaching.py`、`test_teaching_pg.py`；运行时见 `test_v2_runtime.py`、`test_v2_runtime_pg.py`；流式与惰性边界见 `test_teaching_streaming.py`、`test_teaching_streaming_pg.py`、`test_v2_schema_gating.py`；独立聊天见 `test_tutor_conversations.py`；另有 `test_teaching_gateway.py`、`test_mcp_adapter.py`、`test_v2_account_data.py`、考试快照测试及 `backend/scripts/check_v2_gateway.py`。
 
 审查期实际执行项见审查结论；重构期新增验证见实施记录。不复用之前原型的测试结论，也不将旧报告中的“通过”当成本轮通过。

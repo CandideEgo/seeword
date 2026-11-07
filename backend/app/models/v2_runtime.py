@@ -58,6 +58,50 @@ class ExternalCredential(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class TutorConversation(Base):
+    """A chat that owns its transcript; a task chat is bound to one session.
+
+    The legacy per-session message endpoint keeps its own ``kind="task"``
+    conversation (``task_session_id`` is unique), while standalone chats may
+    reference several teaching sessions through ``TutorConversationTask``.
+    Deleting a chat deletes its messages and execution logs, never the
+    teaching session or its learning facts.
+    """
+
+    __tablename__ = "tutor_conversations"
+    __table_args__ = (
+        UniqueConstraint("task_session_id", name="uq_tutor_conversation_task_session"),
+        Index("ix_tutor_conversation_user_updated", "user_id", "updated_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    # active | archived. Archiving keeps the transcript readable.
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    # chat | task. Only ``task`` rows carry ``task_session_id``.
+    kind: Mapped[str] = mapped_column(String(20), default="chat", server_default="chat")
+    task_session_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class TutorConversationTask(Base):
+    """A task a chat may talk about; the task itself still owns its facts."""
+
+    __tablename__ = "tutor_conversation_tasks"
+    __table_args__ = (UniqueConstraint("conversation_id", "session_id", name="uq_tutor_conversation_task"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    conversation_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tutor_conversations.id", ondelete="CASCADE"), index=True
+    )
+    session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class AgentRun(Base):
     __tablename__ = "agent_runs"
     __table_args__ = (
@@ -79,15 +123,19 @@ class AgentRun(Base):
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    session_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), index=True
+    # A run may belong to a standalone chat and no teaching session at all.
+    session_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    conversation_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("tutor_conversations.id", ondelete="CASCADE"), index=True, nullable=True
     )
     operation_id: Mapped[str] = mapped_column(String(100))
     request_hash: Mapped[str] = mapped_column(String(64))
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_mode: Mapped[str] = mapped_column(String(20), default="cards", server_default="cards")
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
-    bound_session_revision: Mapped[int] = mapped_column(Integer)
+    bound_session_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     lease_epoch: Mapped[int] = mapped_column(Integer, default=0)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_sequence: Mapped[int] = mapped_column(Integer, default=0)
@@ -120,32 +168,38 @@ class AgentRunEvent(Base):
     run_id: Mapped[str] = mapped_column(String(36), ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
     type: Mapped[str] = mapped_column(String(40))
-    session_revision: Mapped[int] = mapped_column(Integer)
+    # Null for a chat that never bound a teaching session revision.
+    session_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     safe_payload: Mapped[dict] = mapped_column(JSON)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class TeachingMessage(Base):
-    """Task conversation survives short-lived execution logs; never a grading fact."""
+    """Chat transcript survives short-lived execution logs; never a grading fact.
+
+    ``conversation_id`` is the transcript's owner; ``session_id`` and
+    ``content_revision_id`` are set only for messages about a teaching task.
+    """
 
     __tablename__ = "teaching_messages"
     __table_args__ = (
-        UniqueConstraint("session_id", "sequence", name="uq_teaching_message_sequence"),
+        UniqueConstraint("conversation_id", "sequence", name="uq_teaching_message_conversation_sequence"),
         UniqueConstraint("run_id", "role", name="uq_teaching_message_run_role"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    session_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), index=True
+    conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("tutor_conversations.id", ondelete="CASCADE"))
+    session_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("teaching_sessions.id", ondelete="CASCADE"), index=True, nullable=True
     )
-    content_revision_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("exam_analysis_revisions.id", ondelete="RESTRICT")
+    content_revision_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("exam_analysis_revisions.id", ondelete="RESTRICT"), nullable=True
     )
     run_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("agent_runs.id", ondelete="SET NULL"), nullable=True
     )
     sequence: Mapped[int] = mapped_column(Integer)
-    session_revision: Mapped[int] = mapped_column(Integer)
+    session_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     role: Mapped[str] = mapped_column(String(20))
     body: Mapped[dict] = mapped_column(JSON)
     requires_reveal: Mapped[bool] = mapped_column(Boolean, default=False)

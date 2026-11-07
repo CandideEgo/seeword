@@ -40,6 +40,7 @@ from app.api.v1 import (
     shadowing,
     teaching,
     teaching_runs,
+    tutor,
     users,
     videos,
     vocab_sets,
@@ -383,6 +384,7 @@ def create_app() -> FastAPI:
     app.include_router(exams.router, prefix="/api/v1")
     app.include_router(teaching.router, prefix="/api/v1")
     app.include_router(teaching_runs.router, prefix="/api/v1")
+    app.include_router(tutor.router, prefix="/api/v1")
     app.include_router(external_connections.router, prefix="/api/v1")
     mcp_app = None
     if settings.mcp_sdk_enabled:

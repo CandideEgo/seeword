@@ -18,10 +18,15 @@ _MARKER_PREFIX_LIMIT = 6
 
 
 class CitationStream:
-    def __init__(self, source_count: int, *, max_chars: int = 1000, block_chars: int = 120) -> None:
+    def __init__(
+        self, source_count: int, *, max_chars: int = 1000, block_chars: int = 120, general: bool = False
+    ) -> None:
         if source_count < 0:
             raise ValueError("source_count must be non-negative")
         self.source_count = source_count
+        # A task-less chat has no source list: a stray marker is dropped, not
+        # treated as an out-of-range citation.
+        self.general = general
         self.max_chars = max_chars
         self.block_chars = block_chars
         self._buffer = ""
@@ -66,6 +71,9 @@ class CitationStream:
             token = text[index + 1 : end]
             if token.isdigit():
                 number = int(token)
+                if self.general:
+                    index = end + 1
+                    continue
                 if not 1 <= number <= self.source_count:
                     raise AppError(502, "AI_SERVICE_UNAVAILABLE", "导师回复引用了不存在的来源")
                 if number not in self._citations:

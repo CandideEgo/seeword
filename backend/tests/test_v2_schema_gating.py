@@ -110,3 +110,59 @@ def test_v2_table_list_matches_every_v2_model():
             if table is not None and getattr(value, "__module__", "") == module.__name__:
                 names.add(table.name)
     assert names == set(V2_TABLES)
+
+
+async def test_sweep_skips_a_database_stopped_before_the_conversation_columns(monkeypatch):
+    """Every swept table exists, the P02.3 columns do not: the ORM would fail."""
+    calls = []
+    monkeypatch.setattr("app.services.v2_schema.has_tables", _always_ready)
+    monkeypatch.setattr("app.services.v2_schema.conversation_columns_ready", _columns_absent)
+    monkeypatch.setattr("app.services.teaching_runs.sweep", _record(calls))
+    monkeypatch.setattr(teaching_tasks, "get_async_session_maker", _maker)
+    result = await teaching_tasks._sweep()
+    assert result == {"queued": 0, "skipped": "v2_conversation_columns_absent"}
+    assert calls == []
+
+
+async def test_conversation_columns_ready_needs_both_tables_and_columns(db_session):
+    from app.services.v2_schema import conversation_columns_ready
+
+    # The in-memory test schema is created from the ORM, so it has everything.
+    assert await conversation_columns_ready(db_session) is True
+
+    engine = await _bare_engine()
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as db:
+        assert await conversation_columns_ready(db) is False
+
+
+async def _always_ready(_db, _names):
+    return True
+
+
+def _record(calls):
+    async def _sweep(_db):
+        calls.append(True)
+        return []
+
+    return _sweep
+
+
+async def _columns_absent(_db):
+    return False
+
+
+async def test_run_reads_answer_503_not_500_before_the_conversation_columns(db_session, monkeypatch):
+    """get/events/cancel/create select AgentRun, which now has P02.3 columns."""
+    from app.services import teaching_runs
+
+    monkeypatch.setattr("app.services.v2_schema.has_tables", _never_ready)
+    principal = SimpleNamespace(user_id="user-1", actor="user_ui")
+    for call in (
+        lambda: teaching_runs.get(db_session, principal, "run-1"),
+        lambda: teaching_runs.events(db_session, principal, "run-1", 0),
+        lambda: teaching_runs.cancel(db_session, principal, "run-1"),
+    ):
+        with pytest.raises(AppError) as denied:
+            await call()
+        assert denied.value.status_code == 503

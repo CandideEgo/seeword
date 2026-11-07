@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.teaching_dialogue import DialoguePage
 from app.services import teaching_runs as service
 from app.services.teaching import dialogue
+from app.services.teaching import service as core
 from app.services.teaching.service import Principal
 
 router = APIRouter(prefix="/teaching", tags=["teaching-runs"])
@@ -26,16 +27,8 @@ class CreateRun(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
 
-def dispatch(run_id: str) -> None:
-    from app.tasks.celery_app import celery_app
-
-    try:
-        celery_app.send_task("app.tasks.teaching_tasks.execute_teaching_run", args=[run_id], queue="teaching")
-    except Exception:
-        # The queued DB row is a durable dispatch intent; the sweep retries it.
-        from app.core.logging import get_logger
-
-        get_logger(__name__).warning("teaching_run_dispatch_deferred", run_id=run_id)
+# The queued DB row is a durable dispatch intent; the sweep retries it.
+dispatch = service.dispatch_run
 
 
 @router.post("/sessions/{session_id}/runs", status_code=202)
@@ -75,7 +68,9 @@ async def messages(
     user: User = Depends(get_current_user),
 ):
     response.headers["Cache-Control"] = "no-store"
-    return await dialogue.page(db, Principal(user.id), session_id, after=after, limit=limit)
+    principal = Principal(user.id)
+    session = await core.owned_session(db, principal, session_id)
+    return await dialogue.page_session(db, principal, session, after=after, limit=limit)
 
 
 def resume_cursor(after: int, last_event_id: str | None) -> int:

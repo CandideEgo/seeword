@@ -47,6 +47,8 @@ from app.models.v2_runtime import (
     TeachingAccessGrant,
     TeachingMessage,
     TeachingMessageBlock,
+    TutorConversation,
+    TutorConversationTask,
 )
 from app.models.video import Video
 from app.models.video_quality_report import VideoQualityReport

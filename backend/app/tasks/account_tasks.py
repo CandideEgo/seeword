@@ -89,7 +89,8 @@ _README = """SeeWord 数据导出包
   exposure_mapping_states.json 历史暴露映射资格
   teaching_feedbacks.json / teaching_operations.json  未过期教学反馈与动作回执
   external_connections.json / teaching_runs.json  外部连接与讲解任务安全摘要
-  teaching_messages.json  当前权限允许的任务对话
+  tutor_conversations.json  独立对话列表（含关联任务）
+  teaching_messages.json  当前权限允许的对话消息
   videos.json                  你上传的视频元数据
   notifications.*              站内通知
   feedbacks.*                  你提交的反馈
@@ -291,7 +292,10 @@ async def _purge_user(db, user) -> None:
 
 async def _prepare_v2_removal(db, user_id: str) -> None:
     """Revoke access, fence execution, and retain a remote lifecycle intent atomically."""
-    from app.services.v2_schema import existing_tables
+    from app.services.v2_schema import existing_columns, existing_tables
+
+    async def has_conversation_columns(db, table: str) -> bool:
+        return "conversation_id" in await existing_columns(db, table)
 
     # Deletion must complete even when the V2 migration never ran: a missing
     # table means there is nothing to revoke or fence, not that the account
@@ -336,7 +340,10 @@ async def _prepare_v2_removal(db, user_id: str) -> None:
             .order_by(TeachingSession.id)
             .with_for_update()
         )
-    if "agent_runs" in present:
+    # The ORM now selects ``agent_runs.conversation_id``; on a database
+    # stopped before P02.3 this table has none of the conversation columns, so
+    # touching it would break deletion instead of fencing it.
+    if "agent_runs" in present and await has_conversation_columns(db, "agent_runs"):
         runs = (
             await db.execute(
                 select(AgentRun)
@@ -365,9 +372,12 @@ async def _delete_v2_children(db, user_id: str) -> None:
     """Explicitly erase nested private records, also on SQLite test databases."""
     from sqlalchemy import delete, select
 
-    from app.services.v2_schema import existing_tables
+    from app.services.v2_schema import existing_columns, existing_tables
 
     present = await existing_tables(db)
+
+    async def has_column(table: str, column: str) -> bool:
+        return column in await existing_columns(db, table)
 
     from app.models.teaching import LearningEventOutbox, TeachingAttempt, TeachingItem, TeachingSession
     from app.models.v2_runtime import (
@@ -378,19 +388,31 @@ async def _delete_v2_children(db, user_id: str) -> None:
         ExternalCredential,
         TeachingMessage,
         TeachingMessageBlock,
+        TutorConversation,
+        TutorConversationTask,
     )
 
-    if "agent_runs" in present:
+    # These three tables gained P02.3 columns; the ORM selects them, so a
+    # pre-P02.3 database must not be queried through the model at all. The
+    # generic per-table sweep later still clears them by ``user_id``.
+    if "agent_runs" in present and await has_column("agent_runs", "conversation_id"):
         run_ids = select(AgentRun.id).where(AgentRun.user_id == user_id)
         if "agent_run_events" in present:
             await db.execute(delete(AgentRunEvent).where(AgentRunEvent.run_id.in_(run_ids)))
         if "agent_steps" in present:
             await db.execute(delete(AgentStep).where(AgentStep.run_id.in_(run_ids)))
-    if "teaching_messages" in present:
+    if "teaching_messages" in present and await has_column("teaching_messages", "conversation_id"):
         message_ids = select(TeachingMessage.id).where(TeachingMessage.user_id == user_id)
         if "teaching_message_blocks" in present:
             await db.execute(delete(TeachingMessageBlock).where(TeachingMessageBlock.message_id.in_(message_ids)))
         await db.execute(delete(TeachingMessage).where(TeachingMessage.user_id == user_id))
+    if "tutor_conversations" in present:
+        conversation_ids = select(TutorConversation.id).where(TutorConversation.user_id == user_id)
+        if "tutor_conversation_tasks" in present:
+            await db.execute(
+                delete(TutorConversationTask).where(TutorConversationTask.conversation_id.in_(conversation_ids))
+            )
+        await db.execute(delete(TutorConversation).where(TutorConversation.user_id == user_id))
     if "external_connections" in present and "external_credentials" in present:
         connection_ids = select(ExternalConnection.id).where(ExternalConnection.user_id == user_id)
         await db.execute(delete(ExternalCredential).where(ExternalCredential.connection_id.in_(connection_ids)))

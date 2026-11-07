@@ -118,3 +118,17 @@ P02.1 新增 `/api/v1/teaching/sessions/{id}/messages` GET/POST，wire schema �
 - **用量**：只有网关记账。后端读取流末 `usage`，把 `reported`（对象且字段为非负整数）、`missing`（没有 usage 字段）或 `unknown`（`usage:null` 或非对象）写入该 step 的 `safe_result`。任一种都不改写网关费用，也不当作 0；`missing`/`unknown` 不得阻止 run 完成。
 - **期限与预算**：整轮一个 per-run key，签发期限等于剩余执行期限；执行硬期限沿用现有 run 租约 30 秒（整轮，含块提交），单次模型读取超时 25 秒。取消或权限变化后停止发布新块，但读取端继续排空上游流直到结束或超时，让网关按原路径结算；排空结果不写回。
 - **适配层**：入站代理对 `stream:true` 的补全请求做增量转发（不缓冲整包），调用方断线后后台继续排空；出站 shim 按行转发 SSE，只在流结束时注入保守 usage。输出上限按模型查 `ADAPTER_MODEL_OUTPUT_CAPS`，未列出的模型沿用 `MODEL_MAX_OUTPUT_TOKENS`；后端用独立别名 `LLM_GATEWAY_TUTOR_MODEL`（默认 `teaching-tutor`）与独立上限 `LLM_GATEWAY_TUTOR_MAX_TOKENS`（默认 1024，范围 128–4096），超限时适配层 422 `output_cap_exceeded`，不静默改写。
+
+## CTX12 独立聊天与任务关联（P02.3）
+
+本节冻结 P02.3 的 chat 存储、分级权限与迁移语义；wire schema 的唯一事实源是 `backend/app/schemas/tutor.py` 与 `backend/app/schemas/teaching_dialogue.py`，实施与验证见[实施记录](implementation.md)。默认关闭：`TEACHING_CONVERSATIONS_ENABLED` 要求 `TEACHING_DIALOGUE_ENABLED` 与 `TEACHING_ENABLED`；关闭时 `/api/v1/tutor/*` 返回 503，旧 `/teaching/sessions/{id}/messages` 行为不变。
+
+- **一份聊天、可零到多个任务**：`tutor_conversations` 拥有 transcript；`kind='chat'` 的独立聊天可经 `tutor_conversation_tasks` 关联任意多个教学会话，`kind='task'` 的旧式任务聊天由 `task_session_id` 唯一绑定一个会话。删聊天只删消息与执行日志，不删教学会话、作答或成绩。
+- **消息归属**：`teaching_messages.conversation_id` 非空；`session_id` / `content_revision_id` / `session_revision` 仅在该消息谈论某个教学任务时非空。`AgentRun.conversation_id` 指向所属聊天，`session_id` 可空；无任务运行的 `AgentRunEvent.session_revision` 为 null。序号按 `conversation_id` 唯一，写入前锁聊天行，锁序恒为聊天 → 会话 → 运行。
+- **旧入口同源**：`GET/POST /api/v1/teaching/sessions/{id}/messages` 仍读写该会话的 `kind='task'` 聊天；GET 不创建聊天（无记录返回空页），POST 首次使用才懒建。迁移 `c4a1b2c3d4e5` 按 `session_id` 回填聊天与任务关联，消息 ID、顺序与 `content_revision_id` 保持不变。
+- **独立聊天 API**：`POST/GET /api/v1/tutor/conversations`、`GET/PATCH/DELETE /api/v1/tutor/conversations/{id}`、`POST/GET /api/v1/tutor/conversations/{id}/messages`。列表只含 `kind='chat'`，按 `updated_at` 倒序，`page`/`page_size` 分页；对话响应含 `tasks[]`。归档（`status='archived'`）保留可读历史但拒绝新回合（409）。
+- **回合**：`POST .../messages` 接受 `operation_id`、`message`、可选 `session_id` 与 `expected_revision`。带任务时必须提供 `expected_revision` 并按现有 `TEACHING_REVISION_CONFLICT` 校验，且自动建立任务关联；无任务时不得携带 `expected_revision`（422）。沿用同一运行引擎、幂等表、活跃运行上限与 `teaching` 队列，不建第二套执行器。
+- **模型出口**：任务聊天沿用现有策略——未揭晓只给 policy 引导，揭晓后走 128-token 的 JSON 回复并要求引用；无任务聊天直接回答一般英语问题，使用独立别名 `LLM_GATEWAY_TUTOR_MODEL` 与上限 `LLM_GATEWAY_TUTOR_MAX_TOKENS`，不得引用来源、不得给 ABCD 建议、不得声称看过未提供材料，回复中出现的 `[n]` 标记被丢弃而不是当作引用。两种形态共用同一预算与准入，模型输出仍经服务端结构校验。
+- **历史范围**：模型输入的历史只取同一聊天内**同一任务**的消息（无任务回合只取无任务消息）。聊天可以同时含两类消息，但无任务回合不得把任务消息（尤其已揭晓答案）带进模型输入。
+- **投影与生命周期**：任务消息仍按该任务*当前*权利投影（材料受限、revision 变化、未揭晓、引用失效即整体 restricted）；无任务消息仅对本人可见。导出新增 `tutor_conversations` 并对全部消息同一投影；注销删除聊天、消息、块与执行日志。`V2_TABLES`/`EXPORT_TABLES`/`DELETE_TABLES` 同步新增两张表，缺表时聊天 API 返回 503 而非 500。因为本迁移还给既有表加列，表存在性不足以证明 ORM 可查询：beat 巡查与注销在触碰 `agent_runs`/`teaching_messages`/`agent_run_events` 前还要求 `conversation_columns_ready`，停在旧 head 的库上只是跳过，不报错。
+- **迁移**：`c4a1b2c3d4e5` 继承 `d4e5f6a7b8c9`，包含建表、历史回填、`(session_id, sequence)` → `(conversation_id, sequence)` 唯一键替换，以及 `agent_runs`/`agent_run_events`/`teaching_messages` 的可空放宽；仅在隔离 PostgreSQL 演练，未对业务库执行。

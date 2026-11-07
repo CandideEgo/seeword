@@ -208,6 +208,34 @@ class TestJwtSecretStrength:
 class TestV2FeatureGuards:
     """V2 switches fail closed at boot; a half-configured capability never starts."""
 
+    def test_conversations_require_dialogue_and_teaching(self):
+        with pytest.raises(RuntimeError, match="TEACHING_CONVERSATIONS_ENABLED"):
+            _settings(
+                env="development",
+                teaching_enabled=True,
+                teaching_runs_enabled=True,
+                teaching_dialogue_enabled=False,
+                teaching_conversations_enabled=True,
+                llm_gateway_governance_verified=True,
+                llm_gateway_base_url="http://gateway",
+                llm_gateway_api_key="service",
+                llm_gateway_admin_key="admin",
+                llm_gateway_v2_team_id="team",
+            )
+        with pytest.raises(RuntimeError, match="TEACHING_CONVERSATIONS_ENABLED"):
+            _settings(
+                env="development",
+                teaching_enabled=False,
+                teaching_runs_enabled=True,
+                teaching_dialogue_enabled=True,
+                teaching_conversations_enabled=True,
+                llm_gateway_governance_verified=True,
+                llm_gateway_base_url="http://gateway",
+                llm_gateway_api_key="service",
+                llm_gateway_admin_key="admin",
+                llm_gateway_v2_team_id="team",
+            )
+
     def test_streaming_requires_dialogue(self):
         with pytest.raises(RuntimeError, match="TEACHING_STREAMING_ENABLED"):
             _settings(env="development", teaching_streaming_enabled=True, teaching_dialogue_enabled=False)

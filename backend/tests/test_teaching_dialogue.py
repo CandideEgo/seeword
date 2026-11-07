@@ -14,7 +14,7 @@ from app.core.security import create_token
 from app.models.exam_test import ExamAnswer, ExamSession
 from app.models.teaching import TeachingSession
 from app.models.user import User
-from app.models.v2_runtime import AgentRun, AgentRunEvent, TeachingMessage
+from app.models.v2_runtime import AgentRun, AgentRunEvent, TeachingMessage, TutorConversation
 from app.services import account_data, teaching_gateway, teaching_runs, v2_access
 from app.services.teaching import dialogue
 from app.services.teaching import service as core
@@ -256,12 +256,12 @@ async def test_other_tasks_users_disabled_gate_and_cancel_do_not_publish_message
         await client.get(f"/api/v1/teaching/sessions/{state['id']}/messages", headers=other_headers)
     ).status_code == 404
     with pytest.raises(AppError) as denied:
-        await dialogue.page(
+        await dialogue.page_session(
             db_session,
             core.Principal(
                 user.id, actor="external_agent", connection_id="unscoped", granted_scopes=frozenset({"teaching:read"})
             ),
-            state["id"],
+            await core.owned_session(db_session, core.Principal(user.id, actor="internal_agent"), state["id"]),
         )
     assert denied.value.status_code == 403
 
@@ -269,10 +269,15 @@ async def test_other_tasks_users_disabled_gate_and_cancel_do_not_publish_message
 async def test_model_history_is_bounded_and_never_includes_another_task(db_session, monkeypatch):
     user, revision, _question, state, _settings, _ = await setup(db_session, monkeypatch)
     principal = core.Principal(user.id, actor="internal_agent")
+    chat = TutorConversation(user_id=user.id, title="本任务")
+    other_chat = TutorConversation(user_id=user.id, title="另一任务")
+    db_session.add_all([chat, other_chat])
+    await db_session.flush()
     for sequence in range(1, 10):
         db_session.add(
             TeachingMessage(
                 user_id=user.id,
+                conversation_id=chat.id,
                 session_id=state["id"],
                 content_revision_id=revision.id,
                 sequence=sequence,
@@ -287,6 +292,7 @@ async def test_model_history_is_bounded_and_never_includes_another_task(db_sessi
     db_session.add(
         TeachingMessage(
             user_id=user.id,
+            conversation_id=other_chat.id,
             session_id=other.id,
             content_revision_id=revision.id,
             sequence=1,
@@ -296,7 +302,7 @@ async def test_model_history_is_bounded_and_never_includes_another_task(db_sessi
         )
     )
     await db_session.commit()
-    run = SimpleNamespace(id="new-run", session_id=state["id"], user_id=user.id)
+    run = SimpleNamespace(id="new-run", session_id=state["id"], conversation_id=chat.id, user_id=user.id)
     value = await dialogue.model_input(db_session, principal, run)
     assert value["history_truncated"] and len(value["history"]) == 2
     assert len(json.dumps(value["history"], ensure_ascii=False).encode()) < 8000
