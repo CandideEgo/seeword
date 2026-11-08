@@ -3,3 +3,4 @@
 2026-11-06 22:56（北京时间）| 下线会员收费链路：全栈功能免费开放（删除支付/金数据/订单/解锁全链路与 /upgrade、/pricing、/checkout、后台付费面板；迁移 d4e5f6a7b8c9 删表删列；后端 1655 passed、前端 check/build 通过、ego-browser 走查前台与后台无会员残留）
 2026-11-06 23:40（北京时间）| 会员链路下线的独立 review 修复：后台视频详情 skip_access_check 误判为匿名导致字幕/URL 丢失（补回归测试）、清理 measure_baseline entitlement、后台 metrics 类型、导出 README 与 e2e mock 的残留字段；受影响后端 73 passed、冒烟 17/17、前端 check 通过
 2026-11-07 08:37（北京时间）| P02.3 独立聊天：tutor_conversations/任务关联模型与迁移 c4a1b2c3d4e5（含历史回填）、/api/v1/tutor 聊天 CRUD 与回合、无任务导师出口（tutor 别名/无引用）、旧消息入口同源、导出与注销覆盖；独立 review 修复 6 个有效缺陷（execute 回滚后过期实例崩溃、无任务回合混入任务历史、加列后表级门禁失效导致巡查/注销报错、运行读路径 500、未收集的支付路由不变量测试、回填 owner 取值）；新增 25 项 SQLite（含迁移回填）与 2 项 PG 并发回归，隔离 PG 迁移/回填/降级重升/drift 通过
+2026-11-09 02:46（北京时间）| 基于 7a04f2c9 交付 SLCS v0.1、离线校验与 V2 只读视频材料适配；示例通过两条入口，73 项测试与 11 项 PostgreSQL 回归通过。

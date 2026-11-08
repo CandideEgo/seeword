@@ -1,0 +1,1080 @@
+{
+  "schema_version": "0.1.0",
+  "lesson_id": "welcome-to-wikisource",
+  "title": "Welcome to Wikisource",
+  "source_language": "en",
+  "translation_language": "zh-CN",
+  "media": {
+    "source_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm",
+    "duration_ms": 49453,
+    "access_mode": "external_link"
+  },
+  "segments": [
+    {
+      "id": "s01",
+      "start_ms": 1102,
+      "end_ms": 2412,
+      "text": "Welcome to Wikisource!",
+      "translation": "欢迎来到维基文库！",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 7,
+          "timing": {
+            "start_ms": 1222,
+            "end_ms": 1562
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 8,
+          "end_char": 10,
+          "timing": {
+            "start_ms": 1622,
+            "end_ms": 1682
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 11,
+          "end_char": 21,
+          "timing": {
+            "start_ms": 1762,
+            "end_ms": 2302
+          }
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "start_ms": 4722,
+      "end_ms": 10212,
+      "text": "Wikisource volunteers from all over the world are creating digital library in many languages.",
+      "translation": "世界各地的维基文库志愿者正在建设一座多语言数字图书馆。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 10,
+          "timing": {
+            "start_ms": 4842,
+            "end_ms": 5382
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 11,
+          "end_char": 21,
+          "timing": {
+            "start_ms": 5462,
+            "end_ms": 6082
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 22,
+          "end_char": 26,
+          "timing": {
+            "start_ms": 6182,
+            "end_ms": 6302
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 27,
+          "end_char": 30,
+          "timing": {
+            "start_ms": 6462,
+            "end_ms": 6582
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 31,
+          "end_char": 35,
+          "timing": {
+            "start_ms": 6722,
+            "end_ms": 6862
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 36,
+          "end_char": 39,
+          "timing": {
+            "start_ms": 6922,
+            "end_ms": 7002
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 40,
+          "end_char": 45,
+          "timing": {
+            "start_ms": 7062,
+            "end_ms": 7282
+          }
+        },
+        {
+          "id": "w08",
+          "start_char": 46,
+          "end_char": 49,
+          "timing": {
+            "start_ms": 7422,
+            "end_ms": 7522
+          }
+        },
+        {
+          "id": "w09",
+          "start_char": 50,
+          "end_char": 58,
+          "timing": {
+            "start_ms": 7602,
+            "end_ms": 7942
+          }
+        },
+        {
+          "id": "w10",
+          "start_char": 59,
+          "end_char": 66,
+          "timing": {
+            "start_ms": 8022,
+            "end_ms": 8382
+          }
+        },
+        {
+          "id": "w11",
+          "start_char": 67,
+          "end_char": 74,
+          "timing": {
+            "start_ms": 8442,
+            "end_ms": 8942
+          }
+        },
+        {
+          "id": "w12",
+          "start_char": 75,
+          "end_char": 77,
+          "timing": {
+            "start_ms": 9082,
+            "end_ms": 9122
+          }
+        },
+        {
+          "id": "w13",
+          "start_char": 78,
+          "end_char": 82,
+          "timing": {
+            "start_ms": 9222,
+            "end_ms": 9442
+          }
+        },
+        {
+          "id": "w14",
+          "start_char": 83,
+          "end_char": 92,
+          "timing": {
+            "start_ms": 9522,
+            "end_ms": 10102
+          }
+        }
+      ]
+    },
+    {
+      "id": "s03",
+      "start_ms": 12482,
+      "end_ms": 17472,
+      "text": "We can digitize public domain books as scanned images and upload them to Commons.",
+      "translation": "我们可以把公有领域的书籍扫描成图片，再上传到维基共享资源。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 2,
+          "timing": {
+            "start_ms": 12602,
+            "end_ms": 12682
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 3,
+          "end_char": 6,
+          "timing": {
+            "start_ms": 12762,
+            "end_ms": 12862
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 7,
+          "end_char": 15,
+          "timing": {
+            "start_ms": 12942,
+            "end_ms": 13462
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 16,
+          "end_char": 22,
+          "timing": {
+            "start_ms": 13602,
+            "end_ms": 13882
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 23,
+          "end_char": 29,
+          "timing": {
+            "start_ms": 13942,
+            "end_ms": 14242
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 30,
+          "end_char": 35,
+          "timing": {
+            "start_ms": 14322,
+            "end_ms": 14582
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 36,
+          "end_char": 38,
+          "timing": {
+            "start_ms": 14762,
+            "end_ms": 14802
+          }
+        },
+        {
+          "id": "w08",
+          "start_char": 39,
+          "end_char": 46,
+          "timing": {
+            "start_ms": 14922,
+            "end_ms": 15302
+          }
+        },
+        {
+          "id": "w09",
+          "start_char": 47,
+          "end_char": 53,
+          "timing": {
+            "start_ms": 15462,
+            "end_ms": 15782
+          }
+        },
+        {
+          "id": "w10",
+          "start_char": 54,
+          "end_char": 57,
+          "timing": {
+            "start_ms": 15882,
+            "end_ms": 15962
+          }
+        },
+        {
+          "id": "w11",
+          "start_char": 58,
+          "end_char": 64,
+          "timing": {
+            "start_ms": 16082,
+            "end_ms": 16422
+          }
+        },
+        {
+          "id": "w12",
+          "start_char": 65,
+          "end_char": 69,
+          "timing": {
+            "start_ms": 16522,
+            "end_ms": 16622
+          }
+        },
+        {
+          "id": "w13",
+          "start_char": 70,
+          "end_char": 72,
+          "timing": {
+            "start_ms": 16702,
+            "end_ms": 16822
+          }
+        },
+        {
+          "id": "w14",
+          "start_char": 73,
+          "end_char": 80,
+          "timing": {
+            "start_ms": 16942,
+            "end_ms": 17362
+          }
+        }
+      ]
+    },
+    {
+      "id": "s04",
+      "start_ms": 19782,
+      "end_ms": 22992,
+      "text": "These image files are then converted into text format.",
+      "translation": "然后把这些图片文件转换成文本格式。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 5,
+          "timing": {
+            "start_ms": 19902,
+            "end_ms": 20102
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 6,
+          "end_char": 11,
+          "timing": {
+            "start_ms": 20242,
+            "end_ms": 20462
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 12,
+          "end_char": 17,
+          "timing": {
+            "start_ms": 20582,
+            "end_ms": 20942
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 18,
+          "end_char": 21,
+          "timing": {
+            "start_ms": 21022,
+            "end_ms": 21082
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 22,
+          "end_char": 26,
+          "timing": {
+            "start_ms": 21162,
+            "end_ms": 21282
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 27,
+          "end_char": 36,
+          "timing": {
+            "start_ms": 21362,
+            "end_ms": 21742
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 37,
+          "end_char": 41,
+          "timing": {
+            "start_ms": 21862,
+            "end_ms": 22042
+          }
+        },
+        {
+          "id": "w08",
+          "start_char": 42,
+          "end_char": 46,
+          "timing": {
+            "start_ms": 22122,
+            "end_ms": 22382
+          }
+        },
+        {
+          "id": "w09",
+          "start_char": 47,
+          "end_char": 53,
+          "timing": {
+            "start_ms": 22522,
+            "end_ms": 22882
+          }
+        }
+      ]
+    },
+    {
+      "id": "s05",
+      "start_ms": 25242,
+      "end_ms": 30652,
+      "text": "The next step is to check these texts if they match with a scanned image and to correct them accordingly.",
+      "translation": "下一步是检查这些文本是否与扫描图一致，并作相应修正。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 3,
+          "timing": {
+            "start_ms": 25362,
+            "end_ms": 25442
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 4,
+          "end_char": 8,
+          "timing": {
+            "start_ms": 25522,
+            "end_ms": 25742
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 9,
+          "end_char": 13,
+          "timing": {
+            "start_ms": 25782,
+            "end_ms": 26002
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 14,
+          "end_char": 16,
+          "timing": {
+            "start_ms": 26142,
+            "end_ms": 26222
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 17,
+          "end_char": 19,
+          "timing": {
+            "start_ms": 26302,
+            "end_ms": 26382
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 20,
+          "end_char": 25,
+          "timing": {
+            "start_ms": 26462,
+            "end_ms": 26662
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 26,
+          "end_char": 31,
+          "timing": {
+            "start_ms": 26722,
+            "end_ms": 26902
+          }
+        },
+        {
+          "id": "w08",
+          "start_char": 32,
+          "end_char": 37,
+          "timing": {
+            "start_ms": 27022,
+            "end_ms": 27322
+          }
+        },
+        {
+          "id": "w09",
+          "start_char": 38,
+          "end_char": 40,
+          "timing": {
+            "start_ms": 27462,
+            "end_ms": 27502
+          }
+        },
+        {
+          "id": "w10",
+          "start_char": 41,
+          "end_char": 45,
+          "timing": {
+            "start_ms": 27562,
+            "end_ms": 27662
+          }
+        },
+        {
+          "id": "w11",
+          "start_char": 46,
+          "end_char": 51,
+          "timing": {
+            "start_ms": 27762,
+            "end_ms": 28002
+          }
+        },
+        {
+          "id": "w12",
+          "start_char": 52,
+          "end_char": 56,
+          "timing": {
+            "start_ms": 28102,
+            "end_ms": 28242
+          }
+        },
+        {
+          "id": "w13",
+          "start_char": 57,
+          "end_char": 58,
+          "timing": {
+            "start_ms": 28342,
+            "end_ms": 28362
+          }
+        },
+        {
+          "id": "w14",
+          "start_char": 59,
+          "end_char": 66,
+          "timing": {
+            "start_ms": 28402,
+            "end_ms": 28782
+          }
+        },
+        {
+          "id": "w15",
+          "start_char": 67,
+          "end_char": 72,
+          "timing": {
+            "start_ms": 28882,
+            "end_ms": 29122
+          }
+        },
+        {
+          "id": "w16",
+          "start_char": 73,
+          "end_char": 76,
+          "timing": {
+            "start_ms": 29142,
+            "end_ms": 29222
+          }
+        },
+        {
+          "id": "w17",
+          "start_char": 77,
+          "end_char": 79,
+          "timing": {
+            "start_ms": 29282,
+            "end_ms": 29342
+          }
+        },
+        {
+          "id": "w18",
+          "start_char": 80,
+          "end_char": 87,
+          "timing": {
+            "start_ms": 29402,
+            "end_ms": 29682
+          }
+        },
+        {
+          "id": "w19",
+          "start_char": 88,
+          "end_char": 92,
+          "timing": {
+            "start_ms": 29742,
+            "end_ms": 29842
+          }
+        },
+        {
+          "id": "w20",
+          "start_char": 93,
+          "end_char": 104,
+          "timing": {
+            "start_ms": 29922,
+            "end_ms": 30542
+          }
+        }
+      ]
+    },
+    {
+      "id": "s06",
+      "start_ms": 32742,
+      "end_ms": 33492,
+      "text": "Guess what?",
+      "translation": "你猜怎么着？",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 5,
+          "timing": {
+            "start_ms": 32862,
+            "end_ms": 33082
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 6,
+          "end_char": 10,
+          "timing": {
+            "start_ms": 33202,
+            "end_ms": 33382
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07",
+      "start_ms": 33582,
+      "end_ms": 35732,
+      "text": "The content is searchable in web now.",
+      "translation": "现在可以在网上搜索这些内容了。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 3,
+          "timing": {
+            "start_ms": 33702,
+            "end_ms": 33782
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 4,
+          "end_char": 11,
+          "timing": {
+            "start_ms": 33862,
+            "end_ms": 34322
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 12,
+          "end_char": 14,
+          "timing": {
+            "start_ms": 34442,
+            "end_ms": 34482
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 15,
+          "end_char": 25,
+          "timing": {
+            "start_ms": 34582,
+            "end_ms": 35022
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 26,
+          "end_char": 28,
+          "timing": {
+            "start_ms": 35142,
+            "end_ms": 35182
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 29,
+          "end_char": 32,
+          "timing": {
+            "start_ms": 35242,
+            "end_ms": 35382
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 33,
+          "end_char": 36,
+          "timing": {
+            "start_ms": 35462,
+            "end_ms": 35622
+          }
+        }
+      ]
+    },
+    {
+      "id": "s08",
+      "start_ms": 36322,
+      "end_ms": 36992,
+      "text": "Read them.",
+      "translation": "读一读。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 4,
+          "timing": {
+            "start_ms": 36442,
+            "end_ms": 36642
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 5,
+          "end_char": 9,
+          "timing": {
+            "start_ms": 36742,
+            "end_ms": 36882
+          }
+        }
+      ]
+    },
+    {
+      "id": "s09",
+      "start_ms": 37182,
+      "end_ms": 38452,
+      "text": "Use them as reference.",
+      "translation": "把它们用作参考。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 3,
+          "timing": {
+            "start_ms": 37302,
+            "end_ms": 37422
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 4,
+          "end_char": 8,
+          "timing": {
+            "start_ms": 37502,
+            "end_ms": 37622
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 9,
+          "end_char": 11,
+          "timing": {
+            "start_ms": 37842,
+            "end_ms": 37902
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 12,
+          "end_char": 21,
+          "timing": {
+            "start_ms": 37982,
+            "end_ms": 38342
+          }
+        }
+      ]
+    },
+    {
+      "id": "s10",
+      "start_ms": 38622,
+      "end_ms": 39772,
+      "text": "Share them with others.",
+      "translation": "与其他人分享。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 5,
+          "timing": {
+            "start_ms": 38742,
+            "end_ms": 38942
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 6,
+          "end_char": 10,
+          "timing": {
+            "start_ms": 39022,
+            "end_ms": 39122
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 11,
+          "end_char": 15,
+          "timing": {
+            "start_ms": 39182,
+            "end_ms": 39302
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 16,
+          "end_char": 22,
+          "timing": {
+            "start_ms": 39422,
+            "end_ms": 39662
+          }
+        }
+      ]
+    },
+    {
+      "id": "s11",
+      "start_ms": 42102,
+      "end_ms": 44312,
+      "text": "We are creating something really amazing!",
+      "translation": "我们正在做一件了不起的事！",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 2,
+          "timing": {
+            "start_ms": 42222,
+            "end_ms": 42322
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 3,
+          "end_char": 6,
+          "timing": {
+            "start_ms": 42382,
+            "end_ms": 42462
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 7,
+          "end_char": 15,
+          "timing": {
+            "start_ms": 42542,
+            "end_ms": 42902
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 16,
+          "end_char": 25,
+          "timing": {
+            "start_ms": 43002,
+            "end_ms": 43342
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 26,
+          "end_char": 32,
+          "timing": {
+            "start_ms": 43402,
+            "end_ms": 43682
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 33,
+          "end_char": 40,
+          "timing": {
+            "start_ms": 43782,
+            "end_ms": 44202
+          }
+        }
+      ]
+    },
+    {
+      "id": "s12",
+      "start_ms": 44952,
+      "end_ms": 47862,
+      "text": "Why don't you join us and be part of a diverse community?",
+      "translation": "何不加入我们，成为这个多元社群的一员？",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 3,
+          "timing": {
+            "start_ms": 45072,
+            "end_ms": 45232
+          }
+        },
+        {
+          "id": "w02",
+          "start_char": 4,
+          "end_char": 9,
+          "timing": {
+            "start_ms": 45312,
+            "end_ms": 45472
+          }
+        },
+        {
+          "id": "w03",
+          "start_char": 10,
+          "end_char": 13,
+          "timing": {
+            "start_ms": 45512,
+            "end_ms": 45632
+          }
+        },
+        {
+          "id": "w04",
+          "start_char": 14,
+          "end_char": 18,
+          "timing": {
+            "start_ms": 45712,
+            "end_ms": 45952
+          }
+        },
+        {
+          "id": "w05",
+          "start_char": 19,
+          "end_char": 21,
+          "timing": {
+            "start_ms": 46072,
+            "end_ms": 46132
+          }
+        },
+        {
+          "id": "w06",
+          "start_char": 22,
+          "end_char": 25,
+          "timing": {
+            "start_ms": 46272,
+            "end_ms": 46352
+          }
+        },
+        {
+          "id": "w07",
+          "start_char": 26,
+          "end_char": 28,
+          "timing": {
+            "start_ms": 46392,
+            "end_ms": 46472
+          }
+        },
+        {
+          "id": "w08",
+          "start_char": 29,
+          "end_char": 33,
+          "timing": {
+            "start_ms": 46612,
+            "end_ms": 46772
+          }
+        },
+        {
+          "id": "w09",
+          "start_char": 34,
+          "end_char": 36,
+          "timing": {
+            "start_ms": 46832,
+            "end_ms": 46872
+          }
+        },
+        {
+          "id": "w10",
+          "start_char": 37,
+          "end_char": 38,
+          "timing": {
+            "start_ms": 46952,
+            "end_ms": 46972
+          }
+        },
+        {
+          "id": "w11",
+          "start_char": 39,
+          "end_char": 46,
+          "timing": {
+            "start_ms": 47012,
+            "end_ms": 47312
+          }
+        },
+        {
+          "id": "w12",
+          "start_char": 47,
+          "end_char": 56,
+          "timing": {
+            "start_ms": 47352,
+            "end_ms": 47752
+          }
+        }
+      ]
+    }
+  ],
+  "vocabulary": [
+    {
+      "headword": "digital library",
+      "gloss": "数字图书馆，在线保存和提供数字化馆藏。",
+      "segment_id": "s02",
+      "token_ids": [
+        "w10",
+        "w11"
+      ]
+    },
+    {
+      "headword": "digitize",
+      "gloss": "将纸质书籍扫描并转换为数字形式。",
+      "segment_id": "s03",
+      "token_ids": [
+        "w03"
+      ]
+    },
+    {
+      "headword": "public domain",
+      "gloss": "公有领域，此处修饰可自由使用的书籍。",
+      "segment_id": "s03",
+      "token_ids": [
+        "w04",
+        "w05"
+      ]
+    },
+    {
+      "headword": "scanned image",
+      "gloss": "扫描图，由纸质书页扫描得到的图像。",
+      "segment_id": "s03",
+      "token_ids": [
+        "w08",
+        "w09"
+      ]
+    },
+    {
+      "headword": "searchable",
+      "gloss": "可检索的，指可以在线搜索这些内容。",
+      "segment_id": "s07",
+      "token_ids": [
+        "w04"
+      ]
+    },
+    {
+      "headword": "reference",
+      "gloss": "参考资料，此处指可供查阅和引用的文本。",
+      "segment_id": "s09",
+      "token_ids": [
+        "w04"
+      ]
+    },
+    {
+      "headword": "diverse community",
+      "gloss": "多元社群，成员来自不同背景。",
+      "segment_id": "s12",
+      "token_ids": [
+        "w11",
+        "w12"
+      ]
+    }
+  ],
+  "provenance": {
+    "media": {
+      "attribution": "Bodhisattwa, Welcome to Wikisource - short explanatory video (Wikimania 2016)",
+      "basis": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
+      "evidence_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm"
+    },
+    "transcript": {
+      "attribution": "Bodhisattwa (source video) and SeeWord (transcription and timing)",
+      "basis": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
+      "evidence_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm"
+    },
+    "translation": {
+      "attribution": "Bodhisattwa (source video) and SeeWord (Simplified Chinese translation)",
+      "basis": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
+      "evidence_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm"
+    },
+    "vocabulary": {
+      "attribution": "Bodhisattwa (source video) and SeeWord (vocabulary notes)",
+      "basis": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
+      "evidence_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm"
+    },
+    "changes": "Transcribed from the original audio, with word times from Wav2Vec2 forced alignment cross-checked against whisper.cpp. Added Simplified Chinese translations and vocabulary notes."
+  }
+}

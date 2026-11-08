@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Media": {
+      "additionalProperties": false,
+      "properties": {
+        "source_url": {
+          "pattern": "^https://[^\\s\\x00-\\x1f\\x7f\\\\]+$",
+          "title": "Source Url",
+          "type": "string"
+        },
+        "duration_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "access_mode": {
+          "enum": [
+            "external_link",
+            "provider_embed"
+          ],
+          "title": "Access Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_url",
+        "duration_ms",
+        "access_mode"
+      ],
+      "title": "Media",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "media": {
+          "$ref": "#/$defs/Rights"
+        },
+        "transcript": {
+          "$ref": "#/$defs/Rights"
+        },
+        "translation": {
+          "$ref": "#/$defs/Rights"
+        },
+        "vocabulary": {
+          "$ref": "#/$defs/Rights"
+        },
+        "changes": {
+          "anyOf": [
+            {
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Changes"
+        }
+      },
+      "required": [
+        "media",
+        "transcript",
+        "translation",
+        "vocabulary"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Rights": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "pattern": "\\S",
+          "title": "Attribution",
+          "type": "string"
+        },
+        "basis": {
+          "pattern": "\\S",
+          "title": "Basis",
+          "type": "string"
+        },
+        "evidence_url": {
+          "pattern": "^https://[^\\s\\x00-\\x1f\\x7f\\\\]+$",
+          "title": "Evidence Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attribution",
+        "basis",
+        "evidence_url"
+      ],
+      "title": "Rights",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "end_ms": {
+          "exclusiveMinimum": 0,
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "pattern": "\\S",
+          "title": "Text",
+          "type": "string"
+        },
+        "translation": {
+          "pattern": "\\S",
+          "title": "Translation",
+          "type": "string"
+        },
+        "tokens": {
+          "items": {
+            "$ref": "#/$defs/Token"
+          },
+          "minItems": 1,
+          "title": "Tokens",
+          "type": "array"
+        },
+        "speaker": {
+          "anyOf": [
+            {
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker"
+        }
+      },
+      "required": [
+        "start_ms",
+        "end_ms",
+        "id",
+        "text",
+        "translation",
+        "tokens"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "TimeRange": {
+      "additionalProperties": false,
+      "properties": {
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "end_ms": {
+          "exclusiveMinimum": 0,
+          "title": "End Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_ms",
+        "end_ms"
+      ],
+      "title": "TimeRange",
+      "type": "object"
+    },
+    "Token": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "end_char": {
+          "exclusiveMinimum": 0,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "start_char",
+        "end_char",
+        "timing"
+      ],
+      "title": "Token",
+      "type": "object"
+    },
+    "VocabularyEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "headword": {
+          "pattern": "\\S",
+          "title": "Headword",
+          "type": "string"
+        },
+        "gloss": {
+          "pattern": "\\S",
+          "title": "Gloss",
+          "type": "string"
+        },
+        "segment_id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "token_ids": {
+          "items": {
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Token Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "headword",
+        "gloss",
+        "segment_id",
+        "token_ids"
+      ],
+      "title": "VocabularyEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "lesson_id": {
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Lesson Id",
+      "type": "string"
+    },
+    "title": {
+      "pattern": "\\S",
+      "title": "Title",
+      "type": "string"
+    },
+    "source_language": {
+      "const": "en",
+      "title": "Source Language",
+      "type": "string"
+    },
+    "translation_language": {
+      "const": "zh-CN",
+      "title": "Translation Language",
+      "type": "string"
+    },
+    "media": {
+      "$ref": "#/$defs/Media"
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/Segment"
+      },
+      "minItems": 1,
+      "title": "Segments",
+      "type": "array"
+    },
+    "vocabulary": {
+      "items": {
+        "$ref": "#/$defs/VocabularyEntry"
+      },
+      "minItems": 1,
+      "title": "Vocabulary",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "schema_version",
+    "lesson_id",
+    "title",
+    "source_language",
+    "translation_language",
+    "media",
+    "segments",
+    "vocabulary",
+    "provenance"
+  ],
+  "title": "LearningPack",
+  "type": "object"
+}
