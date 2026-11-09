@@ -5,3 +5,4 @@
 2026-11-07 08:37（北京时间）| P02.3 独立聊天：tutor_conversations/任务关联模型与迁移 c4a1b2c3d4e5（含历史回填）、/api/v1/tutor 聊天 CRUD 与回合、无任务导师出口（tutor 别名/无引用）、旧消息入口同源、导出与注销覆盖；独立 review 修复 6 个有效缺陷（execute 回滚后过期实例崩溃、无任务回合混入任务历史、加列后表级门禁失效导致巡查/注销报错、运行读路径 500、未收集的支付路由不变量测试、回填 owner 取值）；新增 25 项 SQLite（含迁移回填）与 2 项 PG 并发回归，隔离 PG 迁移/回填/降级重升/drift 通过
 2026-11-09 02:46（北京时间）| 基于 7a04f2c9 交付 SLCS v0.1、离线校验与 V2 只读视频材料适配；示例通过两条入口，`pytest tests/test_slcs.py` 收集 23 项全部通过（本切片不含 PostgreSQL 用例；原记录的「73 项测试与 11 项 PostgreSQL 回归」与代码不符，已按实测改正）。
 2026-11-09 02:58（北京时间）| 补充开放视频学习后续设计，明确贡献审核、发布撤回、观看点词与 V2 导师接入顺序。
+2026-11-09 10:20（北京时间）| W0 分支合入：SLCS v0.1（fast-forward，补指纹版本与重复词条校验、修正夸大的测试记录、CI 加校验步骤）与性能优化分支（三处冲突按 master 定夺、补回丢失的 asyncio 导入、删死掉的 StatsPlanPieChart、迁移 c9d0e1f2a3b4 重挂到 c4a1b2c3d4e5 消掉第二个 head、声明 6 条 trgm 索引让 drift 门回到 0/0）；后端全量 1720 passed、前端 check 与 384 项单测通过、alembic upgrade head 与 drift 门在本机 PG 实跑通过；eslint-plugin-react-hooks 7 升级因新增 111 条 Compiler 规则错误整条撤出，留作独立切片。
