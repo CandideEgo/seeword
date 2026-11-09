@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
 import { teachingHref } from "@/lib/teaching";
 import type { TeachingContent, TeachingSession } from "@/types/teaching";
 
@@ -11,6 +12,39 @@ export function TeachingCatalog() {
   const [contents, setContents] = useState<TeachingContent[]>([]);
   const [sessions, setSessions] = useState<TeachingSession[]>([]);
   const [error, setError] = useState("");
+  const [starting, setStarting] = useState<string | null>(null);
+  // A quiz is built from one paper's verified questions; grouping the catalog by
+  // paper is what makes "为什么这几道题能一起练" answerable without new copy.
+  const papers = Array.from(
+    contents.reduce((map, content) => {
+      const key = content.paper_id ?? "";
+      if (!key) return map;
+      const entry = map.get(key) ?? { title: content.title, count: 0 };
+      map.set(key, { title: entry.title || content.title, count: entry.count + 1 });
+      return map;
+    }, new Map<string, { title: string; count: number }>())
+  ).filter(([, entry]) => entry.count >= 4);
+
+  const startQuiz = async (paperId: string) => {
+    if (starting) return;
+    setStarting(paperId);
+    setError("");
+    try {
+      const quiz = await api<TeachingSession>("/api/v1/teaching/quizzes", {
+        method: "POST",
+        body: JSON.stringify({ operation_id: crypto.randomUUID(), paper_id: paperId }),
+      });
+      window.location.href = teachingHref(
+        paperId === "teaching" ? null : paperId,
+        quiz.id,
+        quiz.current_item_id
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "小测暂时无法开始，请重试。");
+    } finally {
+      setStarting(null);
+    }
+  };
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
@@ -59,6 +93,22 @@ export function TeachingCatalog() {
               >
                 继续教学 · {session.items?.[0]?.question_key ?? session.id.slice(0, 8)}
               </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!!papers.length && (
+        <ul className="space-y-2">
+          {papers.map(([paperId, entry]) => (
+            <li key={paperId}>
+              <Button
+                variant="outline"
+                disabled={!!starting}
+                loading={starting === paperId}
+                onClick={() => void startQuiz(paperId)}
+              >
+                四题小测 · {entry.title || paperId.slice(0, 8)}
+              </Button>
             </li>
           ))}
         </ul>
