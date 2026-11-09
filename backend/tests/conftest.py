@@ -421,6 +421,11 @@ async def _async_setup(request: pytest.FixtureRequest, monkeypatch):
         pg_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+            # The models declare the pg_trgm GIN indexes that migration
+            # ``c9d0e1f2a3b4`` installs (so the drift gate stays at zero), and
+            # ``create_all`` emits them verbatim — the operator class only
+            # exists once the extension does, exactly as on a migrated DB.
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
             await conn.run_sync(Base.metadata.create_all)
         monkeypatch.setattr(database_module, "async_session", pg_maker)
     else:

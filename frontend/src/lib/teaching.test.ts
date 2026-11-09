@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTeachingCard, mergeTeachingCard, teachingHref } from "@/lib/teaching";
+import { isTeachingCard, mergeTeachingCard, quizProgressLabel, teachingHref } from "@/lib/teaching";
 import type { TeachingCard } from "@/types/teaching";
 
 const card: TeachingCard = {
@@ -39,5 +39,32 @@ describe("teaching disclosure-safe UI", () => {
     expect(query.get("teaching_session_id")).toBe("t?token=bad");
     expect(query.has("token")).toBe(false);
     expect(query.has("answer")).toBe(false);
+  });
+});
+
+describe("quiz progress card", () => {
+  const progress: TeachingCard = {
+    schema_version: 1,
+    card_id: "c-progress",
+    session_id: "t1",
+    item_id: "i1",
+    session_revision: 5,
+    kind: "progress",
+    payload: { answered: 2, correct: 1, total: 4, item_ids: ["i1", "i2", "i3", "i4"] },
+  };
+
+  it("accepts a well-formed progress card and rejects malformed counters", () => {
+    expect(isTeachingCard(progress)).toBe(true);
+    expect(isTeachingCard({ ...progress, payload: { ...progress.payload, total: "4" } })).toBe(
+      false
+    );
+    expect(
+      isTeachingCard({ ...progress, payload: { ...progress.payload, item_ids: ["i1", 2] } })
+    ).toBe(false);
+  });
+
+  it("never renders a progress label from a card it rejected", () => {
+    expect(quizProgressLabel(progress as never)).toBe("已答 2/4");
+    expect(quizProgressLabel(null)).toBe("");
   });
 });

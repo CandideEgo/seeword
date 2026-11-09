@@ -16,6 +16,7 @@ import { readTeachingEvents } from "@/lib/teachingStream";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { ExamAnswerOptions } from "@/components/exam/ExamAnswerOptions";
 import { TeachingCards } from "@/components/teaching/TeachingCards";
+import { TeachingQuiz } from "@/components/teaching/TeachingQuiz";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -58,6 +59,10 @@ export function TeachingWorkspace() {
   const [streamError, setStreamError] = useState("");
   const [streamRetry, setStreamRetry] = useState(0);
   const [runCards, setRunCards] = useState<TeachingCard[]>([]);
+  // The server keeps ``current_item_id`` on the first question of a quiz; which
+  // question the learner is *looking at* is client state, so switching must not
+  // be written back as a domain change.
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const operations = useRef(new Map<string, string>());
   const activeAction = useRef(false);
   const cursor = useRef({ runId: "", sequence: 0 });
@@ -66,8 +71,13 @@ export function TeachingWorkspace() {
   const acceptSession = useCallback((next: TeachingSession) => {
     currentSession.current = next;
     setSession(next);
-    const item = next.items.find((i) => i.id === next.current_item_id) ?? next.items[0];
-    setAnswer(item?.draft_answer ?? "");
+    setSelectedItemId((previous) => {
+      const keep = previous && next.items.some((i) => i.id === previous) ? previous : null;
+      const chosen = keep ?? next.current_item_id ?? next.items[0]?.id ?? null;
+      const item = next.items.find((i) => i.id === chosen) ?? next.items[0];
+      setAnswer(item?.draft_answer ?? "");
+      return chosen;
+    });
     if (next.latest_run) setRun(next.latest_run);
   }, []);
 
@@ -245,7 +255,10 @@ export function TeachingWorkspace() {
       setBusy(null);
     }
   };
-  const item = session?.items.find((i) => i.id === session.current_item_id) ?? session?.items[0];
+  const item =
+    session?.items.find((i) => i.id === selectedItemId) ??
+    session?.items.find((i) => i.id === session.current_item_id) ??
+    session?.items[0];
   const write = async (action: string, input: Record<string, unknown> = {}) => {
     if (!session || !item || activeAction.current) return;
     activeAction.current = true;
@@ -253,13 +266,17 @@ export function TeachingWorkspace() {
     setError("");
     const key = JSON.stringify([session.id, session.revision, action, input]);
     try {
+      // One command entry for every explicit action: the quiz card and the page
+      // buttons must not grow two write paths (see backend
+      // services/teaching/commands.py).
       const next = await api<TeachingSession>(
-        `/api/v1/teaching/sessions/${encodeURIComponent(session.id)}/${action}`,
+        `/api/v1/teaching/sessions/${encodeURIComponent(session.id)}/actions`,
         {
-          method: action === "draft" ? "PUT" : "POST",
+          method: "POST",
           body: JSON.stringify({
             operation_id: operationId(key),
             expected_revision: session.revision,
+            action,
             ...(action === "complete" ? {} : { item_id: item.id }),
             ...input,
           }),
@@ -268,6 +285,12 @@ export function TeachingWorkspace() {
       acceptSession(next);
       setRunCards([]);
       operations.current.delete(key);
+      if (action === "attempts") {
+        // Deterministic: the next question without an answer, in order. The
+        // strip stays available if the learner wants to go back.
+        const pending = next.items.find((i) => !i.answered && i.id !== item.id);
+        if (pending) setSelectedItemId(pending.id);
+      }
       if (action === "draft") toast.success("草稿已保存");
       if (action === "feedback") {
         setFeedback("");
@@ -282,6 +305,13 @@ export function TeachingWorkspace() {
       activeAction.current = false;
       setBusy(null);
     }
+  };
+  const selectItem = (itemId: string) => {
+    if (activeAction.current) return;
+    setSelectedItemId(itemId);
+    const next = session?.items.find((i) => i.id === itemId);
+    setAnswer(next?.draft_answer ?? "");
+    setError("");
   };
   const startRun = async () => {
     if (!session || !message.trim() || activeAction.current) return;
@@ -365,7 +395,9 @@ export function TeachingWorkspace() {
   );
   const questionPayload = question?.kind === "question" ? question.payload : null;
   const active = session.status === "active";
-  const cards: TeachingCard[] = [...session.cards.filter((c) => c.kind !== "question")];
+  const cards: TeachingCard[] = [
+    ...session.cards.filter((c) => c.kind !== "question" && c.kind !== "progress"),
+  ];
   for (const c of runCards)
     if (
       c.session_revision === session.revision &&
@@ -398,6 +430,12 @@ export function TeachingWorkspace() {
           {error}
         </div>
       )}
+      <TeachingQuiz
+        items={session.items}
+        activeItemId={item?.id ?? null}
+        disabled={!!busy}
+        onSelect={selectItem}
+      />
       <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         <Card padding={5} className="min-w-0 space-y-5">
           {questionPayload ? (

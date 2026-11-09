@@ -119,6 +119,18 @@ class SummaryCard(CardHeader):
     payload: SummaryPayload
 
 
+class ProgressPayload(StrictModel):
+    answered: int
+    correct: int
+    total: int
+    item_ids: list[str]
+
+
+class ProgressCard(CardHeader):
+    kind: Literal["progress"]
+    payload: ProgressPayload
+
+
 class StatusPayload(StrictModel):
     message: str
     code: str
@@ -130,7 +142,7 @@ class StatusCard(CardHeader):
 
 
 TeachingCard = Annotated[
-    QuestionCard | HintCard | EvidenceCard | AnalysisCard | SummaryCard | StatusCard,
+    QuestionCard | HintCard | EvidenceCard | AnalysisCard | ProgressCard | SummaryCard | StatusCard,
     Field(discriminator="kind"),
 ]
 
@@ -142,6 +154,48 @@ class TeachingItemResponse(StrictModel):
     state: str
     draft_answer: str | None
     draft_revision: int
+    #: Progress for the quiz surface, derived from the item's own attempts.
+    #: Both stay at their neutral values when the caller may not read answer
+    #: history (restricted material or a read-only external scope), so a guess
+    #: cannot be turned into an answer oracle by watching ``correct`` flip.
+    answered: bool = False
+    correct: bool | None = None
+
+
+class QuizCreate(StrictModel):
+    """Freeze a multi-question quiz from already-verified material.
+
+    Exactly one source: an explicit ordered ``revision_ids`` list, or a
+    ``paper_id`` from which the newest verified revision of each question is
+    taken. Four is the size the P02.4 slice promises; fewer than four usable
+    revisions is a 422, not a smaller quiz.
+    """
+
+    operation_id: str = Field(min_length=1, max_length=64)
+    revision_ids: list[str] | None = Field(default=None, min_length=1, max_length=8)
+    paper_id: str | None = Field(default=None, min_length=1, max_length=36)
+
+    @model_validator(mode="after")
+    def one_source(self):
+        if (self.revision_ids is None) == (self.paper_id is None):
+            raise ValueError("Provide exactly one of revision_ids or paper_id")
+        return self
+
+
+class SessionActionRequest(StrictModel):
+    """One action on a teaching session, through a single command entry.
+
+    ``action`` mirrors the legacy per-action endpoints (``attempts`` / ``hints``
+    / ``reveal`` / ``feedback`` / ``draft`` / ``complete``) so the web client can
+    swap its call sites without reshaping payloads.
+    """
+
+    operation_id: str = Field(min_length=1, max_length=64)
+    expected_revision: int = Field(ge=1)
+    action: Literal["draft", "attempts", "hints", "reveal", "feedback", "complete"]
+    item_id: str | None = Field(default=None, min_length=1, max_length=36)
+    answer: str | None = Field(default=None, max_length=64)
+    content: str | None = Field(default=None, max_length=4000)
 
 
 class AttemptResponse(StrictModel):

@@ -272,6 +272,14 @@ async def project_session(
         # Read-only external scopes must not infer the standard answer from an
         # earlier correct answer, even after the user revealed it in the web UI.
         may_read_answers = answer_history_visible(principal, restricted=restricted)
+        # Quiz progress counts this item's own attempts. It is withheld with the
+        # same rule as the answer history: a flip of ``correct`` across repeated
+        # guesses would otherwise be an answer oracle. ``next_attempt_no`` is
+        # bumped on every graded attempt, so it answers "was this answered"
+        # without another query; the latest verdict comes from the attempt rows
+        # read below (or a single-row lookup when they are limited).
+        answered = may_read_answers and item.next_attempt_no > 1
+        correct: bool | None = None
         public_items.append(
             {
                 "id": item.id,
@@ -280,6 +288,8 @@ async def project_session(
                 "state": item.state,
                 "draft_answer": item.draft_answer if may_read_answers else None,
                 "draft_revision": item.draft_revision,
+                "answered": answered,
+                "correct": correct,
             }
         )
         if may_read_answers:
@@ -292,7 +302,18 @@ async def project_session(
             rows = list((await db.execute(query.execution_options(populate_existing=True))).scalars())
             attempt_count += len(rows) if attempt_limit is None else item.next_attempt_no - 1
             if attempt_limit is not None:
+                # Rows are newest-first only to take the latest verdict; the
+                # attempt list itself stays in ascending attempt order. A limited
+                # read can still come back empty (the item was graded under a
+                # scope that hides attempts), so the verdict stays unknown then.
+                if rows:
+                    correct = rows[0].correct
                 rows.reverse()
+            elif rows:
+                correct = rows[-1].correct
+            # ``public_items`` was appended above, before the attempt rows were
+            # read; patch the verdict in place so the API still ships it.
+            public_items[-1]["correct"] = correct
             attempts.extend(
                 {
                     "id": a.id,
@@ -318,6 +339,24 @@ async def project_session(
                 "session_revision": session.revision,
                 "kind": "summary",
                 "payload": {"attempt_count": attempt_count, "status": session.status},
+            }
+        )
+    answered_count = sum(1 for row in public_items if row["answered"])
+    if len(items) > 1:
+        cards.append(
+            {
+                "schema_version": 1,
+                "card_id": f"{session.id}:progress",
+                "session_id": session.id,
+                "item_id": items[0].id,
+                "session_revision": session.revision,
+                "kind": "progress",
+                "payload": {
+                    "answered": answered_count,
+                    "correct": sum(1 for row in public_items if row["correct"] is True),
+                    "total": len(items),
+                    "item_ids": [row["id"] for row in public_items],
+                },
             }
         )
     if len(cards) > 8 or any(len(json.dumps(card, ensure_ascii=False).encode()) > 16384 for card in cards):
@@ -550,6 +589,105 @@ async def create_session(db: "AsyncSession", principal: Principal, body) -> dict
         await record_answer_available(
             db, principal.user_id, [item.question_key], origin="legacy_exam", occurred_at=_now()
         )
+    operation.status, operation.result_refs = "completed", {"session_id": session.id}
+    await db.flush()
+    return await project_session(db, principal, session)
+
+
+QUIZ_SIZE = 4
+
+
+async def _quiz_revisions(db: "AsyncSession", data: dict) -> list[ExamAnalysisRevision]:
+    """Resolve exactly ``QUIZ_SIZE`` distinct, still-available verified revisions."""
+    picked: list[ExamAnalysisRevision] = []
+    if data.get("revision_ids"):
+        for revision_id in data["revision_ids"]:
+            revision = (
+                await db.execute(
+                    select(ExamAnalysisRevision)
+                    .where(ExamAnalysisRevision.id == revision_id)
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            if revision is None:
+                _error("NOT_FOUND", "教学内容不存在", 404)
+            picked.append(revision)
+    else:
+        from app.models.exam_test import ExamQuestion
+
+        rows = (
+            await db.execute(
+                select(ExamAnalysisRevision)
+                .join(ExamQuestion, ExamQuestion.id == ExamAnalysisRevision.question_id)
+                .join(ExamPaper, ExamPaper.id == ExamQuestion.paper_id)
+                .where(
+                    ExamPaper.id == data["paper_id"],
+                    ExamAnalysisRevision.status == "auto_verified",
+                )
+                .order_by(ExamAnalysisRevision.question_key, ExamAnalysisRevision.revision_no.desc())
+            )
+        ).scalars()
+        seen: set[str] = set()
+        for revision in rows:
+            if revision.question_key in seen:
+                continue
+            seen.add(revision.question_key)
+            picked.append(revision)
+    unique: list[ExamAnalysisRevision] = []
+    keys: set[str] = set()
+    for revision in picked:
+        if revision.question_key in keys:
+            _error("VALIDATION_ERROR", "一道题只能在一份小测里出现一次", 422)
+        keys.add(revision.question_key)
+        if revision.status != "auto_verified":
+            _error("CONTENT_REVISION_MISMATCH", "该内容未通过自动核验，不能组成小测")
+        if not await current_revision_available(db, revision):
+            _error("CONTENT_REVISION_MISMATCH", "题目来源已变化，请重新选择核验版本")
+        unique.append(revision)
+    if len(unique) != QUIZ_SIZE:
+        _error("VALIDATION_ERROR", f"小测需要 {QUIZ_SIZE} 道可用的已核验题目，实际 {len(unique)} 道", 422)
+    return unique
+
+
+async def create_quiz(db: "AsyncSession", principal: Principal, body) -> dict:
+    """Freeze a four-question quiz as four items in one teaching session.
+
+    No new tables: the quiz *is* the session, its questions are the items, and
+    its progress is projected from those items' attempts. The legacy
+    one-question start shares this shape, so every action below works unchanged.
+    """
+    await check_write_access(db, principal, "create")
+    from app.schemas.teaching import QuizCreate
+
+    data = _body(QuizCreate.model_validate(body) if isinstance(body, dict) else body)
+    await db.execute(select(User.id).where(User.id == principal.user_id).with_for_update())
+    operation, replayed = await _operation(db, principal, "create_quiz", None, data)
+    if replayed:
+        return await project_session(
+            db, principal, await owned_session(db, principal, operation.result_refs["session_id"]), replayed=True
+        )
+
+    revisions = await _quiz_revisions(db, data)
+    session = TeachingSession(user_id=principal.user_id)
+    db.add(session)
+    await db.flush()
+    first_item: TeachingItem | None = None
+    for ordinal, revision in enumerate(revisions):
+        projected = await project_content(db, revision, principal, target="site")
+        if projected.get("restricted"):
+            _error("CONTENT_REVISION_MISMATCH", "该材料不允许在此入口使用")
+        await lock_question_exposure(db, principal.user_id, revision.question_key)
+        item = TeachingItem(
+            session_id=session.id,
+            question_key=revision.question_key,
+            content_revision_id=revision.id,
+            ordinal=ordinal,
+        )
+        db.add(item)
+        await db.flush()
+        first_item = first_item or item
+    await ensure_exposure_mapping_state(db, principal.user_id)
+    session.current_item_id = first_item.id if first_item else None
     operation.status, operation.result_refs = "completed", {"session_id": session.id}
     await db.flush()
     return await project_session(db, principal, session)

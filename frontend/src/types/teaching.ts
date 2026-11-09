@@ -32,6 +32,7 @@ export type TeachingCard =
         analysis: { summary: string };
       }
     >
+  | CardBase<"progress", { answered: number; correct: number; total: number; item_ids: string[] }>
   | CardBase<"summary", { attempt_count: number; status: string }>
   | CardBase<"status", { message: string; code: string | null }>;
 
@@ -42,6 +43,10 @@ export interface TeachingItem {
   state: string;
   draft_answer: string | null;
   draft_revision: number;
+  /** Progress is withheld (false / null) when this scope may not read answers. */
+  answered: boolean;
+  /** null means "not answered" or "not visible"; a boolean is the latest verdict. */
+  correct: boolean | null;
 }
 
 export interface TeachingAttempt {

@@ -15,11 +15,13 @@ from app.schemas.teaching import (
     DraftAnswer,
     Feedback,
     ItemAction,
+    QuizCreate,
+    SessionActionRequest,
     SessionListResponse,
     SessionResponse,
     SubmitAttempt,
 )
-from app.services.teaching import service
+from app.services.teaching import commands, service
 from app.services.teaching.context import get_learning_context
 from app.services.teaching.principal import Principal
 
@@ -58,6 +60,40 @@ async def create(
     db: AsyncSession = Depends(get_db),
 ):
     result = await service.create_session(db, _principal(user, request), body)
+    await db.commit()
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/quizzes", response_model=SessionResponse, status_code=201)
+@rate_limit("10/minute")
+async def create_quiz(
+    request: Request,
+    response: Response,
+    body: QuizCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await service.create_quiz(db, _principal(user, request), body)
+    await db.commit()
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/sessions/{session_id}/actions", response_model=SessionResponse)
+@rate_limit("60/minute")
+async def action(
+    request: Request,
+    response: Response,
+    session_id: str,
+    body: SessionActionRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The single write entry for explicit user actions (quiz cards and page buttons)."""
+    result = await commands.execute(db, _principal(user, request), session_id, body)
     await db.commit()
     if result["replayed"]:
         response.status_code = 200

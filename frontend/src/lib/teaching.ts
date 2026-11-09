@@ -46,6 +46,14 @@ export function isTeachingCard(value: unknown): value is TeachingCard {
             typeof q.quote === "string"
         )
       );
+    case "progress":
+      return (
+        Number.isSafeInteger(p.answered) &&
+        Number.isSafeInteger(p.correct) &&
+        Number.isSafeInteger(p.total) &&
+        Array.isArray(p.item_ids) &&
+        p.item_ids.every((id) => typeof id === "string")
+      );
     case "summary":
       return Number.isSafeInteger(p.attempt_count) && typeof p.status === "string";
     case "status":
@@ -83,4 +91,10 @@ export function mergeTeachingCard(
   )
     return cards;
   return [...cards.filter((card) => card.card_id !== candidate.card_id), candidate];
+}
+
+/** Quiz progress as one short, self-describing label ("已答 2/4"). */
+export function quizProgressLabel(card: { payload: { answered: number; total: number } } | null) {
+  if (!card) return "";
+  return `已答 ${card.payload.answered}/${card.payload.total}`;
 }
