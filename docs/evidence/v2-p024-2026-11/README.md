@@ -34,7 +34,23 @@
 只读外部 scope（`teaching:read`）看不到，避免「猜一次、看正确数是否 +1」这种答案 oracle。
 `test_progress_hidden_where_answer_history_is_hidden` 钉住它。
 
-## 4 修复实现中暴露的两个真实缺陷
+## 4 独立 review 发现并已修复的四类缺陷
+
+一次独立 review（真实 pytest 复现）指出的问题，全部已修并补回归：
+
+| # | 级别 | 问题 | 处理 |
+| --- | --- | --- | --- |
+| 1 | blocker | 四题小测与固定「≤8 张卡」上限冲突：4 题基线 5 张，两题看解析 → 9 张 → 第二次 reveal 409；四题各看提示 → 8 张 → `complete` 每次 409，换 revision 重试也一样，会话永久停在 `active` | 卡片上限按题数推导 `max(8, 4*n+2)`，响应模型 `max_length` 同步 |
+| 2 | blocker | 「结束本次」从网页不可达：前端发 `{action:"complete", action:"abandon"}`，扁平 body 让两个 action 互相覆盖 → 422 | `abandon` 成为独立命令；`SessionActionRequest` 增该取值，命令层据此构造 `CompleteSession` |
+| 3 | high | `paper_id` 路径要求整卷**恰好** 4 道已核验题；真实四级卷是 10 或 30 道，一律 422 | 按**题目编号**取前 4（`question_key` 是字符串，`":"` 排序会把第 100 题排到第 46 题前）；扫描模式跳过已撤回/来源失效的题，显式列表模式报错；合法题不足 4 道仍 422，不建「3 题小测」 |
+| 4 | high | `attempts` 列表跨题混排，工作台「第 N 次作答」面板显示的是别的题的作答 | 按当前 `item_id` 过滤，提交按钮文案也按本题判断 |
+| 5 | medium | 答完自动前进从第 0 题开始找，会跳回已答过的题 | 从当前题之后开始、环状回绕 |
+| 6 | low | `quizProgressLabel` 是死代码，同一事实三处 | 删除；前端用 `items` 自行计算 |
+
+另修一处**门禁遗漏**：新增测试文件有 14 处 `RUF059` + 1 处 `I001`，此前只跑了
+`ruff check app/` 没跑 `tests/`。已清，`ruff check app/ tests/` 全绿。
+
+## 5 实现过程中自己引入并修复的缺陷
 
 1. **`project_session` 在 `attempt_limit` 读回空行集时崩溃**：学习上下文固定传
    `attempt_limit=5`，而 `rows[0]` 在空集上抛 `IndexError`，会让教学 run 与旧聊天读路径
@@ -42,11 +58,11 @@
    `test_limited_attempt_read_keeps_progress_consistent`。
 2. 切换按钮原为 36px 高，低于本仓 40px 可点门槛（`frontend/CLAUDE.md` 的审计门），改 40。
 
-## 5 实际执行的检查
+## 6 实际执行的检查
 
 | 检查 | 结果 |
 | --- | --- |
-| `pytest tests/test_teaching_quiz.py` | **17 passed** |
+| `pytest tests/test_teaching_quiz.py` | **20 passed**（含四题全揭示仍可结束、abandon 独立命令、试卷取前四题三条新回归） |
 | 隔离 PG `pytest tests/test_teaching_quiz_pg.py` | **2 passed**（两并发点击只落一条 attempt；两并发建测只建一个会话） |
 | `pytest tests -m integration`（隔离 PG） | **62 passed / 2 failed**；2 项是 `test_listening_pg.py` 的既有顺序耦合（在本轮之前的干净检出上同样复现） |
 | 受影响回归（teaching / tutor_conversations / v2_runtime / learning_context / v2_schema_gating / v2_account_data） | 全部通过 |
@@ -54,14 +70,14 @@
 | `ruff check` / `format --check` | 通过 |
 | mypy 基线 | 0 新增 |
 | 前端 `npm run check` | exit 0 |
-| 前端 `npm run test:unit` | 40 文件 / **386 项**通过 |
+| 前端 `npm run test:unit` | 40 文件 / **385 项**通过 |
 | `npx playwright test e2e/exam.spec.ts --project=chromium` | **1 passed**（teach 模式挂在同一路由，冒烟不回归） |
-| ego-browser 走查 | 见 §6 |
+| ego-browser 走查 | 见 §7 |
 
 **未执行**：e2e 全量（只跑了 `exam.spec.ts` 冒烟）。quiz 走查先以 ego-browser 留证；
 稳定的 quiz 种子进 e2e 放在发布对齐（W4）之后。
 
-## 6 ego-browser 走查（真实 dev 栈）
+## 7 ego-browser 走查（真实 dev 栈）
 
 环境：Docker Postgres/Redis + uvicorn :8000 + `next dev` :3000；账号 15580607003 由
 `seed_teaching_quiz.py` 播种 4 道合成题目并授予教学访问；`TEACHING_ENABLED=true`、
@@ -76,13 +92,15 @@
 | 选 B 提交 | 切换条变「已答 1/4」、第 1 题带 ✓，题面自动前进到第 2 题 |
 | 答完 4 题 | 「已答 4/4」，四题均带 ✓ |
 | 刷新页面 | 进度完整恢复（4/4 与四个 ✓），不会重置 |
+| 四题逐个「查看答案与解析」 | 每次成功，无 409（修复前第二次即红） |
+| 「结束本次」 | 会话转 `abandoned`，提交按钮消失，无告警（修复前 422） |
 | 390px | 无横向溢出；四个切换按钮均 40×40 |
 
 **截图未产出**：本机 CDP `Page.captureScreenshot` 超时（该环境问题在
 `docs/evidence/iteration-5/README.md` 与 `v2-ui-2026-11-03/README.md` 已两次记录）。
 以 DOM 实测值（进度文本、按钮尺寸、`scrollWidth == innerWidth`）为证。
 
-## 7 回退
+## 8 回退
 
 关 `TEACHING_ENABLED` 即全部 503；再成组撤 `/teaching/quizzes`、`/sessions/{id}/actions`、
 `commands.py` 与 `create_quiz`。本切片没有 schema 变更，回滚不涉及数据库。
