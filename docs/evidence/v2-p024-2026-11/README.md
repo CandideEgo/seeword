@@ -50,15 +50,16 @@
 | 隔离 PG `pytest tests/test_teaching_quiz_pg.py` | **2 passed**（两并发点击只落一条 attempt；两并发建测只建一个会话） |
 | `pytest tests -m integration`（隔离 PG） | **62 passed / 2 failed**；2 项是 `test_listening_pg.py` 的既有顺序耦合（在本轮之前的干净检出上同样复现） |
 | 受影响回归（teaching / tutor_conversations / v2_runtime / learning_context / v2_schema_gating / v2_account_data） | 全部通过 |
-| 后端全量 `pytest tests -q -m "not integration"` | **1720 passed / 1 skipped**（修复上述回归后相关模块复跑一致） |
+| 后端全量 `pytest tests -q -m "not integration"` | **1737 passed / 1 skipped**（修复上述回归后完整复跑，exit 0） |
 | `ruff check` / `format --check` | 通过 |
 | mypy 基线 | 0 新增 |
 | 前端 `npm run check` | exit 0 |
 | 前端 `npm run test:unit` | 40 文件 / **386 项**通过 |
+| `npx playwright test e2e/exam.spec.ts --project=chromium` | **1 passed**（teach 模式挂在同一路由，冒烟不回归） |
 | ego-browser 走查 | 见 §6 |
 
-**未执行**：e2e 全量（`npx playwright test`）。quiz 走查先以 ego-browser 留证；
-稳定种子数据进 e2e 放在 W4 之后。
+**未执行**：e2e 全量（只跑了 `exam.spec.ts` 冒烟）。quiz 走查先以 ego-browser 留证；
+稳定的 quiz 种子进 e2e 放在发布对齐（W4）之后。
 
 ## 6 ego-browser 走查（真实 dev 栈）
 

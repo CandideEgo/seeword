@@ -62,24 +62,39 @@ export function TeachingWorkspace() {
   // The server keeps ``current_item_id`` on the first question of a quiz; which
   // question the learner is *looking at* is client state, so switching must not
   // be written back as a domain change.
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemIdState] = useState<string | null>(null);
+  // Mirror of ``selectedItemId`` for the callbacks below: a state updater must
+  // stay pure (StrictMode calls it twice) and ``acceptSession`` also needs the
+  // current value synchronously to decide the next selection.
+  const selectedItem = useRef<string | null>(null);
+  const setSelectedItemId = useCallback((value: string | null) => {
+    selectedItem.current = value;
+    setSelectedItemIdState(value);
+  }, []);
   const operations = useRef(new Map<string, string>());
   const activeAction = useRef(false);
   const cursor = useRef({ runId: "", sequence: 0 });
   const currentSession = useRef<TeachingSession | null>(null);
 
-  const acceptSession = useCallback((next: TeachingSession) => {
-    currentSession.current = next;
-    setSession(next);
-    setSelectedItemId((previous) => {
-      const keep = previous && next.items.some((i) => i.id === previous) ? previous : null;
-      const chosen = keep ?? next.current_item_id ?? next.items[0]?.id ?? null;
+  const acceptSession = useCallback(
+    (next: TeachingSession) => {
+      currentSession.current = next;
+      setSession(next);
+      // Keep looking at the same question across a state refresh; fall back to
+      // the server's current item only when it disappeared (e.g. new session).
+      const previous = selectedItem.current;
+      const chosen =
+        (previous && next.items.some((i) => i.id === previous) ? previous : null) ??
+        next.current_item_id ??
+        next.items[0]?.id ??
+        null;
+      setSelectedItemId(chosen);
       const item = next.items.find((i) => i.id === chosen) ?? next.items[0];
       setAnswer(item?.draft_answer ?? "");
-      return chosen;
-    });
-    if (next.latest_run) setRun(next.latest_run);
-  }, []);
+      if (next.latest_run) setRun(next.latest_run);
+    },
+    [setSelectedItemId]
+  );
 
   const reload = useCallback(async () => {
     const id = currentSession.current?.id ?? sessionId;
