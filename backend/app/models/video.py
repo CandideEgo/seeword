@@ -54,6 +54,21 @@ class Video(Base):
         # Created by an older migration and still useful for source-URL dedup;
         # kept in the model so autogenerate does not see it as removable drift.
         Index("ix_videos_source_url", "source_url"),
+        # pg_trgm GIN indexes from migration ``c9d0e1f2a3b4`` (PostgreSQL only);
+        # declared so the drift gate sees no new removable-index diff.
+        Index("ix_videos_title_trgm", "title", postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"}),
+        Index(
+            "ix_videos_title_zh_trgm",
+            "title_zh",
+            postgresql_using="gin",
+            postgresql_ops={"title_zh": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_videos_topic_tags_trgm",
+            "topic_tags",
+            postgresql_using="gin",
+            postgresql_ops={"topic_tags": "gin_trgm_ops"},
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

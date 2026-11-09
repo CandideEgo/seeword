@@ -14,7 +14,7 @@ by matching their scraped ``channel_id``.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -22,6 +22,10 @@ from app.core.database import Base
 
 class Channel(Base):
     __tablename__ = "channels"
+    __table_args__ = (
+        # pg_trgm GIN index from migration ``c9d0e1f2a3b4`` (PostgreSQL only).
+        Index("ix_channels_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(255), nullable=False)

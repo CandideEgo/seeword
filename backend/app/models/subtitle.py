@@ -9,7 +9,25 @@ from app.models.types import WordLevelsJSON
 
 class Subtitle(Base):
     __tablename__ = "subtitles"
-    __table_args__ = (Index("ix_subtitles_video_id_sentence_index", "video_id", "sentence_index"),)
+    __table_args__ = (
+        Index("ix_subtitles_video_id_sentence_index", "video_id", "sentence_index"),
+        # pg_trgm GIN indexes are created by migration ``c9d0e1f2a3b4`` only on
+        # PostgreSQL; declaring them here keeps ``check_schema_drift`` at zero
+        # new drift. ``postgresql_using="gin"`` is ignored by the SQLite
+        # ``create_all`` the test suite uses.
+        Index(
+            "ix_subtitles_text_en_trgm",
+            "text_en",
+            postgresql_using="gin",
+            postgresql_ops={"text_en": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_subtitles_text_zh_trgm",
+            "text_zh",
+            postgresql_using="gin",
+            postgresql_ops={"text_zh": "gin_trgm_ops"},
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     video_id: Mapped[str] = mapped_column(
