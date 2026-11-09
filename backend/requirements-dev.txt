@@ -35,7 +35,7 @@ mypy>=1.10,<2.4  # 钉上界（T4 决策 2026-09-27）：venv 升 2.3.1 后错�
 
 # Security scanning
 pip-audit>=0.8
-bandit>=1.7
+bandit>=1.9.4
 
 # Pre-commit hooks
 pre-commit>=3.7
