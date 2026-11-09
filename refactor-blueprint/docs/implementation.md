@@ -755,3 +755,45 @@ $env:DATABASE_URL = $env:PG_TEST_URL
 - 同一用户仍只允许一个活跃运行（`uq_agent_run_active_user`），因此「切换任务」是串行恢复而非并发执行；是否放宽留待运行时治理单独决定。
 - 读取端点（`GET /runs`、`/events`、`/messages`、旧 `/context`）仍沿用既有「不按功能开关关闭」的口径，只校验当前身份与资源权利；新增 `/tutor` 读取则按新能力开关关闭。此差异已记录，未在本切片统一。
 - `TeachingAccessGrant` 仍无生产写入路径；真实网关的 1024 输出上限必须实测后才能配置 `ADAPTER_MODEL_OUTPUT_CAPS`。
+
+## P02.4 — 四题小测与统一命令层
+
+日期：2026-11-09。承接 P02.3 的独立聊天：把「已核验材料组成四题小测、按钮与页面动作走同一命令层」做成可验证切片。**不调用模型、不新增表、不新增迁移。** 完整证据见 [`docs/evidence/v2-p024-2026-11/`](../../docs/evidence/v2-p024-2026-11/README.md)。
+
+### 归属与消费者
+
+| 落点（相对 `backend/`） | 职责与变化 |
+| --- | --- |
+| `services/teaching/service.py::create_quiz` | 按 `paper_id` 或显式 `revision_ids` 冻结 4 道 `auto_verified` 且来源仍可用的题；不同 `question_key`、去重、不足 4 道即 422（不缩小成更小的测）；沿用既有 `_operation` 幂等回执 |
+| 同文件 `project_session` | 逐题 `answered/correct` + 多题时追加 `progress` 卡；两者复用 `answer_history_visible`，只读外部 scope 看不到（否则「正确数是否 +1」就是答案 oracle） |
+| 新 `services/teaching/commands.py` | 唯一写入口：6 个动作分派到既有领域服务并原样透传 `operation_id`；**只接受 `user_ui`**，模型/外部 agent 403 |
+| `schemas/teaching.py`、`api/v1/teaching.py` | `QuizCreate`、`SessionActionRequest`、`ProgressCard`；`POST /teaching/quizzes`、`POST /teaching/sessions/{id}/actions` |
+| `scripts/grant_teaching_access.py` | `TeachingAccessGrant` 此前没有写入路径（只有 `TEACHING_ALLOWED_USER_IDS` 白名单），补 `--phone/--revoke/--list` |
+| `scripts/seed_teaching_quiz.py` | 复用 `tests/teaching_fixtures.py` 的合成素材播种，供本机走查 |
+| 前端 `components/teaching/TeachingQuiz.tsx` | 多题时的「已答 n/总」切换条；单题会话不渲染 |
+| 前端 `TeachingWorkspace.tsx` | 6 个写调用点全改走 `/actions`（删除 5 条直连分支）；选看哪一题是客户端状态，提交后自动前进 |
+| 前端 `TeachingCatalog.tsx` | `/practice` 目录按试卷聚合出「四题小测」入口（同卷 ≥4 道已核验题） |
+
+### 实际验证
+
+| 检查 | 实际结果 | 范围与局限 |
+| --- | --- | --- |
+| 新增 P02.4 回归 | 已执行通过：17 passed（`test_teaching_quiz.py`） | 4 题冻结且不含答案；重复 `operation_id` 只一条 attempt；旧 revision 409；A 题揭晓不泄漏 B 题；小测不作废正式测评表；非 `user_ui` 403；可见性口径一致；HTTP 两个新入口含重放 |
+| 隔离 PostgreSQL 并发 | 已执行通过：2 passed（`test_teaching_quiz_pg.py`） | 两并发点击只落一条 attempt；两并发建测只建一个会话 |
+| 既有教学/运行/聊天回归 | 已执行通过 | teaching、tutor_conversations、v2_runtime、learning_context、v2_schema_gating、v2_account_data |
+| 全后端套件 | 已执行通过：1720 passed、1 skipped | `-m 'not integration'`；集成用例单独在隔离 PG 执行 |
+| 隔离 PG 全量 integration | 已执行：62 passed、2 failed | 2 项是 `test_listening_pg.py` 既有顺序耦合（先于本切片复现） |
+| 前端 | 已执行通过 | `npm run check` exit 0；`test:unit` 40 文件 / 386 项 |
+| ego-browser 走查 | 已执行通过 | 4/4 全对、进度条与自动前进、刷新恢复、390px 无溢出、按钮 40×40；截图因本机 CDP 超时未产出 |
+| 真实模型、真实材料授权、部署 | 未执行 | 本切片刻意不含模型调用；真实材料仍需签名收据 |
+
+### 修复实现中暴露的真实缺陷
+
+- `project_session` 在 `attempt_limit` 读回空行集时索引 `rows[0]` 抛 `IndexError`（学习上下文固定 `attempt_limit=5`），会让教学 run 与旧聊天读路径 500 —— **本轮引入的回归**，全量套件曾 20 failed；已修并补回归。
+- 小测切换按钮原 36px，低于本仓 40px 可点门槛，改 40。
+
+### 回退与剩余边界
+
+- 关 `TEACHING_ENABLED` 即全部 503；再成组撤两个新路由、`commands.py` 与 `create_quiz`。本切片无 schema 变更，回滚不涉及数据库。
+- 仍未实现：自然语言意图解析（"我选 B" → 命令）、组件在聊天消息内的持久化引用、工具循环（P02.5）、跨任务长期记忆、外部宿主接力。
+- 小测题面仍限 `cet4` / `reading`（`validate_material` 的既有边界），首批用合成素材验收，不冒充真题。

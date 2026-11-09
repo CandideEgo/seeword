@@ -38,6 +38,7 @@
 | 任务对话（P02.1） | `services/teaching/dialogue.py`、`schemas/teaching_dialogue.py`、`models/v2_runtime.py`、同一 run 服务 | 新 messages 入口复用既有运行机制；任务独立历史、当前权限投影、揭晓后带引用/草稿建议的模型回复；持久消息与短期执行日志分离。开关默认关闭，新迁移仅隔离演练 |
 | 流式导师回复（P02.2） | `services/teaching/streaming.py`、`teaching_gateway.py::stream_tutor_reply`、`teaching_runs.py::_stream_turn`、`models/v2_runtime.py::TeachingMessageBlock` | 纯文本 `[n]` 引用 + 有序不可变块；每块独立短事务发布，`message.block` 事件；用量 `reported/missing/unknown`；默认关闭，关闭时回到 P02.1 非流式 |
 | 独立聊天（P02.3） | `api/v1/tutor.py`、`services/tutor_conversations.py`、`services/teaching/dialogue.py`、`models/v2_runtime.py::TutorConversation` | `/api/v1/tutor/conversations` CRUD 与回合；聊天可无任务、可关联多个教学会话；旧 `/teaching/sessions/{id}/messages` 同源；无任务回复走导师别名且无引用；默认关闭 |
+| 四题小测与命令层（P02.4） | `services/teaching/service.py::create_quiz`、`services/teaching/commands.py`、`api/v1/teaching.py` | 小测即同一 `TeachingSession` 的 4 个 `TeachingItem`，进度由 attempts 投影；`POST /teaching/quizzes` 与 `POST /teaching/sessions/{id}/actions` 是唯一写入口，只接受 `user_ui`；零新表、不调用模型；默认关闭 |
 | 外部接入 | `integrations/mcp/server.py`、`services/external_connection_service.py` | opaque 凭据、scope、过期/轮换/撤销；共享教学服务 |
 | V2 开放控制 | `services/v2_access.py`、`models/v2_runtime.py` | 功能开关、白名单、账号有效性；不是现成的商业会员准入 |
 | 收款与会员 | **已下线（2026-11）** | 会员收费链路整体删除（端点/服务/任务/表/配置）；全站功能对登录用户免费，本表其余能力不受影响 |
