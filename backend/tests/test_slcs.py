@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -71,6 +72,45 @@ def test_fingerprint_ignores_json_layout_and_tracks_content_changes(document):
     updated = load_video_material(_payload(document))
     assert updated.source_fingerprint != material.source_fingerprint
     assert updated.lesson_id == material.lesson_id
+
+
+def test_two_glosses_for_one_word_span_are_rejected(document):
+    entry = document["vocabulary"][0]
+    document["vocabulary"] = [entry, {**entry, "headword": "other", "gloss": "另一个释义"}]
+    for reader in (load_pack, load_video_material):
+        with pytest.raises(PackValidationError, match="/vocabulary/1: duplicate vocabulary entry"):
+            reader(_payload(document))
+
+
+def test_one_headword_may_describe_several_spans(document):
+    """Multi-context is the point of the vocabulary list; only a repeated span is ambiguous."""
+    first = document["vocabulary"][0]
+    other = next(segment for segment in document["segments"] if segment["id"] != first["segment_id"])
+    document["vocabulary"] = [
+        first,
+        {
+            "headword": first["headword"],
+            "gloss": first["gloss"],
+            "segment_id": other["id"],
+            "token_ids": [other["tokens"][0]["id"]],
+        },
+    ]
+    material = load_video_material(_payload(document))
+    assert [entry.segment_id for entry in material.vocabulary][1] == other["id"]
+
+
+def test_fingerprint_carries_the_contract_version(document):
+    from app.slcs import FINGERPRINT_VERSION
+
+    assert FINGERPRINT_VERSION == "slcs-pack-v1"
+    material = load_video_material(_EXAMPLE.read_bytes())
+    canonical = json.dumps(
+        {"fingerprint_version": FINGERPRINT_VERSION, "pack": load_pack(_EXAMPLE.read_bytes()).model_dump(mode="json")},
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    assert material.source_fingerprint == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def test_token_offsets_use_unicode_code_points(document):

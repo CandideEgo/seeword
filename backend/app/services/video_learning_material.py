@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
-from app.slcs import Media, Provenance, Segment, load_pack
+from app.slcs import FINGERPRINT_VERSION, Media, Provenance, Segment, load_pack
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,15 @@ class VideoLearningMaterial:
 def load_video_material(payload: bytes) -> VideoLearningMaterial:
     """Validate an SLCS document and resolve its vocabulary occurrences."""
     pack = load_pack(payload)
-    canonical = json.dumps(pack.model_dump(mode="json"), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    # The version travels inside the hashed document: bumping it is a deliberate
+    # act that invalidates every digest, instead of a contract edit silently
+    # rewriting fingerprints of packs nobody touched.
+    canonical = json.dumps(
+        {"fingerprint_version": FINGERPRINT_VERSION, "pack": pack.model_dump(mode="json")},
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     segments = {segment.id: segment for segment in pack.segments}
     tokens = {segment.id: {token.id: token for token in segment.tokens} for segment in pack.segments}
     vocabulary = []

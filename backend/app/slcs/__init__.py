@@ -16,6 +16,11 @@ from pydantic import (
     ValidationError,
 )
 
+#: Bumped whenever a change to this contract would alter the fingerprint
+#: of an otherwise unchanged pack; mirrors the normalization-version field
+#: on the content revisions that will store these digests.
+FINGERPRINT_VERSION = "slcs-pack-v1"
+
 NonBlank = Annotated[str, StringConstraints(pattern=r"\S")]
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 NonNegative = Annotated[StrictInt, Field(ge=0)]
@@ -166,6 +171,7 @@ def _check_pack(pack: LearningPack) -> None:
         previous_end = segment.end_ms
         segments[segment.id] = _check_segment(segment, path)
 
+    occurrences: set[tuple[str, tuple[str, ...]]] = set()
     for index, entry in enumerate(pack.vocabulary):
         path = f"/vocabulary/{index}"
         positions = segments.get(entry.segment_id)
@@ -177,6 +183,14 @@ def _check_pack(pack: LearningPack) -> None:
             raise PackValidationError(f"{path}/token_ids: unknown token ID {exc.args[0]!r}") from None
         if indices != list(range(indices[0], indices[0] + len(indices))):
             raise PackValidationError(f"{path}/token_ids: expected consecutive tokens in text order")
+        # The same word span may only be described once: two glosses for one
+        # occurrence would leave the reader (and any stored revision) without a
+        # single authoritative definition. Distinct spans of one headword stay
+        # legal — that is the multi-context case the schema is meant to carry.
+        occurrence = (entry.segment_id, entry.token_ids)
+        if occurrence in occurrences:
+            raise PackValidationError(f"{path}: duplicate vocabulary entry for the same word span")
+        occurrences.add(occurrence)
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:

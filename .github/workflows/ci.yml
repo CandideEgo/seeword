@@ -68,6 +68,13 @@ jobs:
           pip install -r backend/requirements-cloud.txt
           pip install -r backend/requirements-dev.txt
 
+      - name: Validate SLCS example pack
+        # docs/slcs/README.md promises contributors that the same offline
+        # validator runs in CI; without this step that promise is false and a
+        # broken example only surfaces when someone runs the CLI by hand.
+        working-directory: backend
+        run: python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
+
       - name: Lint
         working-directory: backend
         run: ruff check app/ tests/

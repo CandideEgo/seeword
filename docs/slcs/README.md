@@ -14,7 +14,7 @@
 
 ## 词汇与授权
 
-每项 `vocabulary` 记录 `headword`、中文语境释义 `gloss`、`segment_id` 与 `token_ids`。包内至少有一项。词引用必须指向同一字幕段内按原文顺序出现的连续词。
+每项 `vocabulary` 记录 `headword`、中文语境释义 `gloss`、`segment_id` 与 `token_ids`。包内至少有一项。词引用必须指向同一字幕段内按原文顺序出现的连续词。同一个词跨多个字幕段各记一条（多语境），但同一段内的同一组词只能有一条——两个释义争一段原文会让读者与已存修订都拿不到唯一答案。
 
 `provenance` 分别给媒体、字幕、翻译和词汇提供 `attribution`、`basis` 与 `evidence_url`。如素材经改编，可在 `changes` 记录变化。发布审核须核对实际授权范围和嵌入条件。离线校验只检查声明与链接格式。
 
@@ -29,6 +29,6 @@ python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
 python -m app.slcs schema
 ```
 
-校验成功退出码为 `0`，输入或格式错误为 `1`，诊断指向出错字段。重复 JSON 键会被拒绝。更新契约时，从第二条命令重新生成 `schema.json`。
+校验成功退出码为 `0`，输入或格式错误为 `1`，诊断指向出错字段。重复 JSON 键会被拒绝。更新契约时，从第二条命令重新生成 `schema.json`。CI 的 backend job 会跑第一条命令校验参考包，贡献者提交的包应使用同一校验器。
 
-V2 后端入口 `app.services.video_learning_material.load_video_material(payload)` 接收学习包的原始字节，返回只读视频材料。词汇引用全部有对齐时，定位区间从首词起点到末词终点，其他情况使用整段时间。内容指纹是校验后的 JSON 按键排序、使用紧凑分隔符序列化成 UTF-8，再计算的 SHA-256。列表顺序保留，文件排版和对象键顺序不影响指纹。
+V2 后端入口 `app.services.video_learning_material.load_video_material(payload)` 接收学习包的原始字节，返回只读视频材料。词汇引用全部有对齐时，定位区间从首词起点到末词终点，其他情况使用整段时间。内容指纹是 `{"fingerprint_version", "pack"}` 这个对象（`pack` 为校验后的 JSON）按键排序、使用紧凑分隔符序列化成 UTF-8 后再计算的 SHA-256；`fingerprint_version` 当前是 `slcs-pack-v1`（`app.slcs.FINGERPRINT_VERSION`），契约变更时显式递增。列表顺序保留，文件排版和对象键顺序不影响指纹。
