@@ -5,12 +5,12 @@ so HTTP concerns (parsing, status codes) stay separate from
 domain logic (queries, state transitions, side effects).
 """
 
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.database import commit_refresh
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
@@ -91,6 +91,53 @@ async def _invalidate_video_detail_cache(video_id: str) -> None:
     await invalidate_video_detail_cache(video_id)
 
 
+async def _ensure_learning_record(db: AsyncSession, user_id: str, video_id: str) -> None:
+    """Create the first-view ``LearningRecord`` if it is absent, atomically.
+
+    Replaces the previous ``SELECT … FOR UPDATE`` probe. That probe took a row
+    lock on **every** watch-page load for an authenticated viewer, only to
+    discover that the record usually already existed. The unique constraint
+    ``uq_learning_record_user_video`` is the real arbiter, so a conditional
+    ``INSERT … ON CONFLICT DO NOTHING`` answers the same question in one
+    statement and never blocks a concurrent reader.
+
+    Only an actual insert is committed — a no-op leaves the surrounding
+    transaction untouched, exactly like the old "record exists" path.
+
+    Every column is supplied explicitly: the model's defaults are Python-side
+    (``default=``), not ``server_default``, so a Core insert would otherwise
+    write NULL into the NOT NULL columns.
+    """
+    values = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "video_id": video_id,
+        "words_learned": 0,
+        "speaking_attempts": 0,
+        "completed": False,
+        "time_spent_seconds": 0,
+        "progress_percentage": 0.0,
+        "created_at": datetime.now(UTC),
+    }
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+    stmt = (
+        insert(LearningRecord)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=["user_id", "video_id"])
+        .returning(LearningRecord.id)
+    )
+    inserted = (await db.execute(stmt)).first()
+    if inserted is not None:
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
+
 async def get_video_detail(
     db: AsyncSession,
     video_id: str,
@@ -111,7 +158,11 @@ async def get_video_detail(
     """
     from app.core.cache import cache_get, cache_set
 
-    result = await db.execute(select(Video).options(selectinload(Video.subtitles)).where(Video.id == video_id))
+    # Metadata only — the subtitle rows are the payload's largest part and are
+    # loaded below, *after* the cache lookup, so a detail-cache hit never pays
+    # for reading them. This used to be a selectinload on this very query, which
+    # made the Redis cache save only serialization, not the DB work.
+    result = await db.execute(select(Video).where(Video.id == video_id))
     video = result.scalar_one_or_none()
     if not video:
         return None
@@ -132,23 +183,7 @@ async def get_video_detail(
     # Create LearningRecord on first view for authenticated viewers. Runs
     # before the cache lookup: a cached payload must not skip view-history.
     if current_user and can_watch:
-        lr_result = await db.execute(
-            select(LearningRecord)
-            .where(
-                LearningRecord.user_id == current_user.id,
-                LearningRecord.video_id == video_id,
-            )
-            .limit(1)
-            .with_for_update()
-        )
-        if not lr_result.scalar():
-            db.add(LearningRecord(user_id=current_user.id, video_id=video_id))
-            try:
-                await db.commit()
-            except Exception as exc:
-                await db.rollback()
-                if "uq_learning_record_user_video" not in str(exc):
-                    raise
+        await _ensure_learning_record(db, current_user.id, video_id)
 
     # 登录用户的详情响应不含任何 viewer 相关字段，可以共用同一个 key；**匿名**
     # 响应是 locked 形状（空字幕/空 URL），绝不能缓存后回给登录用户，因此只有
@@ -180,6 +215,13 @@ async def get_video_detail(
 
         subtitle_responses = subtitles_from_snapshot(video.published_snapshot)
     else:
+        from app.models.subtitle import Subtitle
+
+        subtitle_rows = (
+            (await db.execute(select(Subtitle).where(Subtitle.video_id == video.id).order_by(Subtitle.sentence_index)))
+            .scalars()
+            .all()
+        )
         subtitle_responses = [
             SubtitleResponse(
                 id=s.id,
@@ -192,7 +234,7 @@ async def get_video_detail(
                 speaker=s.speaker,
                 word_levels=s.word_levels,
             )
-            for s in (video.subtitles or [])
+            for s in subtitle_rows
         ]
 
     # Author page link (ADR-0014 rev.): channel slug + cover for the watch page.

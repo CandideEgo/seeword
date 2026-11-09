@@ -31,6 +31,8 @@ from app.schemas.vocabulary import (
     VocabularyResponse,
     VocabularyReviewResponse,
     VocabularyStatsResponse,
+    WatchContextResponse,
+    WatchContextVocabSet,
 )
 from app.services import ecdict, practice_service, study_session_service, vocabulary_service
 
@@ -618,3 +620,51 @@ async def list_learning_words(
     )
     words = [w.lower() for w in result.scalars().all()]
     return {"words": words}
+
+
+@router.get("/watch-context", response_model=WatchContextResponse)
+@rate_limit("60/minute")
+async def get_watch_context(
+    request: Request,
+    video_id: str = Query(..., min_length=1, max_length=36),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """观看页的词汇状态：一次返回「正在学」「已掌握」与「本视频是否已建集合」。
+
+    播放页以前要发三个请求（``/vocabulary/words?mastery=learning,reviewing``、
+    ``?mastery=mastered``、``/vocab-sets``）才凑齐同一块 UI。这里合成一次：
+
+    * 词表按 mastery 分两组，过滤条件与 ``/vocabulary/words`` 完全一致；
+    * 集合只按 ``user_id + video_id`` 直接查，而不是走 ``/vocab-sets`` 的
+      全量列表（那个会加载用户所有集合 + 词统计 + 视频行）。
+
+    同一视频若有多个等级的集合，取最近活跃的那个——按钮只需要一个可打开的 id。
+    """
+    from app.models.vocab_set import VocabSet
+
+    rows = (
+        await db.execute(
+            select(Vocabulary.word, Vocabulary.mastery_level).where(
+                Vocabulary.user_id == current_user.id,
+                Vocabulary.mastery_level.in_(("learning", "reviewing", "mastered")),
+            )
+        )
+    ).all()
+    learning_words = [word.lower() for word, level in rows if level in ("learning", "reviewing")]
+    mastered_words = [word.lower() for word, level in rows if level == "mastered"]
+
+    vocab_set = (
+        await db.execute(
+            select(VocabSet.id, VocabSet.video_id)
+            .where(VocabSet.user_id == current_user.id, VocabSet.video_id == video_id)
+            .order_by(VocabSet.last_activity_at.desc(), VocabSet.created_at.desc())
+            .limit(1)
+        )
+    ).first()
+
+    return WatchContextResponse(
+        learning_words=learning_words,
+        mastered_words=mastered_words,
+        vocab_set=WatchContextVocabSet(id=vocab_set.id, video_id=vocab_set.video_id) if vocab_set else None,
+    )

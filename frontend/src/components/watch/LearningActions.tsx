@@ -1,7 +1,6 @@
 "use client";
 
 import { BookOpen, GraduationCap, Loader2 } from "lucide-react";
-import type { VocabSet } from "@/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,7 +18,7 @@ export function LearningActions({
 }: {
   /** true = 移动端 ⋯ 面板的 44px 图标档；false = 桌面动作带的带文字档。 */
   compact: boolean;
-  vocabSet: VocabSet | null;
+  vocabSet: { id: string } | null;
   addingVocabSet: boolean;
   onVocabSet: () => void;
   onDrill: () => void;

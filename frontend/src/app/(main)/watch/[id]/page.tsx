@@ -573,8 +573,6 @@ export default function WatchPage() {
     isAuthenticated,
     requireAuth,
     selectedExamLevel,
-    videoTitle: video?.title,
-    thumbnailUrl: video?.thumbnail_url,
     onOpenSet: (setId) => router.push(`/vocabulary/sets/${setId}`),
   });
 

@@ -401,47 +401,37 @@ async def exam_stats(db: AsyncSession, user_id: str) -> dict:
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_start = now - timedelta(days=7)
 
-    month_completed, month_score_sum = (
+    month_filter = (ExamSession.submitted_at.is_not(None), ExamSession.submitted_at >= month_start)
+    daily_filter = (ExamSession.mode == MODE_DAILY, ExamSession.submitted_at.is_not(None))
+    week_daily_filter = (*daily_filter, ExamSession.submitted_at >= week_start)
+
+    # One round trip for all four figures. The "latest daily score" is a
+    # correlated scalar subquery rather than a second statement; the two counts
+    # use aggregate FILTER so no extra WHERE clause is needed.
+    last_daily_score_sq = (
+        select(ExamSession.score)
+        .where(ExamSession.user_id == user_id, *daily_filter)
+        .order_by(ExamSession.submitted_at.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    month_completed, month_score_sum, week_daily_count, last_daily_score = (
         await db.execute(
             select(
-                func.count(ExamSession.id),
-                func.coalesce(func.sum(ExamSession.score), 0.0),
-            ).where(
-                ExamSession.user_id == user_id,
-                ExamSession.submitted_at.is_not(None),
-                ExamSession.submitted_at >= month_start,
-            )
+                func.count(ExamSession.id).filter(*month_filter),
+                func.coalesce(func.sum(ExamSession.score).filter(*month_filter), 0.0),
+                func.count(ExamSession.id).filter(*week_daily_filter),
+                last_daily_score_sq,
+            ).where(ExamSession.user_id == user_id)
         )
     ).one()
     avg_score = round(float(month_score_sum) / month_completed, 4) if month_completed else None
-
-    last_daily_score = await db.scalar(
-        select(ExamSession.score)
-        .where(
-            ExamSession.user_id == user_id,
-            ExamSession.mode == MODE_DAILY,
-            ExamSession.submitted_at.is_not(None),
-        )
-        .order_by(ExamSession.submitted_at.desc())
-        .limit(1)
-    )
-    week_daily_count = int(
-        await db.scalar(
-            select(func.count(ExamSession.id)).where(
-                ExamSession.user_id == user_id,
-                ExamSession.mode == MODE_DAILY,
-                ExamSession.submitted_at.is_not(None),
-                ExamSession.submitted_at >= week_start,
-            )
-        )
-        or 0
-    )
 
     return {
         "month_completed": int(month_completed),
         "avg_score": avg_score,
         "last_daily_score": last_daily_score,
-        "week_daily_count": week_daily_count,
+        "week_daily_count": int(week_daily_count or 0),
     }
 
 

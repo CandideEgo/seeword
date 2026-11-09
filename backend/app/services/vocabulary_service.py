@@ -259,24 +259,23 @@ async def get_stats(db: AsyncSession, user_id: str) -> dict:
 
     # Mastered words have exited review (tri-state semantics) and don't
     # count toward the due queue.
-    due_stmt = select(func.count(Vocabulary.id)).where(
-        Vocabulary.user_id == user_id,
-        (Vocabulary.next_review_at == None) | (Vocabulary.next_review_at <= now),
-        Vocabulary.mastery_level != MASTERY_MASTERED,
-    )
-    due_result = await db.execute(due_stmt)
-    due_count = due_result.scalar() or 0
-
-    # Same filter as build_daily_session's review queue: new words are the
-    # learn queue, not review. The top-bar chip and the vocabulary page both
-    # read this number so "N 词待复习" means one thing everywhere.
-    due_review_stmt = select(func.count(Vocabulary.id)).where(
-        Vocabulary.user_id == user_id,
-        (Vocabulary.next_review_at == None) | (Vocabulary.next_review_at <= now),
-        Vocabulary.mastery_level != MASTERY_MASTERED,
-        Vocabulary.mastery_level != MASTERY_NEW,
-    )
-    due_review_count = (await db.execute(due_review_stmt)).scalar() or 0
+    due_window = (Vocabulary.next_review_at.is_(None)) | (Vocabulary.next_review_at <= now)
+    # Both due counters in one round trip: each is the same window with a
+    # different mastery predicate, so aggregate FILTER expresses both without a
+    # second statement. Same filters as build_daily_session's review queue —
+    # new words are the learn queue, not review.
+    due_count, due_review_count = (
+        await db.execute(
+            select(
+                func.count(Vocabulary.id).filter(due_window, Vocabulary.mastery_level != MASTERY_MASTERED),
+                func.count(Vocabulary.id).filter(
+                    due_window,
+                    Vocabulary.mastery_level != MASTERY_MASTERED,
+                    Vocabulary.mastery_level != MASTERY_NEW,
+                ),
+            ).where(Vocabulary.user_id == user_id)
+        )
+    ).one()
 
     total = sum(level_counts.values())
 
@@ -286,8 +285,8 @@ async def get_stats(db: AsyncSession, user_id: str) -> dict:
         "learning_count": level_counts.get(MASTERY_LEARNING, 0),
         "reviewing_count": level_counts.get(MASTERY_REVIEWING, 0),
         "mastered_count": level_counts.get(MASTERY_MASTERED, 0),
-        "due_count": due_count,
-        "due_review_count": due_review_count,
+        "due_count": due_count or 0,
+        "due_review_count": due_review_count or 0,
     }
 
 

@@ -16,15 +16,28 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errors";
 import { wordHighlightClassFor } from "@/lib/watchWordHighlight";
-import type { VocabSet, VocabSetCreateResponse } from "@/types";
+import type { VocabSetCreateResponse } from "@/types";
+
+/**
+ * 观看页只需要知道「本视频是否已建过集合」以及它的 id（点开时用），
+ * 不需要 ``/vocab-sets`` 卡片里的标题、数量与缩略图。
+ */
+export interface WatchVocabSet {
+  id: string;
+  video_id: string | null;
+}
+
+interface WatchContextResponse {
+  learning_words: string[];
+  mastered_words: string[];
+  vocab_set: WatchVocabSet | null;
+}
 
 interface Options {
   videoId: string;
   isAuthenticated: boolean;
   requireAuth: () => boolean;
   selectedExamLevel: string | null;
-  videoTitle: string | null | undefined;
-  thumbnailUrl: string | null | undefined;
   /** 已存在集合时的出口（页面传 router.push，hook 不持有导航）。 */
   onOpenSet: (setId: string) => void;
 }
@@ -35,7 +48,7 @@ interface WatchVocabulary {
   /** 已掌握的词（只留虚线下划线）。 */
   masteredWords: Set<string>;
   /** 本视频的过筛集合；null 表示还没加入学习。 */
-  vocabSet: VocabSet | null;
+  vocabSet: WatchVocabSet | null;
   addingVocabSet: boolean;
   /** 已加入 → 打开集合；未加入 → 创建并 toast。 */
   addVocabSet: () => Promise<void>;
@@ -48,66 +61,37 @@ export function useWatchVocabulary({
   isAuthenticated,
   requireAuth,
   selectedExamLevel,
-  videoTitle,
-  thumbnailUrl,
   onOpenSet,
 }: Options): WatchVocabulary {
   const [learningWords, setLearningWords] = useState<Set<string>>(new Set());
   const [masteredWords, setMasteredWords] = useState<Set<string>>(new Set());
-  const [vocabSet, setVocabSet] = useState<VocabSet | null>(null);
+  const [vocabSet, setVocabSet] = useState<WatchVocabSet | null>(null);
   const [addingVocabSet, setAddingVocabSet] = useState(false);
 
-  // 正在学 / 复习中：字幕最强的「已收词」档。
+  // 词表 + 本视频集合：一次请求取齐（``/vocabulary/watch-context``）。
+  // 以前是三次（learning/reviewing 词、mastered 词、全部集合列表），播放页
+  // 每次进入都要等三个往返。失败一律非致命：拿不到就不高亮、按钮保持
+  // 「加入学习」，不挡播放。
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await api<{ words: string[] }>(
-          "/api/v1/vocabulary/words?mastery=learning,reviewing"
-        );
-        if (!cancelled) setLearningWords(new Set(res.words));
-      } catch {
-        // non-fatal: 拿不到词表就不高亮，不挡播放。
-      }
-    })();
+    const controller = new AbortController();
+    api<WatchContextResponse>(
+      `/api/v1/vocabulary/watch-context?video_id=${encodeURIComponent(videoId)}`,
+      { signal: controller.signal }
+    )
+      .then((res) => {
+        if (cancelled) return;
+        setLearningWords(new Set(res.learning_words));
+        setMasteredWords(new Set(res.mastered_words));
+        setVocabSet(res.vocab_set);
+      })
+      .catch(() => {
+        // 非致命：保留现有高亮与按钮状态。
+      });
     return () => {
       cancelled = true;
-    };
-  }, [isAuthenticated]);
-
-  // DEC-073：高亮四档里的「已掌握」要单独一次查询 —— 同一个端点按 mastery 过滤、
-  // 只回词串，learning/reviewing 与 mastered 必须能区分开才谈得上降底色。
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api<{ words: string[] }>("/api/v1/vocabulary/words?mastery=mastered");
-        if (!cancelled) setMasteredWords(new Set(res.words));
-      } catch {
-        // non-fatal: 退化成一档，只是底色略多，不挡播放。
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
-
-  // 词汇集合：本视频是否已生成过筛集合（GET /vocab-sets 按 video_id 匹配）。
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const sets = await api<VocabSet[]>("/api/v1/vocab-sets");
-        if (!cancelled) setVocabSet(sets.find((s) => s.video_id === videoId) ?? null);
-      } catch {
-        // non-fatal: 按钮保持「加入学习」态。
-      }
-    })();
-    return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [isAuthenticated, videoId]);
 
@@ -128,32 +112,13 @@ export function useWatchVocabulary({
         }),
       });
       toast.success(res.message || "已加入学习");
-      setVocabSet({
-        id: res.id,
-        video_id: res.video_id,
-        exam_level: res.exam_level,
-        title: videoTitle ?? "",
-        thumbnail_url: thumbnailUrl ?? null,
-        total: res.total,
-        mastered_count: 0,
-        last_activity_at: null,
-        created_at: new Date().toISOString(),
-      });
+      setVocabSet({ id: res.id, video_id: res.video_id });
     } catch (err) {
       toast.error(apiErrorMessage(err, "加入失败，请重试"));
     } finally {
       setAddingVocabSet(false);
     }
-  }, [
-    requireAuth,
-    vocabSet,
-    onOpenSet,
-    addingVocabSet,
-    videoId,
-    selectedExamLevel,
-    videoTitle,
-    thumbnailUrl,
-  ]);
+  }, [requireAuth, vocabSet, onOpenSet, addingVocabSet, videoId, selectedExamLevel]);
 
   const levelClassFor = useCallback(
     (word: string, wordLevels: Record<string, string[]> | null) =>

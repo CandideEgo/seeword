@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -9,7 +9,12 @@ from app.core.database import Base
 
 class LearningRecord(Base):
     __tablename__ = "learning_records"
-    __table_args__ = (UniqueConstraint("user_id", "video_id", name="uq_learning_record_user_video"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "video_id", name="uq_learning_record_user_video"),
+        # Study-history pages filter by user (+ completed) and order by recency;
+        # the count/first-page queries otherwise sort every record of the user.
+        Index("ix_learning_records_user_completed_accessed", "user_id", "completed", "last_accessed_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(
@@ -40,7 +45,12 @@ class LearningRecord(Base):
 
 class Vocabulary(Base):
     __tablename__ = "vocabulary"
-    __table_args__ = (UniqueConstraint("user_id", "word", name="uq_vocabulary_user_word"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "word", name="uq_vocabulary_user_word"),
+        # Due-queue counts and the review list filter user + mastery + due time
+        # together; without this the plan is an index scan per mastery level.
+        Index("ix_vocabulary_user_mastery_review", "user_id", "mastery_level", "next_review_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(

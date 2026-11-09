@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { api } from "@/lib/api";
+import { channelSubscriptionsRequest } from "@/lib/channelSubscriptions";
 import { Image } from "@/components/ui/Image";
 import { userInitial } from "@/lib/avatar";
 import type { ChannelSubscriptionSummary } from "@/types/channels";
@@ -20,19 +20,20 @@ export function HomeSubscribedChannels() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
-    api<ChannelSubscriptionSummary[] | { items: ChannelSubscriptionSummary[] }>(
-      "/api/v1/discovery/subscriptions",
-      { signal: controller.signal }
-    )
+    let cancelled = false;
+    // 与右栏「正在学」共用同一次请求（lib/channelSubscriptions）。
+    channelSubscriptionsRequest
+      .get()
       .then((data) => {
-        if (controller.signal.aborted) return;
-        setItems(Array.isArray(data) ? data : (data.items ?? []));
+        if (!cancelled) setItems(data);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
+        if (!cancelled) setFailed(true);
       });
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+      channelSubscriptionsRequest.release();
+    };
   }, []);
 
   if (failed || (items && items.length === 0)) return null;

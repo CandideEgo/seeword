@@ -83,3 +83,9 @@ export function formatCount(value: number | null | undefined, locale: "zh" | "en
 export function formatViews(n: number | null): string {
   return formatCount(n);
 }
+
+/** `"2026-10-31"` → `"10/31"` — the month/day label used by admin trend axes. */
+export function formatMonthDay(value: string): string {
+  const date = new Date(value);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
