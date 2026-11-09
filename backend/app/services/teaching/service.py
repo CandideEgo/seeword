@@ -359,7 +359,13 @@ async def project_session(
                 },
             }
         )
-    if len(cards) > 8 or any(len(json.dumps(card, ensure_ascii=False).encode()) > 16384 for card in cards):
+    # The bound is derived from the session, not fixed at 8: a quiz has one
+    # question card per item and each item may legitimately also carry a hint,
+    # an analysis and an evidence card. A fixed cap turned the normal path
+    # ("reveal two of four questions", then "finish") into a permanent 409 that
+    # every retry reproduced — the session could never leave ``active``.
+    limit = max(SINGLE_ITEM_CARD_LIMIT, PER_ITEM_CARDS * len(items) + 2)
+    if len(cards) > limit or any(len(json.dumps(card, ensure_ascii=False).encode()) > 16384 for card in cards):
         _error("TEACHING_STATE_CONFLICT", "内容超过卡片展示上限")
     from app.models.v2_runtime import AgentRun
 
@@ -595,6 +601,10 @@ async def create_session(db: "AsyncSession", principal: Principal, body) -> dict
 
 
 QUIZ_SIZE = 4
+#: Cards one item may contribute: question, hint, analysis, evidence.
+PER_ITEM_CARDS = 4
+#: The pre-quiz bound, kept so a single-question session is never tightened.
+SINGLE_ITEM_CARD_LIMIT = 8
 
 
 async def _quiz_revisions(db: "AsyncSession", data: dict) -> list[ExamAnalysisRevision]:
@@ -624,7 +634,9 @@ async def _quiz_revisions(db: "AsyncSession", data: dict) -> list[ExamAnalysisRe
                     ExamPaper.id == data["paper_id"],
                     ExamAnalysisRevision.status == "auto_verified",
                 )
-                .order_by(ExamAnalysisRevision.question_key, ExamAnalysisRevision.revision_no.desc())
+                # Paper order, not question_key order: the key is a string, so
+                # "…:100" would sort before "…:46" and pick the wrong four.
+                .order_by(ExamQuestion.number, ExamAnalysisRevision.revision_no.desc())
             )
         ).scalars()
         seen: set[str] = set()
@@ -633,6 +645,7 @@ async def _quiz_revisions(db: "AsyncSession", data: dict) -> list[ExamAnalysisRe
                 continue
             seen.add(revision.question_key)
             picked.append(revision)
+    explicit = bool(data.get("revision_ids"))
     unique: list[ExamAnalysisRevision] = []
     keys: set[str] = set()
     for revision in picked:
@@ -640,12 +653,26 @@ async def _quiz_revisions(db: "AsyncSession", data: dict) -> list[ExamAnalysisRe
             _error("VALIDATION_ERROR", "一道题只能在一份小测里出现一次", 422)
         keys.add(revision.question_key)
         if revision.status != "auto_verified":
-            _error("CONTENT_REVISION_MISMATCH", "该内容未通过自动核验，不能组成小测")
+            # An explicit list is a promise about *which* questions, so a
+            # withdrawn one is refused; a paper scan simply skips it and fills
+            # the slot from the next question.
+            if explicit:
+                _error("CONTENT_REVISION_MISMATCH", "该内容未通过自动核验，不能组成小测")
+            continue
         if not await current_revision_available(db, revision):
-            _error("CONTENT_REVISION_MISMATCH", "题目来源已变化，请重新选择核验版本")
+            if explicit:
+                _error("CONTENT_REVISION_MISMATCH", "题目来源已变化，请重新选择核验版本")
+            continue
         unique.append(revision)
+        if not explicit and len(unique) == QUIZ_SIZE:
+            break
+
     if len(unique) != QUIZ_SIZE:
-        _error("VALIDATION_ERROR", f"小测需要 {QUIZ_SIZE} 道可用的已核验题目，实际 {len(unique)} 道", 422)
+        _error(
+            "VALIDATION_ERROR",
+            f"小测需要 {QUIZ_SIZE} 道可用的已核验题目，实际 {len(unique)} 道",
+            422,
+        )
     return unique
 
 

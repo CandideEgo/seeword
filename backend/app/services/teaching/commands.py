@@ -73,11 +73,15 @@ async def execute(db: "AsyncSession", principal: "Principal", session_id: str, b
         if not body.content:
             raise AppError(422, "VALIDATION_ERROR", "content 必填")
         return await service.record_feedback(db, principal, session_id, Feedback(**_item(body), content=body.content))
-    if action == "complete":
+    if action in {"complete", "abandon"}:
         return await service.complete_session(
             db,
             principal,
             session_id,
-            CompleteSession(operation_id=body.operation_id, expected_revision=body.expected_revision),
+            CompleteSession(
+                operation_id=body.operation_id,
+                expected_revision=body.expected_revision,
+                action=action,
+            ),
         )
     raise AppError(422, "VALIDATION_ERROR", "未知的教学动作")

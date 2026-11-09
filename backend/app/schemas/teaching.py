@@ -192,7 +192,10 @@ class SessionActionRequest(StrictModel):
 
     operation_id: str = Field(min_length=1, max_length=64)
     expected_revision: int = Field(ge=1)
-    action: Literal["draft", "attempts", "hints", "reveal", "feedback", "complete"]
+    # ``abandon`` is its own command, not a parameter of ``complete``: the web
+    # client used to send ``{action: "complete", action: "abandon"}``, which the
+    # flat body made indistinguishable and rejected with a 422.
+    action: Literal["draft", "attempts", "hints", "reveal", "feedback", "complete", "abandon"]
     item_id: str | None = Field(default=None, min_length=1, max_length=36)
     answer: str | None = Field(default=None, max_length=64)
     content: str | None = Field(default=None, max_length=4000)
@@ -220,7 +223,10 @@ class SessionResponse(StrictModel):
     policy_version: str
     items: list[TeachingItemResponse]
     attempts: list[AttemptResponse]
-    cards: list[TeachingCard] = Field(max_length=8)
+    # 4 items x (question, hint, analysis, evidence) plus progress and summary.
+    # The service enforces the same derived bound; this only stops an unbounded
+    # payload from being shaped into a response at all.
+    cards: list[TeachingCard] = Field(max_length=26)
     latest_run: dict | None = None
     operation_result: dict | None = None
     replayed: bool = False

@@ -292,7 +292,8 @@ export function TeachingWorkspace() {
             operation_id: operationId(key),
             expected_revision: session.revision,
             action,
-            ...(action === "complete" ? {} : { item_id: item.id }),
+            // Session-level commands carry no item; the rest act on one question.
+            ...(["complete", "abandon"].includes(action) ? {} : { item_id: item.id }),
             ...input,
           }),
         }
@@ -301,9 +302,13 @@ export function TeachingWorkspace() {
       setRunCards([]);
       operations.current.delete(key);
       if (action === "attempts") {
-        // Deterministic: the next question without an answer, in order. The
-        // strip stays available if the learner wants to go back.
-        const pending = next.items.find((i) => !i.answered && i.id !== item.id);
+        // Advance forward from the question just answered (wrapping once), so
+        // skipping ahead and coming back does not drag the learner to question
+        // one. When answers are hidden from this scope nothing reads as
+        // pending, and staying put is the only safe choice.
+        const from = next.items.findIndex((i) => i.id === item.id);
+        const ordered = [...next.items.slice(from + 1), ...next.items.slice(0, Math.max(from, 0))];
+        const pending = ordered.find((i) => !i.answered && i.id !== item.id);
         if (pending) setSelectedItemId(pending.id);
       }
       if (action === "draft") toast.success("草稿已保存");
@@ -420,7 +425,10 @@ export function TeachingWorkspace() {
       !cards.some((existing) => existing.card_id === c.card_id)
     )
       cards.push(c);
-  const latestAttempt = session.attempts.at(-1);
+  // Attempts from every item share this list; the panel must describe the item
+  // the learner is looking at, not whichever question was answered last.
+  const itemAttempts = session.attempts.filter((a) => a.item_id === item?.id);
+  const latestAttempt = itemAttempts.at(-1);
   return (
     <div className="user-page space-y-6">
       <PageHeader
@@ -502,7 +510,7 @@ export function TeachingWorkspace() {
                 disabled={!answer || !!busy}
                 onClick={() => void write("attempts", { answer })}
               >
-                {session.attempts.length ? "提交复答" : "提交答案"}
+                {itemAttempts.length ? "提交复答" : "提交答案"}
               </Button>
               <Button
                 variant="outline"
@@ -634,7 +642,7 @@ export function TeachingWorkspace() {
                     variant="outline"
                     size="sm"
                     disabled={!!busy}
-                    onClick={() => void write("complete", { action: "complete" })}
+                    onClick={() => void write("complete")}
                   >
                     完成教学
                   </Button>
@@ -642,7 +650,7 @@ export function TeachingWorkspace() {
                     variant="ghost"
                     size="sm"
                     disabled={!!busy}
-                    onClick={() => void write("complete", { action: "abandon" })}
+                    onClick={() => void write("abandon")}
                   >
                     结束本次
                   </Button>

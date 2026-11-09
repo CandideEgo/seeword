@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTeachingCard, mergeTeachingCard, quizProgressLabel, teachingHref } from "@/lib/teaching";
+import { isTeachingCard, mergeTeachingCard, teachingHref } from "@/lib/teaching";
 import type { TeachingCard } from "@/types/teaching";
 
 const card: TeachingCard = {
@@ -61,10 +61,5 @@ describe("quiz progress card", () => {
     expect(
       isTeachingCard({ ...progress, payload: { ...progress.payload, item_ids: ["i1", 2] } })
     ).toBe(false);
-  });
-
-  it("never renders a progress label from a card it rejected", () => {
-    expect(quizProgressLabel(progress as never)).toBe("已答 2/4");
-    expect(quizProgressLabel(null)).toBe("");
   });
 });

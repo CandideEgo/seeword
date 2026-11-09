@@ -92,9 +92,3 @@ export function mergeTeachingCard(
     return cards;
   return [...cards.filter((card) => card.card_id !== candidate.card_id), candidate];
 }
-
-/** Quiz progress as one short, self-describing label ("已答 2/4"). */
-export function quizProgressLabel(card: { payload: { answered: number; total: number } } | null) {
-  if (!card) return "";
-  return `已答 ${card.payload.answered}/${card.payload.total}`;
-}

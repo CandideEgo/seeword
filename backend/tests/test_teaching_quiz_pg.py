@@ -17,10 +17,10 @@ from sqlalchemy import func, select
 from app.core.database import get_async_session_maker
 from app.core.errors import AppError
 from app.models.teaching import TeachingAttempt
+from app.schemas.teaching import SessionActionRequest
 from app.services import v2_access
 from app.services.teaching import commands, service
 from app.services.teaching.principal import Principal
-from app.schemas.teaching import SessionActionRequest
 from tests.teaching_fixtures import seed_quiz_content
 
 pytestmark = pytest.mark.integration

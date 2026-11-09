@@ -51,7 +51,7 @@ def _progress(state):
 
 
 async def test_quiz_freezes_four_questions_without_leaking_answers(db_session, monkeypatch):
-    user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
 
@@ -68,7 +68,7 @@ async def test_quiz_freezes_four_questions_without_leaking_answers(db_session, m
 
 
 async def test_quiz_requires_exactly_four_usable_questions(db_session, monkeypatch):
-    user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, _paper, revisions, principal = await _quiz(db_session, monkeypatch)
     with pytest.raises(AppError) as short:
         await service.create_quiz(
             db_session,
@@ -86,13 +86,25 @@ async def test_quiz_requires_exactly_four_usable_questions(db_session, monkeypat
     assert dup.value.status_code == 422
 
 
-async def test_quiz_rejects_withdrawn_material(db_session, monkeypatch):
-    user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
+async def test_withdrawn_material_never_enters_a_quiz(db_session, monkeypatch):
+    _user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
     revisions[2].status = "withdrawn"
     await db_session.commit()
-    with pytest.raises(AppError) as exc:
+
+    # Only four verified questions exist, so withdrawing one leaves three: a
+    # quiz is four questions or it is nothing, never a short one.
+    with pytest.raises(AppError) as short:
         await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
-    assert exc.value.status_code in (409, 422)
+    assert short.value.status_code == 422
+
+    # Asking for the withdrawn one explicitly is refused, not substituted.
+    with pytest.raises(AppError) as explicit:
+        await service.create_quiz(
+            db_session,
+            principal,
+            {"operation_id": "explicit", "revision_ids": [r.id for r in revisions]},
+        )
+    assert explicit.value.status_code == 409
 
 
 async def test_repeated_action_counts_once_and_projects_progress(db_session, monkeypatch):
@@ -132,7 +144,7 @@ async def test_repeated_action_counts_once_and_projects_progress(db_session, mon
 
 
 async def test_stale_revision_is_rejected_not_silently_applied(db_session, monkeypatch):
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     stale = SessionActionRequest(
@@ -148,7 +160,7 @@ async def test_stale_revision_is_rejected_not_silently_applied(db_session, monke
 
 
 async def test_revealing_one_question_does_not_disclose_another(db_session, monkeypatch):
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     first, second = state["items"][0], state["items"][1]
@@ -167,7 +179,7 @@ async def test_revealing_one_question_does_not_disclose_another(db_session, monk
 
 
 async def test_quiz_answers_never_touch_the_formal_exam_tables(db_session, monkeypatch):
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     for index, item in enumerate(state["items"]):
@@ -219,7 +231,7 @@ async def test_progress_hidden_where_answer_history_is_hidden(db_session, monkey
 
 
 async def test_unknown_action_and_missing_fields_are_rejected(db_session, monkeypatch):
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
 
@@ -243,7 +255,7 @@ async def test_unknown_action_and_missing_fields_are_rejected(db_session, monkey
 
 async def test_http_quiz_and_action_entry_replay(client, auth_headers, db_session, monkeypatch):
     user = await db_session.scalar(select(User).where(User.phone == "13800138000"))
-    user, paper, revisions = await seed_quiz_content(db_session, existing_user=user)
+    user, paper, _revisions = await seed_quiz_content(db_session, existing_user=user)
     enable(monkeypatch, user.id)
 
     body = {"operation_id": "http-quiz", "paper_id": paper.id}
@@ -276,7 +288,7 @@ async def test_http_quiz_and_action_entry_replay(client, auth_headers, db_sessio
 
 async def test_action_operation_receipt_is_scoped_per_user(db_session, monkeypatch):
     """The receipt lives in TeachingOperation; a second user cannot replay it."""
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     await commands.execute(db_session, principal, state["id"], act(state, "shared-op", "attempts", answer="B"))
@@ -297,7 +309,7 @@ async def test_action_operation_receipt_is_scoped_per_user(db_session, monkeypat
 
 async def test_quiz_action_keeps_every_domain_fact_consistent(db_session, monkeypatch):
     """No second ledger: attempts, exposures and operations all agree."""
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     for index, item in enumerate(state["items"][:2]):
@@ -322,7 +334,7 @@ async def test_limited_attempt_read_keeps_progress_consistent(db_session, monkey
     scope whose attempt rows are not readable still has ``next_attempt_no > 1``,
     so the verdict lookup must tolerate an empty row set instead of indexing it.
     """
-    user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     state = await commands.execute(db_session, principal, state["id"], act(state, "answer", "attempts", answer="B"))
@@ -336,8 +348,95 @@ async def test_limited_attempt_read_keeps_progress_consistent(db_session, monkey
 
 
 async def test_quiz_question_text_comes_from_the_fixture(db_session, monkeypatch):
-    user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
     state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
     await db_session.commit()
     questions = [card["payload"]["question"] for card in state["cards"] if card["kind"] == "question"]
     assert questions == list(QUIZ_QUESTIONS)
+
+
+async def test_revealing_and_hinting_every_question_still_finishes(db_session, monkeypatch):
+    """Regression: the fixed 8-card cap made the normal quiz path unendable.
+
+    Four questions x (question + hint + analysis + evidence) legitimately exceeds
+    eight cards. With the old bound the second reveal and the fourth hint raised
+    409, and ``complete`` re-raised it on every retry — the session could never
+    leave ``active``.
+    """
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
+    await db_session.commit()
+
+    for index, item in enumerate(state["items"]):
+        state = await commands.execute(
+            db_session, principal, state["id"], act(state, f"hint-{index}", "hints", item_id=item["id"])
+        )
+        await db_session.commit()
+        state = await commands.execute(
+            db_session, principal, state["id"], act(state, f"reveal-{index}", "reveal", item_id=item["id"])
+        )
+        await db_session.commit()
+
+    assert len(state["cards"]) > 8
+    SessionResponse.model_validate(state)
+    finished = await commands.execute(db_session, principal, state["id"], act(state, "finish", "complete"))
+    await db_session.commit()
+    assert finished["status"] == "completed"
+
+
+async def test_abandon_is_its_own_command(db_session, monkeypatch):
+    """The web button used to send ``{action:'complete', action:'abandon'}``.
+
+    A flat body made those collide, so the request was rejected as an unknown
+    action and "结束本次" was unreachable from the page.
+    """
+    _user, paper, _revisions, principal = await _quiz(db_session, monkeypatch)
+    state = await service.create_quiz(db_session, principal, {"operation_id": "quiz", "paper_id": paper.id})
+    await db_session.commit()
+
+    abandoned = await commands.execute(db_session, principal, state["id"], act(state, "ab", "abandon"))
+    await db_session.commit()
+    assert abandoned["status"] == "abandoned"
+
+
+async def test_paper_scope_takes_the_first_four_questions(db_session, monkeypatch):
+    """A real CET-4 paper holds far more than four verified questions."""
+    from app.models.exam_test import ExamQuestion
+    from app.services.teaching.content import publish_revision
+    from tests.teaching_fixtures import original_candidate
+
+    _user, paper, revisions, principal = await _quiz(db_session, monkeypatch)
+
+    async def accept(_receipt):
+        return True
+
+    for number in (50, 51):
+        candidate = original_candidate(number=number, question=f"Extra question {number}?", set_no=3, year=2024)
+        payload = candidate["question_payload"]
+        extra = ExamQuestion(
+            paper_id=paper.id,
+            section="reading_C",
+            number=payload["number"],
+            question_type="reading",
+            passage=payload["passage"],
+            question=payload["question"],
+            options=payload["options"],
+            answer="B",
+        )
+        db_session.add(extra)
+        await db_session.flush()
+        candidate["question_id"] = extra.id
+        await publish_revision(db_session, candidate, verify_receipt=accept)
+    await db_session.commit()
+
+    state = await service.create_quiz(db_session, principal, {"operation_id": "six", "paper_id": paper.id})
+    await db_session.commit()
+    assert len(state["items"]) == 4
+    # Paper order (46, 47, 48, 49), never the string order of question_key.
+    assert [item["question_key"].rsplit(":", 1)[-1] for item in state["items"]] == ["46", "47", "48", "49"]
+
+    with pytest.raises(AppError) as missing:
+        await service.create_quiz(
+            db_session, principal, {"operation_id": "two", "revision_ids": [r.id for r in revisions[:2]]}
+        )
+    assert missing.value.status_code == 422
