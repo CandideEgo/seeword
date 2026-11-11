@@ -94,7 +94,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的，`e2e` 在最新的这轮里已经转绿。
+五条腿长期是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的；`e2e` 会随运行波动，失败时见下面第二节。
 
 **不是这个分支引入的。** 证据：
 
@@ -119,7 +119,7 @@ CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 
 
 ### `e2e` 那几条：不是后端错误
 
-最新一轮已经通过。此前四条失败的性质，我逐个查过：
+`e2e` 的结论会随运行波动（同一提交重跑可能不同）。已经查清的四条失败性质：
 
 - `design-rollout.spec.ts:303` 报的是 `500 /api/v1/users/me` 与 `/users/me/deletion`。但**整场 e2e 的后端日志里零个 5xx**，同一时刻该路径返回 200 —— 是 `next dev` 代理层的瞬时失败被 Playwright 记成 500，不是后端业务错误（master 上这条错的是 `/videos/search/hot`，原因并不相同）。
 - 另外三条撞的是已经删掉或没实现的旧入口（词单旧入口、搜索分组标题）。
