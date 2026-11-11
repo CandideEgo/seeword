@@ -12,7 +12,7 @@
 | 导师（阶段 3，服务层）   | `tests/test_lesson_learning.py`：撤回后排队中的运行不调模型、重试首轮在撤回后仍返回原 run、归档对话拒绝新回合、仅展示用途的修订不能入队                                             |
 | 复习日志与 FSRS 评估     | `tests/test_lesson_learning.py` 的 `s6-v1` 回放；`fsrs_candidate_eval.py` 四组评分序列与两次重放一致                                                                                |
 | 导出与注销               | 导出包新增五个课程数据段（`test_account_data.py`）；`test_account_purge_removes_lesson_anchors` 在 Postgres 上验证词的定位锚点随账号删除                                            |
-| 独立读取器               | 仓库外虚拟环境装 wheel：11 项通过、1 项跳过（stdio 需 mcp extra）；发行树自身 12 项通过；校验和逐项核对无差异                                                                                      |
+| 独立读取器               | 仓库外虚拟环境装 wheel：11 项通过、1 项跳过（stdio 需 mcp extra）；发行树自身 12 项通过；校验和逐项核对无差异                                                                       |
 
 ## ego-browser 走查（隔离站点，桌面 1080×595 与移动 390×844）
 
@@ -28,10 +28,47 @@
 | 恢复                  | 用新签名收据重新发布成功，学习者页恢复 12 段字幕且「已学完」保留                                                                                         |
 | 移动端                | 390px 无横向溢出、无越界元素                                                                                                                             |
 
+## 签发方工具与浏览器发布走查（2026-11-12 补记）
+
+原先仓库里没有任何东西能产出发布收据：课程导入、审核都做得了，但「发布为当前版」要求粘一个 Ed25519 JWT，而签发私钥按设计不在站点里。结果是**第一门课程永远发不出去**。现在补上了：
+
+- `backend/scripts/sign_lesson_receipt.py`：`keygen` 生成密钥对并把站点侧配置打印出来（私钥拒绝写进仓库）；`claims` 只读打印会被签进去的声明；`sign` 输出可粘贴的 token（JWT 走 stdout，声明摘要走 stderr）。它不 import `app.*`，只用一条只读连接查五个字段。
+- `backend/tests/test_lesson_receipt_signer.py`：14 项，钉住「签发方与站点验签器必须一致」——同一 token 过 `verify_lesson_receipt`、改任一声明即 422、未知 kid、超出站点上限的 900s、换签发方都拒；`keygen` 不覆盖已有私钥也不许写进仓库。
+- `backend/scripts/smoke_lesson_publication.py`：在真实 Postgres 上把签发脚本当**子进程**调用，跑完整条链路。
+
+| 项            | 结果                                                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 签发方单测    | `pytest tests/test_lesson_receipt_signer.py` → 14 passed                                                                                                                          |
+| SLCS 相关单测 | `test_lesson_receipt_signer` + `test_slcs_lessons` + `test_lessons_http` → 23 passed, 1 skipped                                                                                   |
+| PostgreSQL 腿 | `test_slcs_lessons.py`（`PG_TEST_URL`）→ 2 passed                                                                                                                                 |
+| 全链路演练    | `smoke_lesson_publication.py` 在空库迁移到 head 后跑：导入 → 审核 → CLI 签收据 → 发布 → 学习 → 撤回 → 新收据恢复 → 拒收超限/篡改收据 → 「整套流程只产生一个修订」，**29/29 通过** |
+
+浏览器走查（隔离站点，ego-browser，真实登录与真实表单）：
+
+| 步骤         | 实测结果                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 维护者复制稿 | 用短信登录进站（`ENV=testing` + dev 假码），`/admin/lessons` 列表里能看到刚导入的候选修订                                            |
+| 用途审核     | 在页面上填来源提交、勾选「站内展示」「向模型披露」、写两份依据并保存；保存后发布表单才出现                                           |
+| 签发与发布   | CLI 签出 796 字符收据，粘进「签名发布收据」，点「以新收据恢复发布」→ `POST /publish` 200，状态转「已发布」                           |
+| 学习者       | 目录出现该课；学习页 h1 为课程标题，**12 段字幕、11 个可点词**渲染正常                                                               |
+| 词卡         | 点 `public domain` → 词头、释义「公有领域，此处修饰可自由使用的书籍。」、`0:13.602 – 0:14.242`、复制原句链接、加入词库               |
+| 收词落库     | 加入词库后 `vocabulary` 有 `public domain` 一行、`lesson_vocabulary_sources` 两行                                                    |
+| 撤回         | 后台填原因撤回 → 页面变「已撤回」；学习者页立刻变「材料已不可用 / 返回课程目录」，目录隐藏，学习历史保留「材料已不可用 · 进度 0:13」 |
+| 恢复         | 撤回状态下**省略 `--revision-id`** 也要能签（本轮修掉的误报），新收据恢复后 12 段字幕与点词全部回来、`unavailable` 消失              |
+
+截图：[`word-card.png`](word-card.png)。环境重建步骤见 [`isolated-environment.md`](isolated-environment.md)。
+
+**本轮修掉的两个签发方缺陷**：`build_claims` 原先直接从行里取 `review_sha256`（该字段在嵌套的 `review` JSON 里，真实库上必然 `KeyError`）；省略 `--revision-id` 时只查 `candidate`，于是「已撤回待恢复」这种同样需要收据的路径会误报找不到修订。
+
+**走查中发现但未修的两处界面问题**（不影响功能，留待你定）：
+
+1. 用途审核的三个复选框渲染成 **13×13 px** 的原生方框，鼠标很难点中（ego-browser 的坐标点击也点不中，最后点的是 `<label>` 文字）。改成整行可点或加大命中区即可。
+2. `ego-browser` 没有设置视口的 API，这次窗口被缩到 270×149 后，滚动容器内的按钮需要先滚 `<main>` 才能点到。这是工具限制，不是页面缺陷；移动端 390px 布局上一轮已验过。
+
 ## 未执行（不得写成通过）
 
 - **嵌入模式（`provider_embed`）实测**：随包的唯一材料是 `external_link`。候选短片《This is the Wikimedia Foundation》的署名、字幕授权与嵌入能力尚未核对，因此 YouTube iframe 播放、字幕跟随与嵌入失败态没有在浏览器里走查过；相关路径只有前端单测（`lessonYouTubeId` 拒绝非官方 watch 链接）与服务端校验覆盖。
-- **站内导师的真实模型回合**：隔离后端以 `SLCS_TUTOR_ENABLED=false` 启动（打开还要求 `LLM_GATEWAY_GOVERNANCE_VERIFIED` 与真实网关凭据）。派发、投影、撤回失效已由服务层测试覆盖，但「选词提问 → 回复 → 原句回跳」的真实模型验收未做。
+- **站内导师的真实模型回合**：隔离后端以 `SLCS_TUTOR_ENABLED=false` 启动（打开还要求 `LLM_GATEWAY_GOVERNANCE_VERIFIED` 与真实网关凭据）。派发、投影、撤回失效已由服务层测试覆盖，但「选词提问 → 回复 → 原句回跳」的真实模型验收未做。**2026-11-12 追加实测：这条路现在被上游堵住了** —— 本地 LLM 网关可达（`/v1/models` 200，`teaching-tutor` 与 `teaching` 两个组都在），但上游返回 `403 The free Beam 1.0 tier has ended. Run /model and pick another model to keep going.`。这不是本仓库的开关或代码问题，换一个有额度的上游模型后即可复验。
 - **键盘走查的最后一步**：浏览器空间在复制深链前被用户接管，键盘 Enter 选中与「复制原句链接」的实测未完成（深链不含媒体 token 由 `lessons.test.ts` 断言）。
 - 逐段听审。
 - 生产部署与业务库迁移：按约定另行放行。
@@ -40,13 +77,13 @@
 
 `CandideEgo/slcs` 已由用户创建并登录 `gh`，发行树推送到 `main`（提交 `8393146`，29 个文件，历史只有占位 `Initial commit` 与本提交）。已执行的核对：
 
-| 项 | 结果 |
-| --- | --- |
-| 仓库自己的 `consistency` CI | `ubuntu-latest` 与 `windows-latest` 两条腿均 success（run `43071111538`） |
-| 匿名克隆（`https://`，无凭据） | `sha256sum -c SHA256SUMS` 零失败 |
-| 仓外安装 | `pip install -c requirements-mcp.lock 'dist/slcs-0.1.0-py3-none-any.whl[mcp]'` 成功，`pip check` 无破损 |
-| 发行树测试 | 12 项通过（含 `SLCS_REQUIRE_INSTALLED` 断言导入自 `site-packages`） |
-| 文档命令 | `validate --json` / `schema` / `fingerprint` / `resolve` 逐条按文档执行，退出码与输出符合规格，指纹为 `d06cd8fa…55ab4` |
+| 项                             | 结果                                                                                                                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 仓库自己的 `consistency` CI    | `ubuntu-latest` 与 `windows-latest` 两条腿均 success（run `43071111538`）                                              |
+| 匿名克隆（`https://`，无凭据） | `sha256sum -c SHA256SUMS` 零失败                                                                                       |
+| 仓外安装                       | `pip install -c requirements-mcp.lock 'dist/slcs-0.1.0-py3-none-any.whl[mcp]'` 成功，`pip check` 无破损                |
+| 发行树测试                     | 12 项通过（含 `SLCS_REQUIRE_INSTALLED` 断言导入自 `site-packages`）                                                    |
+| 文档命令                       | `validate --json` / `schema` / `fingerprint` / `resolve` 逐条按文档执行，退出码与输出符合规格，指纹为 `d06cd8fa…55ab4` |
 
 推送前修掉四处只有远端才会暴露的问题：`slcs_tests` 在 `--import-mode=importlib -o pythonpath=` 下无法解析同级导入；Windows 控制台脚本不在解释器旁目录；发行树自测导入树内源码副本而非已安装 wheel；发行树按构建机行尾写出导致 `SHA256SUMS` 跨平台失效（现统一 LF 并生成 `.gitattributes`）。
 
