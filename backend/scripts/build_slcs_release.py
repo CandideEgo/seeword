@@ -118,6 +118,13 @@ schema, code and synthetic fixtures are Apache-2.0, and the Wikisource
 reference pack is CC BY-SA 4.0.
 """
 
+GITATTRIBUTES = """\
+# SHA256SUMS pins the exact bytes of every file here. Windows checkouts default
+# to CRLF, which would rewrite them and break the published manifest.
+* text=auto eol=lf
+*.whl binary
+"""
+
 CONFTEST = '''\
 """Test the installed wheel, not the source copy that ships beside it."""
 
@@ -210,8 +217,19 @@ def _write(path: Path, text: str) -> None:
 
 
 def _copy(source: Path, target: Path) -> None:
+    """Copy text as LF so the published tree is byte-identical on every host.
+
+    This checkout sets ``core.autocrlf=true``, so files that were last written
+    on Windows carry CRLF while others are LF. ``shutil.copyfile`` would publish
+    whichever form happened to be on this machine, and the checksums would then
+    disagree with the same tree checked out on Linux — which is exactly where
+    the published CI verifies them. Binary files are copied verbatim.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, target)
+    data = source.read_bytes()
+    if source.suffix not in {".whl", ".png", ".ico"}:
+        data = data.replace(b"\r\n", b"\n")
+    target.write_bytes(data)
 
 
 def _checksums(root: Path) -> list[str]:
@@ -242,6 +260,7 @@ def build(out: Path, *, wheel: bool) -> None:
         _copy(PACKAGE / name, out / "slcs" / name)
     _write(out / "pyproject.toml", PYPROJECT)
     _write(out / "README.md", REPO_README)
+    _write(out / ".gitattributes", GITATTRIBUTES)
 
     _write(
         out / "spec" / "README.md",
