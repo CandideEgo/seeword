@@ -55,15 +55,16 @@
 | 收词落库     | 加入词库后 `vocabulary` 有 `public domain` 一行、`lesson_vocabulary_sources` 两行                                                    |
 | 撤回         | 后台填原因撤回 → 页面变「已撤回」；学习者页立刻变「材料已不可用 / 返回课程目录」，目录隐藏，学习历史保留「材料已不可用 · 进度 0:13」 |
 | 恢复         | 撤回状态下**省略 `--revision-id`** 也要能签（本轮修掉的误报），新收据恢复后 12 段字幕与点词全部回来、`unavailable` 消失              |
+| 移动端 390px | 学习页无横向溢出（`scrollWidth` 390 = 视口 390，无越界元素），双语字幕与底部导航正常                                                 |
 
-截图：[`word-card.png`](word-card.png)。环境重建步骤见 [`isolated-environment.md`](isolated-environment.md)。
+截图：[`word-card.png`](word-card.png)（桌面，词卡状态）、[`lesson-mobile.png`](lesson-mobile.png)（390px）。环境重建步骤见 [`isolated-environment.md`](isolated-environment.md)。
 
 **本轮修掉的两个签发方缺陷**：`build_claims` 原先直接从行里取 `review_sha256`（该字段在嵌套的 `review` JSON 里，真实库上必然 `KeyError`）；省略 `--revision-id` 时只查 `candidate`，于是「已撤回待恢复」这种同样需要收据的路径会误报找不到修订。
 
-**走查中发现但未修的两处界面问题**（不影响功能，留待你定）：
+**走查中确认不算缺陷的一点，与一条工具限制**：
 
-1. 用途审核的三个复选框渲染成 **13×13 px** 的原生方框，鼠标很难点中（ego-browser 的坐标点击也点不中，最后点的是 `<label>` 文字）。改成整行可点或加大命中区即可。
-2. `ego-browser` 没有设置视口的 API，这次窗口被缩到 270×149 后，滚动容器内的按钮需要先滚 `<main>` 才能点到。这是工具限制，不是页面缺陷；移动端 390px 布局上一轮已验过。
+1. 用途审核的复选框是 13×13 px 的原生方框，但**整行 `<label>` 可点**（625×20 px）。在 1440×900 视口下用真实鼠标点方框本身也成功（`after real click on box: true`）。先前记成「点不中」是误判：那次浏览器窗口被缩到 135×75，坐标早已落在视口外。
+2. `ego-browser` 没有直接的视口设置方法，但 `page.cdp("Emulation.setDeviceMetricsOverride", …)` 可用；只要先设好视口，滚动容器内的按钮就正常可点。后续走查请先设 1440×900 或 390×844，不要沿用上一个任务遗留的窗口尺寸。
 
 ## 未执行（不得写成通过）
 
