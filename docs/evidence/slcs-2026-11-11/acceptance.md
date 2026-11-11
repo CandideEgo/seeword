@@ -56,6 +56,21 @@
 | 撤回         | 后台填原因撤回 → 页面变「已撤回」；学习者页立刻变「材料已不可用 / 返回课程目录」，目录隐藏，学习历史保留「材料已不可用 · 进度 0:13」 |
 | 恢复         | 撤回状态下**省略 `--revision-id`** 也要能签（本轮修掉的误报），新收据恢复后 12 段字幕与点词全部回来、`unavailable` 消失              |
 | 移动端 390px | 学习页无横向溢出（`scrollWidth` 390 = 视口 390，无越界元素），双语字幕与底部导航正常                                                 |
+| 嵌入失败态   | 见下节                                                                                                                               |
+
+### 嵌入模式的失败态（本轮新增实测）
+
+嵌入**正样本**仍缺：roadmap 要求先核对署名、字幕授权与平台嵌入条件，我没有可核验的材料，不自己造一份。
+
+但「嵌入失败」是 [02 产品需求](../../slcs/02-product-requirements.md) 要求覆盖的四类状态之一，用一份 `provider_embed` 探测包（`source_url` 指向不存在的视频 ID，审核结论明确写着「嵌入失败态走查样本」）可以真实验证。实测（1440×900，ego-browser）：
+
+| 时刻                                  | 结果                                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 页面加载                              | 显示「YouTube 0:49」与「加载 YouTube 播放器」按钮，**12 段双语字幕已可读**                                        |
+| 点加载后 14 秒（播放器自身 9 秒超时） | `role=status` 出现「嵌入播放暂不可用」，按钮变「重试嵌入」                                                        |
+| 失败后字幕                            | 仍是 12 段，`Welcome to Wikisource!` 等原文与译文**照常可读**——正是需求要求的「嵌入失败时双语字幕与释义仍可阅读」 |
+
+这次没能截到图：失败态页面里残留的 YouTube iframe 让 `Page.captureScreenshot` 超时（CDP 请求 30 秒未返回）。行为结论来自 DOM 状态读取，不是截图。
 
 截图：[`word-card.png`](word-card.png)（桌面，词卡状态）、[`lesson-mobile.png`](lesson-mobile.png)（390px）。环境重建步骤见 [`isolated-environment.md`](isolated-environment.md)。
 
@@ -68,7 +83,7 @@
 
 ## 未执行（不得写成通过）
 
-- **嵌入模式（`provider_embed`）实测**：随包的唯一材料是 `external_link`。候选短片《This is the Wikimedia Foundation》的署名、字幕授权与嵌入能力尚未核对，因此 YouTube iframe 播放、字幕跟随与嵌入失败态没有在浏览器里走查过；相关路径只有前端单测（`lessonYouTubeId` 拒绝非官方 watch 链接）与服务端校验覆盖。
+- **嵌入模式（`provider_embed`）的正样本**：随包的唯一材料是 `external_link`。候选短片《This is the Wikimedia Foundation》的署名、字幕授权与嵌入能力尚未核对，因此**真实 YouTube iframe 播放、播放时钟驱动的字幕跟随与词级高亮没有走查过**（失败态已实测，见上节）。相关正样本路径只有前端单测（`lessonYouTubeId` 拒绝非官方 watch 链接）与服务端校验覆盖。
 - **站内导师的真实模型回合**：隔离后端以 `SLCS_TUTOR_ENABLED=false` 启动（打开还要求 `LLM_GATEWAY_GOVERNANCE_VERIFIED` 与真实网关凭据）。派发、投影、撤回失效已由服务层测试覆盖，但「选词提问 → 回复 → 原句回跳」的真实模型验收未做。**2026-11-12 追加实测：这条路现在被上游堵住了** —— 本地 LLM 网关可达（`/v1/models` 200，`teaching-tutor` 与 `teaching` 两个组都在），但上游返回 `403 The free Beam 1.0 tier has ended. Run /model and pick another model to keep going.`。这不是本仓库的开关或代码问题，换一个有额度的上游模型后即可复验。
 - **键盘走查的最后一步**：浏览器空间在复制深链前被用户接管，键盘 Enter 选中与「复制原句链接」的实测未完成（深链不含媒体 token 由 `lessons.test.ts` 断言）。
 - 逐段听审。
