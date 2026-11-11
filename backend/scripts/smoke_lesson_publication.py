@@ -249,19 +249,7 @@ async def main() -> int:
             return 1
         check("状态 published", r.json()["status"] == "published")
 
-        print("\n[7] 收据不能重放")
-        r = await c.post(
-            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
-            headers=admin_headers,
-            json={
-                "operation_id": f"republish-{suffix}",
-                "expected_current_revision_id": None,
-                "receipt": signed.stdout.strip(),
-            },
-        )
-        check("重放被拒", r.status_code in (409, 422), f"status={r.status_code} {r.text[:160]}")
-
-        print("\n[8] 学习者现在能读")
+        print("\n[7] 学习者现在能读")
         r = await c.get(f"/api/v1/lessons/{lesson_id}", headers=learner_headers)
         check("读取 200", r.status_code == 200, f"status={r.status_code}")
         body = r.json()
@@ -320,6 +308,50 @@ async def main() -> int:
             },
         )
         check("恢复 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
+
+        print("\n[12b] 已用过的收据不能再发布（唯一约束，不是「已是当前版」）")
+        # Withdraw first: otherwise every publish attempt short-circuits on
+        # "already the current revision" *before* the receipt is verified, and a
+        # check here would pass no matter what the replay guard did.
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/withdraw",
+            headers=admin_headers,
+            json={"operation_id": f"withdraw-replay-{suffix}", "reason": "演练：重放检查"},
+        )
+        check("为重放检查再撤回 200", r.status_code == 200, f"status={r.status_code}")
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"replay-{suffix}",
+                "expected_current_revision_id": None,
+                "receipt": restored.stdout.strip(),
+            },
+        )
+        check(
+            "重放同一收据被拒 409 IDEMPOTENCY_CONFLICT",
+            r.status_code == 409 and r.json().get("code") == "IDEMPOTENCY_CONFLICT",
+            f"status={r.status_code} {r.text[:200]}",
+        )
+        # Put it back so the later steps still see a published revision.
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"restore-again-{suffix}",
+                "expected_current_revision_id": None,
+                "receipt": _signer(
+                    "sign",
+                    "--lesson-id",
+                    lesson_id,
+                    "--revision-id",
+                    revision_id,
+                    database_url=args.database_url,
+                    key=key,
+                ).stdout.strip(),
+            },
+        )
+        check("用全新收据恢复 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
 
         print("\n[13] 恢复后正文与进度都在")
         r = await c.get(f"/api/v1/lessons/{lesson_id}", headers=learner_headers)
@@ -383,18 +415,161 @@ async def main() -> int:
         )
         check("篡改被拒 422", r.status_code == 422, f"status={r.status_code} {r.text[:160]}")
 
+        print("\n[16] 回退到被取代的旧修订（这是第三条要收据的发布路径）")
+        # Publish a second, different revision so the first one becomes a
+        # *superseded published* revision, then sign a receipt for it. The site
+        # accepts this (publish_lesson only refuses the current revision), and
+        # the admin page offers the form, so the signer must be able to mint it.
+        second = json.loads(REFERENCE.read_text(encoding="utf-8"))
+        second["lesson_id"] = lesson_id
+        second["title"] = "Welcome to Wikisource（浏览器验收 · 第二版）"
+        r = await c.post(
+            "/api/v1/admin/lessons/import",
+            headers=admin_headers,
+            json={"operation_id": f"import2-{suffix}", "pack_json": json.dumps(second, ensure_ascii=False)},
+        )
+        check("第二版导入 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
+        second_id = r.json()["revision_id"]
+        check("第二版是新修订", second_id != revision_id, f"{second_id} vs {revision_id}")
+        await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{second_id}/review",
+            headers=admin_headers,
+            json={
+                "operation_id": f"review2-{suffix}",
+                "source_commit": "0" * 40,
+                "uses": {
+                    "site_display": {"approved": True, "evidence": "同第一版"},
+                    "model_processing": {"approved": True, "evidence": "同第一版"},
+                    "external_redistribution": {"approved": False, "evidence": "未获准再分发"},
+                },
+            },
+        )
+        # Steps [14] left the lesson withdrawn, so its current revision is None.
+        # Read it back rather than assuming: this is exactly the value the
+        # compare-and-swap in publish_lesson checks.
+        r = await c.get("/api/v1/admin/lessons", headers=admin_headers)
+        current = next(item["current_revision_id"] for item in r.json()["lessons"] if item["lesson_id"] == lesson_id)
+        print(f"  课程当前版：{current}")
+        signer_for_second = _signer(
+            "sign",
+            "--lesson-id",
+            lesson_id,
+            "--revision-id",
+            second_id,
+            database_url=args.database_url,
+            key=key,
+        )
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{second_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"publish2-{suffix}",
+                "expected_current_revision_id": current,
+                "receipt": signer_for_second.stdout.strip(),
+            },
+        )
+        check("第二版发布 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
+
+        # ``revision_id`` is now published-but-superseded. Omitting
+        # --revision-id must find it (it is not the current revision).
+        rollback_receipt = _signer(
+            "sign",
+            "--lesson-id",
+            lesson_id,
+            "--revision-id",
+            revision_id,
+            database_url=args.database_url,
+            key=key,
+        )
+        check(
+            "签发方能为被取代的修订签收据",
+            rollback_receipt.returncode == 0,
+            rollback_receipt.stderr.strip()[-200:],
+        )
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"rollback-{suffix}",
+                "expected_current_revision_id": second_id,
+                "receipt": rollback_receipt.stdout.strip(),
+            },
+        )
+        check("回退发布 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
+        check("回退后当前版是旧修订", (r.json().get("revision_id") if r.status_code == 200 else None) == revision_id)
+
     async with get_async_session_maker()() as db:
         rows = (await db.execute(select(LessonRevision).where(LessonRevision.lesson_id == lesson_id))).scalars().all()
-        check("整套演练只产生一个修订", len(rows) == 1, f"n={len(rows)}")
+        check("整套演练只产生两个修订", len(rows) == 2, f"n={len(rows)}")
         lesson = await db.get(Lesson, lesson_id)
-        check("撤回后当前版指针清空或指向自身", lesson is not None and lesson.current_revision_id in {None, rows[0].id})
+        check("当前版指针指向被回退到的旧修订", lesson is not None and lesson.current_revision_id == revision_id)
 
+    await _cleanup(lesson_id, admin_id, learner_id, keydir)
     print(f"\n{'=' * 60}\n冒烟结果：{sum(_results)}/{len(_results)} 通过")
     if all(_results):
-        print("课程发布全链路通过：导入 → 审核 → CLI 签收据 → 发布 → 学习 → 撤回 → 恢复 → 拒收过期收据")
+        print(
+            "课程发布全链路通过：导入 → 审核 → CLI 签收据 → 发布 → 学习 → 撤回 → 恢复 → "
+            "拒收重放/超限/篡改 → 回退到被取代的修订"
+        )
         return 0
     print("存在失败项，见上方 [FAIL]")
     return 1
+
+
+async def _cleanup(lesson_id: str, admin_id: str, learner_id: str, keydir: Path) -> None:
+    """Remove what this run created, so pointing it at a shared DB leaves nothing.
+
+    The drill needs two accounts (one admin) to drive the real endpoints, and it
+    mints a throwaway signing key. Leaving either behind is not acceptable on a
+    database other people use: a stray ``role=admin`` row with an unusable
+    password hash answers 500 instead of 401 on login.
+
+    Every lesson foreign key is ``ON DELETE RESTRICT`` and ``lessons`` points at
+    ``lesson_revisions`` and vice versa, so deletion is ordered and the cycle is
+    broken first. Rows the drill created itself (progress, activities, sources)
+    are the drill's to remove; the script never touched another lesson.
+    """
+    import shutil
+
+    from sqlalchemy import delete, select, text
+
+    from app.core.database import get_async_session_maker
+    from app.models.lesson import Lesson, LessonOperation, LessonRevision
+    from app.models.user import User
+
+    shutil.rmtree(keydir, ignore_errors=True)
+    print(f"\n[清理] 已删除临时签发密钥目录 {keydir}")
+
+    revision_ids = select(LessonRevision.id).where(LessonRevision.lesson_id == lesson_id)
+    try:
+        async with get_async_session_maker()() as db:
+            # Break the lessons <-> lesson_revisions cycle before deleting either.
+            await db.execute(
+                text("UPDATE lessons SET current_revision_id = NULL WHERE id = :lesson_id"), {"lesson_id": lesson_id}
+            )
+            for table in (
+                "lesson_tutor_anchors",
+                "lesson_vocabulary_sources",
+                "lesson_activities",
+            ):
+                # These hang off the revision, not the lesson. ``lesson_progress``
+                # is the one keyed on lesson_id and is deleted separately.
+                await db.execute(
+                    text(
+                        f"DELETE FROM {table} WHERE revision_id IN "
+                        "(SELECT id FROM lesson_revisions WHERE lesson_id = :lesson_id)"
+                    ),
+                    {"lesson_id": lesson_id},
+                )
+            await db.execute(text("DELETE FROM lesson_progress WHERE lesson_id = :lesson_id"), {"lesson_id": lesson_id})
+            await db.execute(delete(LessonOperation).where(LessonOperation.revision_id.in_(revision_ids)))
+            await db.execute(delete(LessonRevision).where(LessonRevision.lesson_id == lesson_id))
+            await db.execute(delete(Lesson).where(Lesson.id == lesson_id))
+            await db.execute(delete(User).where(User.id.in_([admin_id, learner_id])))
+            await db.commit()
+        print("[清理] 已删除演练课程、它的学习记录与两个临时账号")
+    except Exception as exc:
+        print(f"[清理] 未能清理（{type(exc).__name__}: {exc}）：课程 {lesson_id}、账号 {admin_id}/{learner_id}")
 
 
 if __name__ == "__main__":

@@ -32,16 +32,16 @@
 
 原先仓库里没有任何东西能产出发布收据：课程导入、审核都做得了，但「发布为当前版」要求粘一个 Ed25519 JWT，而签发私钥按设计不在站点里。结果是**第一门课程永远发不出去**。现在补上了：
 
-- `backend/scripts/sign_lesson_receipt.py`：`keygen` 生成密钥对并把站点侧配置打印出来（私钥拒绝写进仓库）；`claims` 只读打印会被签进去的声明；`sign` 输出可粘贴的 token（JWT 走 stdout，声明摘要走 stderr）。它不 import `app.*`，只用一条只读连接查五个字段。
-- `backend/tests/test_lesson_receipt_signer.py`：14 项，钉住「签发方与站点验签器必须一致」——同一 token 过 `verify_lesson_receipt`、改任一声明即 422、未知 kid、超出站点上限的 900s、换签发方都拒；`keygen` 不覆盖已有私钥也不许写进仓库。
-- `backend/scripts/smoke_lesson_publication.py`：在真实 Postgres 上把签发脚本当**子进程**调用，跑完整条链路。
+- `backend/scripts/sign_lesson_receipt.py`：`keygen` 生成密钥对并把站点侧配置打印出来（私钥拒绝写进仓库）；`claims` 只读打印会被签进去的声明；`sign` 输出可粘贴的 token（JWT 走 stdout，声明摘要走 stderr）。它不 import `app.*`，只用一条只读连接查需要的字段。`--database-url` 可省略，回落到环境变量 `DATABASE_URL`（少一处凭据进 `ps` 与 shell history）。
+- `backend/tests/test_lesson_receipt_signer.py`：22 项，钉住「签发方与站点验签器必须一致」——同一 token 过 `verify_lesson_receipt`、改任一声明（含 `lesson_id`）即 422、未知 kid、已知 kid 但换钥、超出站点上限的 900s、换签发方都拒；`keygen` 不覆盖已有私钥也不许写进仓库；错误路径不把数据库密码打进 stderr。
+- `backend/scripts/smoke_lesson_publication.py`：在真实 Postgres 上把签发脚本当**子进程**调用，跑完整条链路，结束时删除自己建的课程、学习记录、两个临时账号与临时密钥目录。
 
-| 项            | 结果                                                                                                                                                                              |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 签发方单测    | `pytest tests/test_lesson_receipt_signer.py` → 14 passed                                                                                                                          |
-| SLCS 相关单测 | `test_lesson_receipt_signer` + `test_slcs_lessons` + `test_lessons_http` → 23 passed, 1 skipped                                                                                   |
-| PostgreSQL 腿 | `test_slcs_lessons.py`（`PG_TEST_URL`）→ 2 passed                                                                                                                                 |
-| 全链路演练    | `smoke_lesson_publication.py` 在空库迁移到 head 后跑：导入 → 审核 → CLI 签收据 → 发布 → 学习 → 撤回 → 新收据恢复 → 拒收超限/篡改收据 → 「整套流程只产生一个修订」，**29/29 通过** |
+| 项            | 结果                                                                                                                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 签发方单测    | `pytest tests/test_lesson_receipt_signer.py` → 22 passed                                                                                                                                                                                    |
+| SLCS 相关单测 | `test_lesson_receipt_signer` + `test_slcs_lessons` + `test_lessons_http` → 31 passed, 1 skipped                                                                                                                                             |
+| PostgreSQL 腿 | `test_slcs_lessons.py`（`PG_TEST_URL`）→ 2 passed                                                                                                                                                                                           |
+| 全链路演练    | `smoke_lesson_publication.py` 在空库迁移到 head 后跑：导入 → 审核 → CLI 签收据 → 发布 → 学习 → 撤回 → 新收据恢复 → **拒绝重放同一收据（409 `IDEMPOTENCY_CONFLICT`）** → 拒收超限/篡改收据 → **回退到被取代的旧修订** → 清理，**37/37 通过** |
 
 浏览器走查（隔离站点，ego-browser，真实登录与真实表单）：
 
@@ -74,7 +74,18 @@
 
 截图：[`word-card.png`](word-card.png)（桌面，词卡状态）、[`lesson-mobile.png`](lesson-mobile.png)（390px）。环境重建步骤见 [`isolated-environment.md`](isolated-environment.md)。
 
-**本轮修掉的两个签发方缺陷**：`build_claims` 原先直接从行里取 `review_sha256`（该字段在嵌套的 `review` JSON 里，真实库上必然 `KeyError`）；省略 `--revision-id` 时只查 `candidate`，于是「已撤回待恢复」这种同样需要收据的路径会误报找不到修订。
+**本轮修掉的签发方缺陷**（前两条是自测发现，后四条来自一次独立 review，逐条复验后才计入）：
+
+| 缺陷                                        | 影响                                                                                                                                          | 修复                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `build_claims` 直接从行里取 `review_sha256` | 该字段在嵌套的 `review` JSON 里，真实库上必然 `KeyError`                                                                                      | 从 review 里取，并兼容 text/JSONB 两种存法                                           |
+| 省略 `--revision-id` 时只查 `candidate`     | 「已撤回待恢复」这条同样需要收据的路径误报找不到修订                                                                                          | 改为「不是当前版」的三条发布路径                                                     |
+| **回退到被取代的旧修订无法签收据**          | `publish_lesson` 只拒绝*当前版*，`/admin/lessons` 对旧修订也显示「发布为当前版」，但签发方拒绝签 `published` → 操作者看到一个永远点不成的表单 | 签发方按「是否当前版」判断，不再按状态；演练新增第 [16] 步真机验证回退               |
+| 演练的「收据不能重放」检查形同虚设          | 它被「该修订已是当前版」提前短路，从未走到唯一约束；删掉约束这行仍然绿                                                                        | 改为「先撤回再用同一张收据发布」，断言 409 `IDEMPOTENCY_CONFLICT`                    |
+| 签发时间与站点时钟哪怕差 1 秒就 422         | PyJWT 校验 `iat` 无 leeway，笔记本与服务器的 NTP 漂移会让每次发布失败，且报错只说「收据无效」                                                 | `iat` 回拨 30 秒，窗口长度不变                                                       |
+| 驱动抛错时把数据库密码打进 stderr           | 错误的 DSN 会连同密码进日志                                                                                                                   | 在 `main()` 边界收敛成一行并替换掉密码；`--database-url` 可省略以改用 `DATABASE_URL` |
+
+演练原本还会在目标库里留下两个账号（其中一个是 `role=admin`，密码哈希是占位串 `x`，登录会 500 而不是 401）和一个明文私钥目录；现在结束时会删掉自己建的全部数据。
 
 **走查中确认不算缺陷的一点，与一条工具限制**：
 

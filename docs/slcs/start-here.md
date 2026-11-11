@@ -59,7 +59,7 @@ cd backend
 PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --database-url "$DB"
 ```
 
-**判据**：输出 `冒烟结果：29/29 通过`。这条会把签发脚本当子进程调用，因此签发方与站点验签器的任何漂移都会在这里红。
+**判据**：输出 `冒烟结果：37/37 通过`。这条会把签发脚本当子进程调用，因此签发方与站点验签器的任何漂移都会在这里红；它结束时还会删掉自己建的课程与账号，指到共享库上也不留垃圾。
 
 ### 第 4 步 · 决定放行范围
 
@@ -84,7 +84,11 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 - **Windows 上每个 Python 进程都要 `PYTHONUTF8=1`**，否则读 UTF-8 的 `.env` 直接 `UnicodeDecodeError`。
 - **签发私钥不能进仓库，也不能进镜像**。`keygen` 会拒绝写进仓库；`.env` 只放公钥。
 - **发布收据是一次性的**：同一个 `jti` 第二次用会 409。恢复已撤回的修订要重新签。
-- **`--revision-id` 可以省略**，但前提是该课程只有一个待发布修订（候选或已撤回）。有多个时会列出来让你指定。
+- **`--revision-id` 可以省略**，但前提是该课程只有一个可发布的修订（候选、已撤回待恢复，或已发布但被新版本取代）。有多个时会列出来让你指定。
+- **三条发布路径都要收据**：首次发布（候选）、恢复已撤回、以及**回退到被新版本取代的旧修订**。最后这条在后台显示为「发布为当前版」，别以为旧修订就不用签名。
+- **收据是一次性的**：同一个 `jti` 第二次用会 409「发布收据已使用」。恢复或回退都要重新签。
+- **签发方的时钟可以慢一点，不能快**：脚本会把 `iat` 回拨 30 秒，所以笔记本比服务器快几秒也不影响；但如果站点验签时间比签发时间早（本机时钟严重超前），仍会 422。
+- **错误的库地址不会把密码漏进日志**：脚本在 `main()` 边界把驱动异常收敛成一行并抹掉密码。库地址建议用环境变量 `DATABASE_URL` 传，少一处进 `ps` 与 shell history。
 - **课程读取不走缓存**，撤回即时生效；`_VIDEO_ACCESS_CACHE` 只服务旧视频链路。
 - **`backend/` 下跑 `pytest slcs_tests` 会 skip**：那套测试要求先装发行 wheel。
 
@@ -101,9 +105,10 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 六、这一轮补了什么（相对昨晚）
 
-- `backend/scripts/sign_lesson_receipt.py` + 14 项测试：签发方与站点验签器的一致性由测试钉住。
-- `backend/scripts/smoke_lesson_publication.py`：真实 Postgres 上的全链路演练，29/29。
+- `backend/scripts/sign_lesson_receipt.py` + 22 项测试：签发方与站点验签器的一致性由测试钉住；三条发布路径（首次、恢复、回退）都能签。
+- `backend/scripts/smoke_lesson_publication.py`：真实 Postgres 上的全链路演练，37/37，含重放拒绝与回退，结束时自清理。
 - 隔离站点上的**真实浏览器走查**：维护者导入 → 审核 → 签收据 → 粘贴发布 → 学习者读课、点词、收词 → 撤回即时生效 → 恢复。
+- 独立 review 报出的六项已全部修复并复验（回退路径签不出收据、演练的重放检查形同虚设、时钟漂移、密码进日志、演练留垃圾账号、一条不会失败的断言）。
 - 嵌入**失败态**实测：显示「嵌入播放暂不可用」，字幕与释义仍可读。
 - 移动端 390px 无横向溢出。
 - 修掉两个只在真实库上暴露的签发方缺陷（见验收记录）。

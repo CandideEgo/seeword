@@ -5,6 +5,12 @@ without a JWT signed by a key whose public half the site only *verifies*. Nothin
 in the product could produce one, so a first lesson could be imported and reviewed
 but never published. This is that missing half.
 
+Three publish paths need a receipt, and all three must be signable or the
+operator sees a form they cannot complete: a first publication (candidate), a
+restore of a withdrawn revision, and a rollback to a superseded one (the older
+revision is still ``published`` but no longer current). A revision that *is* the
+current one needs no receipt and is refused here.
+
 The signer is deliberately a separate role from the web process:
 
 - it holds the Ed25519 **private** key, which never enters `backend/.env` or the
@@ -30,6 +36,9 @@ Usage (working directory ``backend/``, Windows needs ``PYTHONUTF8=1``)::
     python scripts/sign_lesson_receipt.py sign --database-url "$DB" \
         --private-key ~/.seeword/slcs-receipt-key.pem --kid release-2026 \
         --lesson-id welcome-to-wikisource --revision-id 570f8301-...
+
+``--database-url`` may be omitted when ``DATABASE_URL`` is set; keeping the DSN
+in the environment rather than in argv keeps it out of ``ps`` and shell history.
 
 Exit codes: 0 signed, 1 usage / lookup / state error.
 
@@ -71,11 +80,16 @@ CLAIM_KEYS = ("lesson_id", "revision_id", "fingerprint", "fingerprint_version", 
 DEFAULT_MAX_AGE = 600
 _SLUG = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _SHA256 = re.compile(r"[a-f0-9]{64}")
+#: ``scheme://user:password@host`` — the password half, for redacting a DSN the
+#: driver refused before SQLAlchemy could parse it.
+_USERINFO = re.compile(r"://[^:/@]+:([^@/]+)@")
 
 _REVISION_QUERY = """
-    SELECT id, lesson_id, fingerprint, fingerprint_version, status, review
-    FROM lesson_revisions
-    WHERE lesson_id = :lesson_id
+    SELECT r.id, r.lesson_id, r.fingerprint, r.fingerprint_version, r.status, r.review,
+           l.current_revision_id
+    FROM lesson_revisions r
+    JOIN lessons l ON l.id = r.lesson_id
+    WHERE r.lesson_id = :lesson_id
 """
 
 
@@ -85,6 +99,31 @@ class SignerError(RuntimeError):
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _redact(exc: BaseException, database_url: str | None) -> str:
+    """One line for the operator, never the password.
+
+    SQLAlchemy and asyncpg errors quote the URL verbatim, so a mistyped DSN would
+    otherwise put the database password into shell history, CI logs and whatever
+    collected stderr. Every occurrence is replaced, not just the first.
+
+    ``make_url`` handles a well-formed DSN; a malformed one is exactly the case
+    that raises, so fall back to finding the ``user:password@`` segment by regex.
+    """
+    message = f"{type(exc).__name__}: {exc}"
+    if database_url:
+        password = None
+        try:
+            from sqlalchemy.engine import make_url
+
+            password = make_url(database_url).password
+        except Exception:
+            secret = _USERINFO.findall(database_url)
+            password = secret[0] if len(secret) == 1 else None
+        if password:
+            message = message.replace(password, "***")
+    return " ".join(message.split())[:600]
 
 
 def load_private_key(path: Path) -> Ed25519PrivateKey:
@@ -113,6 +152,14 @@ def build_claims(row: dict) -> dict:
     }
 
 
+#: ``verify_lesson_receipt`` passes no ``leeway`` to PyJWT, so an ``iat`` even
+#: one second ahead of the site's clock is ImmatureSignatureError — a 422 that
+#: says "收据无效" and points at nothing. Backdate by this much so ordinary NTP
+#: drift between the operator's laptop and the server is harmless. It costs
+#: nothing: the window is still ``ttl`` long, just shifted.
+CLOCK_SKEW_SECONDS = 30
+
+
 def sign_receipt(receipt: dict, key: Ed25519PrivateKey, *, issuer: str, kid: str, ttl: int) -> str:
     if not _SLUG.fullmatch(kid):
         raise SignerError(f"kid {kid!r} 只能由 1–64 个 A-Z a-z 0-9 _ - 组成")
@@ -121,11 +168,12 @@ def sign_receipt(receipt: dict, key: Ed25519PrivateKey, *, issuer: str, kid: str
     if not 0 < ttl <= 86_400:
         raise SignerError("--ttl 必须在 1–86400 秒之间；默认 600，站点上限 900")
     now = int(datetime.now(UTC).timestamp())
+    issued = now - CLOCK_SKEW_SECONDS
     payload = {
         "iss": issuer,
         "aud": AUDIENCE,
-        "iat": now,
-        "exp": now + ttl,
+        "iat": issued,
+        "exp": issued + ttl,
         "jti": uuid.uuid4().hex,
         "v": 1,
         "receipt": {name: receipt[name] for name in CLAIM_KEYS},
@@ -161,28 +209,32 @@ async def read_revision(database_url: str, lesson_id: str, revision_id: str | No
             if connection.dialect.name == "postgresql":
                 await connection.execute(text("SET TRANSACTION READ ONLY"))
             if revision_id:
-                statement = _REVISION_QUERY + " AND id = :revision_id"
+                statement = _REVISION_QUERY + " AND r.id = :revision_id"
                 params = {"lesson_id": lesson_id, "revision_id": revision_id}
             else:
-                # Both publish paths need a receipt: a first publication signs a
-                # candidate, and a restore signs a withdrawn revision. Leaving out
-                # ``--revision-id`` is the "there is exactly one of them" shortcut.
-                statement = _REVISION_QUERY + " AND status IN ('candidate', 'withdrawn')"
+                # Three publish paths need a receipt, and all three have to be
+                # signable or the operator sees a form they cannot complete:
+                # a first publication (candidate), a restore of a withdrawn
+                # revision, and a rollback to a superseded one. A revision that
+                # *is* the current one needs no receipt, so it is excluded here.
+                statement = _REVISION_QUERY + " AND r.id IS DISTINCT FROM l.current_revision_id"
                 params = {"lesson_id": lesson_id}
             rows = [dict(row._mapping) for row in (await connection.execute(text(statement), params))]
     finally:
         await engine.dispose()
 
     if not rows:
-        where = f"修订 {revision_id}" if revision_id else "待发布的修订（candidate 或 withdrawn）"
+        where = f"修订 {revision_id}" if revision_id else "待发布的修订"
         raise SignerError(f"找不到课程 {lesson_id} 的{where}")
     if len(rows) > 1:
         listed = "、".join(f"{row['id']}（{row['status']}）" for row in rows)
-        raise SignerError(f"{lesson_id} 有多个待发布修订：{listed}；用 --revision-id 指定一个")
+        raise SignerError(f"{lesson_id} 有多个可发布的修订：{listed}；用 --revision-id 指定一个")
 
     row = rows[0]
-    if row["status"] not in {"candidate", "withdrawn"}:
-        raise SignerError(f"修订状态是 {row['status']}；收据只发给待发布（candidate 或已撤回待恢复）的修订")
+    if revision_id and row["id"] == row["current_revision_id"]:
+        # ``publish_lesson`` answers 409 here, so a receipt would be wasted work
+        # and an unclear error later.
+        raise SignerError(f"修订 {row['id']} 已是当前版；发布当前版不需要收据")
     return {**row, "review_sha256": _review_hash(row)}
 
 
@@ -265,12 +317,16 @@ def main(argv: list[str] | None = None) -> int:
         ("sign", _cmd_sign, "签发收据，JWT 写 stdout"),
     ):
         command = sub.add_parser(name, help=help_text)
-        command.add_argument("--database-url", required=True, help="只读查询用的库地址（postgresql+asyncpg://…）")
+        command.add_argument(
+            "--database-url",
+            default=None,
+            help="只读查询用的库地址（postgresql+asyncpg://…）；省略时读环境变量 DATABASE_URL",
+        )
         command.add_argument("--lesson-id", required=True)
         command.add_argument(
             "--revision-id",
             default=None,
-            help="省略时要求该课程只有一个待发布修订（候选或已撤回待恢复）",
+            help="省略时要求该课程只有一个可发布的修订（候选、已撤回待恢复，或已发布但被新版本取代）",
         )
         if name == "sign":
             command.add_argument("--private-key", type=Path, required=True)
@@ -280,10 +336,21 @@ def main(argv: list[str] | None = None) -> int:
         command.set_defaults(handler=handler)
 
     args = parser.parse_args(argv)
+    if getattr(args, "database_url", None) is None:
+        args.database_url = os.environ.get("DATABASE_URL", "").strip() or None
+    if args.command in {"claims", "sign"} and not args.database_url:
+        print("错误：需要 --database-url，或先设好环境变量 DATABASE_URL", file=sys.stderr)
+        return 1
     try:
         result = args.handler(args)
     except SignerError as exc:
         print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        # A raw traceback from the driver is how a DSN reaches a log file: the
+        # SQLAlchemy and asyncpg messages quote the URL, password included. One
+        # line, with the password stripped, keeps exit code 1 without the leak.
+        print(f"错误：{_redact(exc, args.database_url)}", file=sys.stderr)
         return 1
     return result if isinstance(result, int) else 0
 
