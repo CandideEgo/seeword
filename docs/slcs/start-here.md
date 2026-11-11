@@ -94,14 +94,35 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-`backend` 与 `e2e` 两条腿是红的，但**不是这个分支引入的**：master 自 2026-11-01 起每一轮都是同一处失败——
+五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的，`e2e` 在最新的这轮里已经转绿。
 
-- `tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history`（Postgres 死锁）
-- `e2e/design-rollout.spec.ts`、`home-feed.spec.ts` 等几条用例
+**不是这个分支引入的。** 证据：
 
-我核对过：这两处在本分支与 master 的代码完全一致（`git diff master...HEAD` 对 `listening_service.py`、`test_listening_pg.py`、相关 e2e 均为空）。**修它们属于另一个任务**，而且会改到与 SLCS 无关的路径，所以没有顺手动。
+- master 从 2026-10-31 起**连续 12 轮 CI 全部失败**（10-31 早期是 mypy 门禁，11-05 起固定成下面这条）。
+- `git diff master...HEAD` 对 `listening_service.py`、`test_listening_pg.py`、`learning_event_service.py` 的加锁路径均为空（唯一的改动是新增一个与本问题无关的 `claim_watch_day`）。
+- 本机连跑 10 次（含在两次全量套件上下文里）**一次都没复现**，说明它依赖 CI 的执行时序。
 
-其余五条腿在本分支全绿：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。
+### `backend` 那一条：真实的并发缺陷，但没有被修
+
+```
+tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history[True/False]
+asyncpg.exceptions.DeadlockDetectedError: deadlock detected
+```
+
+CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 里对 pending session 行的 `SELECT ... FOR UPDATE`）。`submit()` 先持有同一 session 行的锁，随后经 `record_event` 写 `learning_events` / `user_learning_profiles`；`start()` 在此之前已对 `users` 行取了 `FOR NO KEY UPDATE`。两个事务交叉成环。
+
+**为什么没修**：本机复现不出来（10 次全过），改加锁顺序属于真实的并发生产路径，而且改完在本地也无法验证是否真的解决。盲改一个无法复现、无法验证的并发缺陷，比留着它更糟。
+
+**也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
+
+要处理它的人，建议顺序：先在 CI 上加超时重试或固定 `statement_timeout` 拿到稳定复现，再调整两侧的加锁顺序（统一成「先 account、后 session」）。
+
+### `e2e` 那几条：不是后端错误
+
+最新一轮已经通过。此前四条失败的性质，我逐个查过：
+
+- `design-rollout.spec.ts:303` 报的是 `500 /api/v1/users/me` 与 `/users/me/deletion`。但**整场 e2e 的后端日志里零个 5xx**，同一时刻该路径返回 200 —— 是 `next dev` 代理层的瞬时失败被 Playwright 记成 500，不是后端业务错误（master 上这条错的是 `/videos/search/hot`，原因并不相同）。
+- 另外三条撞的是已经删掉或没实现的旧入口（词单旧入口、搜索分组标题）。
 
 ## 六、这一轮补了什么（相对昨晚）
 
