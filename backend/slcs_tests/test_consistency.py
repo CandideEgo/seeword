@@ -81,14 +81,37 @@ def test_console_script_and_offline_example(tmp_path):
     ]
     executable = next((path for path in candidates if path and Path(path).exists()), None)
     assert executable is not None, f"console script not found, tried: {candidates}"
-    result = subprocess.run(
-        [executable, "--json", "validate", str(EXAMPLE)],
-        cwd=tmp_path,
-        capture_output=True,
-        check=False,
-        encoding="utf-8",
-        timeout=30,
-    )
+    try:
+        result = subprocess.run(
+            [executable, "--json", "validate", str(EXAMPLE)],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            timeout=30,
+        )
+    except OSError as exc:
+        # Windows Application Control (WDAC/AppLocker) refuses to launch freshly
+        # written executables on some hosts (WinError 4551). The entry point
+        # itself is still covered: run the same console-script target through
+        # the interpreter instead of dropping the check.
+        if sys.platform != "win32" or getattr(exc, "winerror", None) != 4551:
+            raise
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from slcs.cli import main; sys.exit(main())",
+                "--json",
+                "validate",
+                str(EXAMPLE),
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            timeout=30,
+        )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["ok"]
 

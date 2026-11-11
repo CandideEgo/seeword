@@ -196,7 +196,12 @@ def _relocate(text: str) -> str:
     """
     for name in ("examples/", "LICENSES.md"):
         text = text.replace(f"]({name}", f"](../{name}")
-    return text
+    # Code blocks name the demo pack, the lock file and the wheel by bare name;
+    # all three live one level up from ``spec/`` in the published tree, so the
+    # documented commands have to work from there.
+    text = text.replace("-c requirements-mcp.lock", "-c ../requirements-mcp.lock")
+    text = text.replace("./slcs-0.1.0-py3-none-any.whl", "../dist/slcs-0.1.0-py3-none-any.whl")
+    return re.sub(r"(?<![/\w])welcome-to-wikisource\.json", "../examples/welcome-to-wikisource.json", text)
 
 
 def _write(path: Path, text: str) -> None:
