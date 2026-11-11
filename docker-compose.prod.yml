@@ -108,6 +108,16 @@ services:
       TEACHING_ENABLED: ${TEACHING_ENABLED:-false}
       TEACHING_RUNS_ENABLED: ${TEACHING_RUNS_ENABLED:-false}
       TEACHING_ALLOWED_USER_IDS: ${TEACHING_ALLOWED_USER_IDS:-}
+      # SLCS lessons (docs/slcs/06-implementation-roadmap.md). Default off; the
+      # tables exist after migrations either way. Listed here because this file
+      # is a whitelist with no env_file — an unlisted name set in the host .env
+      # never reaches the container.
+      SLCS_LESSONS_ENABLED: ${SLCS_LESSONS_ENABLED:-false}
+      SLCS_TUTOR_ENABLED: ${SLCS_TUTOR_ENABLED:-false}
+      SLCS_VOCABULARY_ENABLED: ${SLCS_VOCABULARY_ENABLED:-false}
+      SLCS_LESSON_RECEIPT_ISSUER: ${SLCS_LESSON_RECEIPT_ISSUER:-}
+      SLCS_LESSON_RECEIPT_PUBLIC_KEYS: ${SLCS_LESSON_RECEIPT_PUBLIC_KEYS:-{}}
+      SLCS_LESSON_RECEIPT_MAX_AGE_SECONDS: ${SLCS_LESSON_RECEIPT_MAX_AGE_SECONDS:-900}
       MCP_READ_ENABLED: ${MCP_READ_ENABLED:-false}
       MCP_WRITE_ENABLED: ${MCP_WRITE_ENABLED:-false}
       MCP_SDK_ENABLED: ${MCP_SDK_ENABLED:-false}
@@ -299,6 +309,12 @@ services:
       TEACHING_ENABLED: ${TEACHING_ENABLED:-false}
       TEACHING_RUNS_ENABLED: ${TEACHING_RUNS_ENABLED:-false}
       TEACHING_ALLOWED_USER_IDS: ${TEACHING_ALLOWED_USER_IDS:-}
+      # SLCS lessons: the teaching worker re-checks the same switches before it
+      # builds a lesson tutor context, so it needs them too (receipts are only
+      # verified in the web process).
+      SLCS_LESSONS_ENABLED: ${SLCS_LESSONS_ENABLED:-false}
+      SLCS_TUTOR_ENABLED: ${SLCS_TUTOR_ENABLED:-false}
+      SLCS_VOCABULARY_ENABLED: ${SLCS_VOCABULARY_ENABLED:-false}
       LLM_GATEWAY_BASE_URL: ${LLM_GATEWAY_BASE_URL:-http://llm-gateway-adapter:4000}
       LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-${LITELLM_MASTER_KEY:-}}
       LLM_GATEWAY_ADMIN_KEY: ${LLM_GATEWAY_ADMIN_KEY:-${LITELLM_MASTER_KEY:-}}
