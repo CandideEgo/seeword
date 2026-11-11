@@ -7,6 +7,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import {
   ArrowLeft,
   BarChart3,
+  BookOpen,
   ChevronLeft,
   LayoutDashboard,
   LayoutTemplate,
@@ -20,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLessonAvailability } from "@/hooks/useLessonAvailability";
 
 // ---------------------------------------------------------------------------
 // Navigation config
@@ -49,6 +51,7 @@ const NAV: NavSection[] = [
     title: "内容",
     items: [
       { label: "视频管理", href: "/admin/videos", icon: Video },
+      { label: "课程材料", href: "/admin/lessons", icon: BookOpen },
       { label: "首页编排", href: "/admin/home-editorial", icon: LayoutTemplate },
       { label: "频道管理", href: "/admin/channels", icon: Radio },
     ],
@@ -94,6 +97,7 @@ function NavLinks({
   collapsed: boolean;
   onClick?: () => void;
 }) {
+  const lessonsEnabled = useLessonAvailability(true, true);
   return (
     <>
       {NAV.map((section) => (
@@ -104,47 +108,49 @@ function NavLinks({
             </div>
           )}
           <div className="flex flex-col gap-0.5">
-            {section.items.map((item) => {
-              // 详情页（/admin/videos/123）要保留父级高亮；`/admin` 是精确匹配，
-              // 否则所有后台路由都会把「仪表盘」点亮。
-              const active =
-                item.href === "/admin"
-                  ? pathname === "/admin"
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onClick}
-                  title={collapsed ? item.label : undefined}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-copy font-medium transition-all",
-                    collapsed && "justify-center px-2",
-                    active
-                      ? "bg-action-primary text-on-primary shadow-sm"
-                      : "text-muted hover:bg-surface-soft hover:text-ink"
-                  )}
-                >
-                  <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                  {!collapsed && item.badge !== undefined && item.badge > 0 && (
-                    <span
-                      className={cn(
-                        "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-meta font-semibold",
-                        active ? "bg-white/20 text-white" : "bg-brand-100 text-brand-700"
-                      )}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                  {collapsed && item.badge !== undefined && item.badge > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand-500" />
-                  )}
-                </Link>
-              );
-            })}
+            {section.items
+              .filter((item) => lessonsEnabled || item.href !== "/admin/lessons")
+              .map((item) => {
+                // 详情页（/admin/videos/123）要保留父级高亮；`/admin` 是精确匹配，
+                // 否则所有后台路由都会把「仪表盘」点亮。
+                const active =
+                  item.href === "/admin"
+                    ? pathname === "/admin"
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClick}
+                    title={collapsed ? item.label : undefined}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-copy font-medium transition-all",
+                      collapsed && "justify-center px-2",
+                      active
+                        ? "bg-action-primary text-on-primary shadow-sm"
+                        : "text-muted hover:bg-surface-soft hover:text-ink"
+                    )}
+                  >
+                    <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && item.badge !== undefined && item.badge > 0 && (
+                      <span
+                        className={cn(
+                          "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-meta font-semibold",
+                          active ? "bg-white/20 text-white" : "bg-brand-100 text-brand-700"
+                        )}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                    {collapsed && item.badge !== undefined && item.badge > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand-500" />
+                    )}
+                  </Link>
+                );
+              })}
           </div>
         </div>
       ))}

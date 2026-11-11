@@ -124,6 +124,12 @@ class Settings(BaseSettings):
     llm_gateway_tutor_max_tokens: int = Field(default=1024, ge=128, le=4096)
     llm_gateway_v2_team_id: str = ""
     content_receipts_enabled: bool = False
+    slcs_lessons_enabled: bool = False
+    slcs_tutor_enabled: bool = False
+    slcs_vocabulary_enabled: bool = False
+    slcs_lesson_receipt_issuer: str = ""
+    slcs_lesson_receipt_public_keys: dict[str, str] = Field(default_factory=dict)
+    slcs_lesson_receipt_max_age_seconds: int = Field(default=900, ge=1, le=86_400)
     content_verification_api_key: str = Field(default="", repr=False)
     content_receipt_public_keys: dict[str, str] = Field(default_factory=dict, repr=False)
     content_receipt_issuer: str = "seeword-content-gateway"
@@ -389,6 +395,20 @@ class Settings(BaseSettings):
                     public_key(pem)
                 except (ValueError, TypeError) as exc:
                     raise RuntimeError("Invalid content receipt Ed25519 public key configuration") from exc
+
+        if self.slcs_lesson_receipt_issuer or self.slcs_lesson_receipt_public_keys:
+            from app.services.teaching.content_receipts import public_key
+
+            keys = self.slcs_lesson_receipt_public_keys
+            if not self.slcs_lesson_receipt_issuer.strip() or not 1 <= len(keys) <= 5:
+                raise RuntimeError("SLCS lesson receipts require an issuer and one to five Ed25519 public keys")
+            for kid, pem in keys.items():
+                try:
+                    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", kid):
+                        raise ValueError("invalid key ID")
+                    public_key(pem)
+                except (ValueError, TypeError) as exc:
+                    raise RuntimeError("Invalid SLCS lesson receipt Ed25519 public key configuration") from exc
 
         if self.mcp_write_enabled and not self.mcp_read_enabled:
             raise RuntimeError("MCP_WRITE_ENABLED requires MCP_READ_ENABLED")

@@ -21,6 +21,8 @@ class VocabularyResponse(BaseModel):
     # the word row shows "来源视频 · mm:ss" instead of a bare link.
     video_title: str | None = None
     subtitle_start_time: float | None = None
+    has_lesson_sources: bool = False
+    review_operations_enabled: bool = False
     # Phase 1 D3b: drill "回看原句" needs the originating subtitle; null when
     # the word was added before the column existed (no source shown).
     subtitle_id: str | None = None

@@ -32,9 +32,11 @@ async def test_enrich_caches_result_and_skips_llm_for_same_context(fake_redis):
     keys = [k for k in fake_redis._store if k.startswith("ai_cache:")]
     assert len(keys) == 1
 
-    # The cache entry must live for 7 days, not the 1h helper default.
+    # The cache entry must live for 7 days, not the 1h helper default. The
+    # deadline is computed from the fake clock, so allow for float rounding at
+    # the exact boundary instead of asserting on the float value.
     ttl = fake_redis._expires[keys[0]] - time.monotonic()
-    assert 6 * 86400 < ttl <= 7 * 86400
+    assert 6 * 86400 < ttl <= 7 * 86400 + 1
 
     chat_mock2 = AsyncMock()
     with patch.object(service, "_chat", new=chat_mock2):

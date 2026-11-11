@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { Skeleton } from "@/components/common/SkeletonCard";
+import { LessonWordSources } from "@/components/vocabulary/LessonWordSources";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
@@ -56,6 +57,7 @@ export default function VocabularyReviewPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingReview = useRef<{ wordId: string; rating: ReviewRating; id: string } | null>(null);
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
@@ -83,11 +85,22 @@ export default function VocabularyReviewPage() {
   const rate = useCallback(
     async (value: ReviewRating) => {
       if (!current || revealed || saving) return;
+      if (
+        current.review_operations_enabled &&
+        (pendingReview.current?.wordId !== current.id || pendingReview.current.rating !== value)
+      ) {
+        pendingReview.current = { wordId: current.id, rating: value, id: crypto.randomUUID() };
+      }
       setSaving(true);
       try {
-        await api(`/api/v1/vocabulary/${current.id}/review?quality=${qualityFor(value)}`, {
+        const query = new URLSearchParams({ quality: String(qualityFor(value)) });
+        if (current.review_operations_enabled && pendingReview.current) {
+          query.set("operation_id", pendingReview.current.id);
+        }
+        await api(`/api/v1/vocabulary/${current.id}/review?${query}`, {
           method: "POST",
         });
+        pendingReview.current = null;
         setRating(value);
         setRevealed(true);
         setCounts((prev) => ({ ...prev, [value]: prev[value] + 1 }));
@@ -349,6 +362,11 @@ export default function VocabularyReviewPage() {
               >
                 {vocabularySource(current, "vocabulary")!.label}
               </Link>
+            )}
+            {current.has_lesson_sources && (
+              <div className="mt-4">
+                <LessonWordSources key={current.id} wordId={current.id} />
+              </div>
             )}
           </article>
         </section>

@@ -589,7 +589,9 @@ async def delete_video(db: AsyncSession, video_id: str) -> bool:
     # Explicit child-row cleanup for tables lacking ondelete CASCADE.
     from app.models.learning import Vocabulary
     from app.models.subtitle import Subtitle
+    from app.services.lesson_learning import detach_lesson_words_from_videos
 
+    await detach_lesson_words_from_videos(db, [video_id])
     await db.execute(delete(Subtitle).where(Subtitle.video_id == video_id))
     await db.execute(delete(LearningRecord).where(LearningRecord.video_id == video_id))
     await db.execute(delete(Vocabulary).where(Vocabulary.video_id == video_id))

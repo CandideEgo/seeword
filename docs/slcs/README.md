@@ -2,6 +2,10 @@
 
 一个学习包用单个 UTF-8 JSON 文件描述一个外部视频及其英中学习材料。字段类型、必填项和默认值以 [JSON Schema](schema.json) 为准。完整校验还须执行下文的跨字段规则。
 
+许可与署名见 [SLCS v0.1 licenses](LICENSES.md)。
+
+<!-- seeword-only:start -->
+
 本规范是六份文档之一，各页回答的问题如下；最后一行是工作交接，不是规范的一部分。
 
 | 文档                                        | 要解决的问题                                       |
@@ -16,10 +20,12 @@
 
 实施顺序以现有代码为验收标准逐段迁移：先审计、再抽离、最后接入，不按方案整体重写。审计结论与每个模块的保留／抽离／重设计决定在 [03 系统架构](03-system-architecture.md)。
 
+<!-- seeword-only:end -->
+
 ## 版本与锚点
 
 - 本版读取器接受 `schema_version` 为 `0.1.0` 的包，拒绝未知版本、未知字段和重复 JSON 键。发布新的文件契约时需显式更新读取支持和一致性样例。
-- 同一学习包修订时保留 `lesson_id`，未变动的字幕段和词保留原 ID。段 ID 在包内唯一，词 ID 在所属段内唯一。包内位置用 `segment_id` 和有序 `token_ids` 表达。跨修订引用还要固定所读版本，具体归属见 [System Architecture](03-system-architecture.md)。
+- 同一学习包修订时保留 `lesson_id`，未变动的字幕段和词保留原 ID。段 ID 在包内唯一，词 ID 在所属段内唯一。包内位置用 `segment_id` 和有序 `token_ids` 表达。跨修订引用还要固定所读版本。
 
 ## 媒体与字幕
 
@@ -38,20 +44,31 @@
 
 [参考包](examples/welcome-to-wikisource.json) 使用 Bodhisattwa 的《Welcome to Wikisource》。包内对素材和学习数据声明 CC BY-SA 4.0，并记录署名和改动。 [原片与授权](https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
-## 校验与 V2 读取
+## 离线读取
 
-在 `backend/` 使用仓库的 Python 3.12 虚拟环境运行，Windows 下设置 `PYTHONUTF8=1`。校验器只依赖现有 Pydantic 和标准库。
+用 Python 3.12 安装 SLCS wheel。Windows 下设置 `PYTHONUTF8=1`。命令在安装环境的任意目录均可运行。
 
 ```sh
-python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
-python -m app.slcs schema
+slcs validate --json welcome-to-wikisource.json
+slcs schema
+slcs fingerprint --json welcome-to-wikisource.json
+slcs resolve welcome-to-wikisource.json "public domain"
 ```
 
-校验成功退出码为 `0`，读取或校验错误为 `1`，格式诊断给出字段路径或根路径。更新契约时，从第二条命令重新生成 `schema.json`。CI 的 backend job 会跑第一条命令校验参考包，贡献者提交的包应使用同一校验器。
+命令成功时退出 `0`，参数、读取、校验或查询错误时退出 `1`。加 `--json` 后，错误写入 stderr，包含 `ok: false` 与带 `path`、`message` 的 `diagnostics`。查词返回所有同名出现项及其原句、译文和时间锚点。更新契约时运行 `slcs schema` 重新生成 `schema.json`。独立一致性 CI 安装实际 wheel，校验正负例和固定指纹。
 
-V2 后端入口 `app.services.video_learning_material.load_video_material(payload)` 接收学习包的原始字节，返回只读视频材料。引用中的词全部有对齐时，定位区间从首词起点到末词终点。有任意词未对齐时使用整段时间。
+本地 Agent 入口需要安装 MCP 依赖。使用独立虚拟环境，安装时用发行的 `requirements-mcp.lock` 约束版本：
 
-内容指纹由含 `fingerprint_version` 和 `pack` 的对象计算。`pack` 是校验后的 JSON，包含模型补入的默认值。将对象键排序，保留数组顺序，使用紧凑分隔符、不额外转义非 ASCII 字符，编码为 UTF-8 后计算 SHA-256 并输出小写十六进制。文件排版和对象键顺序不影响指纹。当前指纹版本为 `slcs-pack-v1`（`app.slcs.FINGERPRINT_VERSION`）。会改变相同包指纹的契约改动须显式递增指纹版本。
+```sh
+python -m pip install -c requirements-mcp.lock './slcs-0.1.0-py3-none-any.whl[mcp]'
+slcs mcp --pack welcome-to-wikisource.json --segment-id s03
+```
+
+在宿主的 stdio 配置中使用虚拟环境里的 `slcs` 可执行文件及对应参数。`--segment-id` 可重复传入，范围仅包含已获准披露的段。工具 `resolve` 与 `get_segment` 只读取启动时选定的包。模型调用和凭据由宿主处理。
+
+Python 入口 `slcs.load_video_material(payload)` 接收学习包的原始字节，返回只读视频材料。引用中的词全部有对齐时，定位区间从首词起点到末词终点。有任意词未对齐时使用整段时间。仓库提供了一个[离线读取示例](examples/read_example.py)。
+
+内容指纹由含 `fingerprint_version` 和 `pack` 的对象计算。`pack` 是校验后的 JSON，包含模型补入的默认值。将对象键排序，保留数组顺序，使用紧凑分隔符、不额外转义非 ASCII 字符，编码为 UTF-8 后计算 SHA-256 并输出小写十六进制。文件排版和对象键顺序不影响指纹。当前指纹版本为 `slcs-pack-v1`（`slcs.FINGERPRINT_VERSION`）。会改变相同包指纹的契约改动须显式递增指纹版本。
 
 ## 一致性样例
 
@@ -63,4 +80,4 @@ V2 后端入口 `app.services.video_learning_material.load_video_material(payloa
 | 同一段引用连续的三个词，中间词未对齐，且全段仍达到对齐门槛 | 定位回退至整段时间。                                                                                                          |
 | `schema_version` 改为 `0.2.0` 或删除首段 `translation`     | 校验失败，分别报告 `/schema_version` 或 `/segments/0/translation`。                                                           |
 
-负例构造及 Schema 生成对照见 [SLCS 测试](../../backend/tests/test_slcs.py)，独立客户端的验收见 [Implementation Roadmap](06-implementation-roadmap.md)。
+可直接复验 [未知版本](examples/invalid/unknown-version.json)、[缺少译文](examples/invalid/missing-translation.json)、[未知字段](examples/invalid/unknown-field.json) 和 [重复键](examples/invalid/duplicate-key.json) 四个负例。

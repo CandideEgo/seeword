@@ -1,0 +1,84 @@
+name: SLCS consistency
+
+on:
+  push:
+    paths:
+      - "backend/slcs/**"
+      - "backend/slcs_tests/**"
+      - "backend/app/slcs/**"
+      - "backend/app/services/video_learning_material.py"
+      - "backend/scripts/build_slcs_release.py"
+      - "docs/slcs/**"
+      - "backend/pytest.ini"
+      - "backend/pyproject.toml"
+      - ".github/workflows/slcs.yml"
+  pull_request:
+    paths:
+      - "backend/slcs/**"
+      - "backend/slcs_tests/**"
+      - "backend/app/slcs/**"
+      - "backend/app/services/video_learning_material.py"
+      - "backend/scripts/build_slcs_release.py"
+      - "docs/slcs/**"
+      - "backend/pytest.ini"
+      - "backend/pyproject.toml"
+      - ".github/workflows/slcs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  consistency:
+    # Independent of the backend job: no Postgres, no Redis, no application
+    # dependencies. It verifies the distributable artifact third parties get.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the standalone wheel
+        run: python -m pip wheel --no-deps --wheel-dir dist ./backend/slcs
+      - name: Install and verify the wheel
+        shell: bash
+        run: |
+          wheel=$(find dist -name 'slcs-*.whl')
+          python -m pip install -c backend/slcs/requirements-mcp.lock "${wheel}[mcp]" pytest==8.2.0 pytest-asyncio==0.23.7 pytest-timeout==2.4.0 ruff==0.15.18
+          python -m pip check
+          ruff check backend/slcs backend/slcs_tests
+          ruff format --check backend/slcs backend/slcs_tests
+      - name: Import the installed distribution, not the checkout
+        # backend/pytest.ini adds backend/ to sys.path, which would shadow the
+        # installed wheel with backend/slcs. Assert the installed copy first,
+        # then run the suite with the backend ini's addopts/pythonpath disabled
+        # so every subprocess and in-process import exercises the wheel.
+        run: |
+          python -c "import slcs; assert 'site-packages' in slcs.__file__, slcs.__file__"
+          python -m pytest backend/slcs_tests --import-mode=importlib -q -o addopts= -o pythonpath=
+      - name: Build and verify the public release tree
+        # The published tree is assembled from an explicit file list. Its own
+        # suite must run against the wheel it ships: the earlier wheel is
+        # removed, this tree's wheel is installed, and pytest runs from outside
+        # the tree so its `slcs/` source copy cannot shadow the installation.
+        shell: bash
+        run: |
+          python backend/scripts/build_slcs_release.py --out release --wheel
+          python -m pip uninstall -y slcs
+          python -m pip install --no-deps release/dist/slcs-0.1.0-py3-none-any.whl
+          python -c "import slcs; assert 'site-packages' in slcs.__file__, slcs.__file__"
+          python -m pytest release/tests -q --import-mode=importlib -o addopts= -o pythonpath=
+          python - <<'PY'
+          import hashlib, pathlib, sys
+          for line in pathlib.Path("release/SHA256SUMS").read_text(encoding="utf-8").splitlines():
+              digest, name = line.split("  ", 1)
+              actual = hashlib.sha256((pathlib.Path("release") / name).read_bytes()).hexdigest()
+              if actual != digest:
+                  sys.exit(f"checksum mismatch: {name}")
+          print("checksums OK")
+          PY

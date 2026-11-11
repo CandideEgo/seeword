@@ -68,13 +68,6 @@ jobs:
           pip install -r backend/requirements-cloud.txt
           pip install -r backend/requirements-dev.txt
 
-      - name: Validate SLCS example pack
-        # docs/slcs/README.md promises contributors that the same offline
-        # validator runs in CI; without this step that promise is false and a
-        # broken example only surfaces when someone runs the CLI by hand.
-        working-directory: backend
-        run: python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
-
       - name: Lint
         working-directory: backend
         run: ruff check app/ tests/
@@ -140,7 +133,7 @@ jobs:
         # runs on in-memory SQLite). Tests marked `integration`
         # (test_celery_tasks_pg.py — Celery task bodies, with_for_update /
         # skip_locked row-locking semantics) now run against it for real.
-        run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=60
+        run: pytest tests/ -v --tb=short --cov=app --cov=slcs --cov-report=term-missing --cov-fail-under=60
 
       - name: Vulnerability scan (pip-audit)
         # Hard gate. Advisories we knowingly accept are listed in

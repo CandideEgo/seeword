@@ -225,6 +225,8 @@ export interface GradedResult {
 export type MasteryLevel = "new" | "learning" | "reviewing" | "mastered";
 
 export interface VocabularyWord {
+  has_lesson_sources?: boolean;
+  review_operations_enabled?: boolean;
   id: string;
   word: string;
   ipa: string | null;

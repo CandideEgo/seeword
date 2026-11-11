@@ -3,10 +3,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsUpDown, HelpCircle, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { BookOpen, ChevronsUpDown, HelpCircle, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { useThemeContext } from "@/components/common/ThemeProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useLessonAvailability } from "@/hooks/useLessonAvailability";
 import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export function AccountMenu({
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const visible = placement === "sidebar" ? isDesktop : !isDesktop;
+  const lessonsEnabled = useLessonAvailability(visible && open && !isDesktop);
 
   useEffect(() => {
     if (visible && user) void fetchMe();
@@ -125,6 +127,12 @@ export function AccountMenu({
               {item.label}
             </Link>
           ))}
+          {lessonsEnabled && !isSidebar && (
+            <Link href="/lessons" onClick={() => setOpen(false)} className={itemClass}>
+              <BookOpen size={16} className="text-muted" aria-hidden />
+              视频课程
+            </Link>
+          )}
           <div className="my-1 border-t border-hairline" />
           {mounted && (
             <button type="button" className={itemClass} onClick={toggleTheme} aria-label="切换主题">

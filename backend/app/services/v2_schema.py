@@ -44,6 +44,12 @@ async def has_tables(db: AsyncSession, names: Iterable[str]) -> bool:
     return required <= await existing_tables(db)
 
 
+async def missing_tables(db: AsyncSession, names: Iterable[str]) -> list[str]:
+    """The subset of ``names`` this database does not have yet, in given order."""
+    present = await existing_tables(db)
+    return [name for name in names if name not in present]
+
+
 # Every table owned by the V2 domains (teaching, runtime/connections,
 # publication, question exposure). ``tests/test_v2_schema_gating.py`` keeps
 # this in sync with the ORM so a new V2 model cannot be forgotten here.

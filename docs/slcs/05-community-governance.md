@@ -45,4 +45,4 @@ CI 和站内导入使用参考校验器检查结构、时间和引用。校验�
 
 ## 对外分发
 
-仓库根许可声明软件和关联文档为专有。对外分发前，由权利人分别确认规范正文、JSON Schema、参考校验器与学习工具、示例学习包的许可、适用范围和署名方式，并随各自的分发产物提供。Wikisource 参考包中的 CC BY-SA 4.0 为该包的来源声明，示例的发布仍按本页流程核对。 [仓库许可](../../LICENSE) · [参考包声明](examples/welcome-to-wikisource.json)
+SLCS v0.1 对外发行范围包括 CC BY 4.0 的规范正文、Apache-2.0 的 JSON Schema、参考校验器与独立学习工具，以及 CC BY-SA 4.0 的 Wikisource 参考包。发行物随附许可文本或许可链接，参考包保留作者、原片链接与改动记录。站内应用与其余内容适用仓库根许可。素材的展示、官方嵌入与模型披露按本页流程分别审核。 [仓库许可](../../LICENSE) · [参考包声明](examples/welcome-to-wikisource.json) · [原片授权](https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm)

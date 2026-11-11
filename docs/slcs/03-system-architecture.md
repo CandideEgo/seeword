@@ -4,7 +4,7 @@
 
 基线为仓库提交 `66070300`。审计按十个子系统展开：内容生产管线、字幕与重切、播放与文稿、修订与发布、导师与 Agent、词汇与复习、听力和考试、SLCS 读取器、前端壳层、媒体与鉴权。每条结论都由一次独立复核重新打开文件核对路径与符号，再对「保留／抽离／重设计／退役」的决定做一次反驳；复核推翻的结论已按复核结果修正，存疑项列在「未验证」。
 
-站内 SLCS 发布、学习页、视频导师、本地学习 CLI 与 stdio MCP 均待实施。现有 `load_video_material` 的调用方只有测试，业务运行时尚未接入。
+站内 SLCS 发布、学习页、视频导师、本地学习 CLI 与 stdio MCP 已按阶段 0–4 实现（未提交前的工作树，未部署生产，未对业务库执行迁移）。实现清单与逐项验收见 [交接](handover-2026-11-11.md)；本页审计结论仍描述基线 `66070300` 的代码，不代表新实现已验收。
 
 ### 保留
 
@@ -91,7 +91,7 @@
 2. **读取器边界收口。** 绝对 import、`_WORD` 私有、指纹留在 `services/`、无 import 隔离测试，四项一起改，并把 `video_learning_material` 并入同一发行包。
 3. **课程身份与修订模型。** `lesson_id` + revision + `fingerprint_version` + status + 可清空的当前版指针。不能建在 `videos` 行上（发布资格与 URL 护栏都拒它），也不能沿用 `published_snapshot`。
 4. **学习单位换键。** `learning_records`（`UNIQUE(user_id, video_id)`、CASCADE）、`watch_progress_service`（无 `Video` 行即 `NotFoundError`）、`GET /continue` 与 `progress_percentage` 全部按 `videos.id` 键。课程接入前必须定：课程进度另建键，还是课程映射到一个 `videos` 行——后者会让删视频级联删掉学习历史。
-5. **行为事件按 video_id 丢弃。** `behavior_service.drop_unknown_video_ids` 会把不是 `videos` 行的事件 `video_id` 置 NULL 并照常返回 200。课程页上报的 `watch_time` 会因此在 `study_time_service` 里静默消失，周统计、`LearningRecord` 镜像与 `view_count` 一起失效。接入前必须给它一个可识别的课程键。
+5. **行为事件丢失课程归属。** `behavior_service.drop_unknown_video_ids` 会把找不到 `videos` 行的事件 `video_id` 置 NULL 并保留事件。周时长仍可按用户和日期聚合，课程归属、进度镜像和观看计数会丢失。课程接入需要显式关联课程修订。
 6. **披露边界落到数据。** 视频侧没有 rights 列，SLCS `Rights` 也没有逐用途权限。先抄 `rights_policy`／`may_disclose`，并决定 `content_receipts_enabled`（默认关，发布路径现为 503）是否随阶段一打开。
 7. **锚点模型与分词唯一化。** 定段 id 稳定策略（重切现在每次新建 uuid4、回滚也新建）、token 偏移的派生层、`_WORD` 成为唯一公开 tokenizer。ASR 文本本身满足不了「保留标点与空白」，导出必须拒绝或修复。
 8. **指纹规范与互操作。** 公开 `fingerprint()`、持久化 `fingerprint_version`、把 pydantic 的隐式默认写进规范。
@@ -122,10 +122,10 @@
 
 审计同时做了两类可复现的核对。
 
-- **现有测试**：参考包 CLI 校验成功；`pytest tests/test_slcs.py` 26 项通过；字幕、播放器和导师流式投影相关前端单测 84 项通过，即 `src/lib/` 下 `subtitleFollow`(8)、`teaching`(4)、`teachingStream`(8)、`transcriptDoc`(15)、`watchEntry`(34)、`watchTime`(8)、`watchWordHighlight`(7) 七个文件的合计。
+- **现有测试**：参考包 CLI 校验成功；`pytest tests/test_slcs.py` 26 项通过；字幕、播放器和导师流式投影相关前端单测 84 项通过，即 `src/lib/` 下 `subtitleFollow`(8)、`teaching`(4)、`teachingStream`(8)、`transcriptDoc`(15)、`watchEntry`(34)、`watchTime`(8)、`watchWordHighlight`(7) 七个文件的合计；本轮另加 `lessons.test.ts` 6 项（码点切片、锚点解析、深链与 YouTube 白名单）。
 - **审计结论抽样复验**：独立复核并本机实测了其中影响最大的若干条——校验器接受私网／回环 `source_url`（四例）、ECDICT 与 SLCS 分词在 `café-ready`／`naïve`／`3.5%`／`3.14` 上的分歧、`_is_blocked_ip` 漏 CGNAT、`publish_verified` 在无验证器时抛 503、`_editable` 使已发布草稿不可再编辑、`drop_unknown_video_ids` 把未知 `video_id` 置 NULL、`mediaUrl` 的 token 分支先于绝对 URL 分支。其中一条审计结论被推翻（`asdict(material)` 实际可用），已在「未验证」中记录。
 
-独立客户端、真实 Agent、站内浏览器走查、发布并发与素材授权核验均未执行，按 [Implementation Roadmap](06-implementation-roadmap.md) 分阶段取证。
+独立客户端（已在本机仓外虚拟环境验证）、真实 Agent、嵌入模式的站内浏览器走查、素材授权核验均未完成，按 [Implementation Roadmap](06-implementation-roadmap.md) 分阶段取证；外链模式的发布→学习→撤回→恢复已在隔离环境走查，记录见 [`acceptance.md`](../evidence/slcs-2026-11-11/acceptance.md)。
 
 ## 技术选型
 

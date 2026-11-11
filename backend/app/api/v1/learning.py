@@ -252,8 +252,9 @@ async def stats_weekly(
     """Aggregated weekly activity for the profile 学习进度 page.
 
     - this_week_minutes / last_week_minutes / daily_minutes: 有效学习秒数，来自
-      ``behavior_events.watch_time``，按**用户本地日**分桶（study_time_service）。
-      与个人页 overview 用同一个函数，两个页面不会给出互相矛盾的「本周学了多久」。
+      视频的 ``behavior_events.watch_time`` 与课程的 ``lesson_activities``，
+      按**用户本地日**分桶（study_time_service）。与个人页 overview 用同一个函数，
+      两个页面不会给出互相矛盾的「本周学了多久」。
       旧实现按 UTC 切周、按 UTC 日分桶，Asia/Shanghai 的用户在周一 00:00–08:00
       的学习会被算进上一周。
     - week_delta_pct: 0.0 when last week is 0 (handle "first week" UI)
