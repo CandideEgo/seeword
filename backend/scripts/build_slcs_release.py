@@ -3,9 +3,10 @@
 The public distribution is assembled from an explicit file list instead of
 copying directories wholesale, so nothing SeeWord-only (internal audit,
 roadmap, handover notes, server code) can leak into the publication by
-accident. Run with ``--check`` in CI-like verification, or without it to write
-a fresh tree (and, with ``--wheel``, build the distributable wheel) plus a
-SHA-256 manifest.
+accident. It writes a fresh tree (and, with ``--wheel``, builds the
+distributable wheel) plus a SHA-256 manifest; ``.github/workflows/slcs.yml``
+runs it on every change to the package so a broken tree fails CI instead of
+surfacing at publication.
 
 Usage::
 
