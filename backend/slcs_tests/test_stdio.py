@@ -6,7 +6,6 @@ pytest.importorskip("mcp", reason="the stdio MCP adaptor needs the optional MCP 
 
 import anyio
 from mcp import Client, StdioServerParameters, stdio_client
-
 from test_consistency import EXAMPLE
 
 
