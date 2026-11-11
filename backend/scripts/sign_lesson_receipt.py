@@ -267,7 +267,11 @@ def main(argv: list[str] | None = None) -> int:
         command = sub.add_parser(name, help=help_text)
         command.add_argument("--database-url", required=True, help="只读查询用的库地址（postgresql+asyncpg://…）")
         command.add_argument("--lesson-id", required=True)
-        command.add_argument("--revision-id", default=None, help="省略时要求该课程只有一个候选修订")
+        command.add_argument(
+            "--revision-id",
+            default=None,
+            help="省略时要求该课程只有一个待发布修订（候选或已撤回待恢复）",
+        )
         if name == "sign":
             command.add_argument("--private-key", type=Path, required=True)
             command.add_argument("--issuer", default="seeword-slcs-editorial")
