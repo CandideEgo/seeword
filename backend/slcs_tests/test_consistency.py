@@ -2,6 +2,7 @@ import ast
 import importlib.metadata
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -69,9 +70,19 @@ def test_schema_and_fingerprint_commands(tmp_path):
 
 def test_console_script_and_offline_example(tmp_path):
     """The installed entry point and the published demo script must both work."""
-    executable = Path(sys.executable).with_name("slcs" + (".exe" if sys.platform == "win32" else ""))
+    # ``pip`` writes console scripts beside the interpreter on POSIX but under
+    # ``Scripts/`` on Windows, and PATH differs per install layout, so ask the
+    # environment instead of guessing one directory.
+    name = "slcs.exe" if sys.platform == "win32" else "slcs"
+    candidates = [
+        shutil.which("slcs"),
+        str(Path(sys.executable).with_name(name)),
+        str(Path(sys.executable).parent / "Scripts" / name),
+    ]
+    executable = next((path for path in candidates if path and Path(path).exists()), None)
+    assert executable is not None, f"console script not found, tried: {candidates}"
     result = subprocess.run(
-        [str(executable), "--json", "validate", str(EXAMPLE)],
+        [executable, "--json", "validate", str(EXAMPLE)],
         cwd=tmp_path,
         capture_output=True,
         check=False,
