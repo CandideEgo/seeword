@@ -138,6 +138,14 @@ def test_read_and_resolve_outside_repository(tmp_path):
     assert cli("resolve", str(EXAMPLE), "absent headword", cwd=tmp_path).returncode == 1
 
 
+def test_distribution_is_the_installed_one():
+    """The published tree ships sources beside its tests; refuse to test that copy."""
+    if os.environ.get("SLCS_REQUIRE_INSTALLED") != "1":
+        pytest.skip("only asserted from the published tree, which sets SLCS_REQUIRE_INSTALLED")
+    package = Path(slcs.__file__).resolve()
+    assert "site-packages" in str(package), f"tested the source copy, not the installation: {package}"
+
+
 def test_distribution_has_no_seeword_imports():
     """The installed distribution (not the checkout) must not reach into SeeWord."""
     package = Path(slcs.__file__).parent

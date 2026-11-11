@@ -119,18 +119,25 @@ reference pack is CC BY-SA 4.0.
 """
 
 CONFTEST = '''\
-"""Point the consistency suite at the published spec and example directories."""
+"""Test the installed wheel, not the source copy that ships beside it."""
 
 import os
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+# This repository ships ``slcs/`` sources next to these tests. ``python -m
+# pytest`` puts the working directory on ``sys.path``, so a plain run from the
+# repository root would import that copy and would verify nothing about the
+# installation. Drop it from the path; the installed distribution is then the
+# only ``slcs`` that can be imported.
+sys.path[:] = [entry for entry in sys.path if not entry or Path(entry).resolve() != root]
 # ``tests/`` is not a package here, so the stdio test imports its sibling by
 # module name; keep this directory importable.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 os.environ.setdefault("SLCS_SPEC_DIR", str(root / "spec"))
 os.environ.setdefault("SLCS_EXAMPLES_DIR", str(root / "examples"))
+os.environ.setdefault("SLCS_REQUIRE_INSTALLED", "1")
 '''
 
 WORKFLOW = """\
