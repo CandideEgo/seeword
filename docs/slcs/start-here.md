@@ -100,7 +100,9 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 - master 从 2026-10-31 起**连续 12 轮 CI 全部失败**（10-31 早期是 mypy 门禁，11-05 起固定成下面这条）。
 - `git diff master...HEAD` 对 `listening_service.py`、`test_listening_pg.py`、`learning_event_service.py` 的加锁路径均为空（唯一的改动是新增一个与本问题无关的 `claim_watch_day`）。
-- 本机连跑 10 次（含在两次全量套件上下文里）**一次都没复现**，说明它依赖 CI 的执行时序。
+- 本机连跑 10 次（含用真实服务代码在迁移库上驱动同一时序）**一次都没复现**；CI 上则每轮必现（两次运行各 2 条失败）。说明它依赖 CI 的执行时序，尤其是全量套件在同一进程里跑完 1761 项之后留下的连接池与事务状态。
+
+**注意 `paths-ignore` 在 PR 上不生效**：同一个只改 `.md` 的提交会在 PR 上产生两个 run，一个按 `paths-ignore` 跳过 backend，另一个照跑全量（PR 的 diff 含整条分支）。所以「只改文档」并不能让 backend 那条红腿消失。
 
 ### `backend` 那一条：真实的并发缺陷，但没有被修
 
