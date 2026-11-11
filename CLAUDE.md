@@ -159,6 +159,16 @@ Windows 上这些以 NSSM 服务托管：云端 worker 用 `backend/scripts/run_
 - 操作说明见 [`docs/home-content-operation-guide-2026-10.md`](docs/home-content-operation-guide-2026-10.md)，
   实施契约见 [`docs/home-editorial-content-implementation-2026-10.md`](docs/home-editorial-content-implementation-2026-10.md)。
 
+### 视频课程（SLCS 试点，`/api/v1/lessons` + `/lessons`）
+
+规范与阶段在 [`docs/slcs/`](docs/slcs/)（文件契约认 `README.md`，阶段认 `06-implementation-roadmap.md`），这里只记代码里的非显然处。
+
+- **课程不建在 `videos` 行上**：`lessons` / `lesson_revisions` / `lesson_operations` / `lesson_progress` / `lesson_activities` 自成一域，进度按 `(user_id, lesson_id)`，所以删视频不会级联删学习历史。课程事件先写 `lesson_activities` 再投影成 `LearningEvent`，不经过 `drop_unknown_video_ids`。
+- **三个开关默认全关**：`SLCS_LESSONS_ENABLED` / `SLCS_TUTOR_ENABLED` / `SLCS_VOCABULARY_ENABLED`（`backend/.env.example` 有注释）。用户侧入口关着或表不存在时一律 503；`/admin/lessons` 只走管理员鉴权，不看这组开关。开关必须在 compose 的 environment 白名单里，否则宿主 `.env` 写了也进不了容器（`scripts/production_preflight.py` 会拦）。
+- **发布要外部签名收据**：`SLCS_LESSON_RECEIPT_ISSUER` + `SLCS_LESSON_RECEIPT_PUBLIC_KEYS`（Ed25519，JWT，audience `seeword-slcs-lesson-publication`）未配置时发布与「以新收据恢复发布」都返回 503。它与教学的 `CONTENT_RECEIPTS_*` 是两套配置，别混。
+- **撤回即时生效**：课程读取每次查库、`Cache-Control: no-store`，不走旧视频链路的 `_VIDEO_ACCESS_CACHE`；撤回清当前版指针，历史引用保留进度只显示「材料已不可用」。
+- **发行包是另一份交付物**：`backend/slcs/` 独立成包（不 import `app.*`，由 `backend/slcs_tests` 的 AST 断言守），`scripts/build_slcs_release.py` 从显式文件清单生成公开树。**改了 `backend/slcs` 就要重新发布 `CandideEgo/slcs`**，两边不会自动同步；发行树的测试要装 wheel 后跑，`backend/` 下直接 `pytest slcs_tests` 会 skip。
+
 ### 前端装配
 
 Next.js 16 App Router，源码在 `frontend/src`。路由组 `(main)`（用户壳，其下有 20+ 个子 `layout.tsx`）与 `(admin)`（管理壳），另有裸路由 `login` / `register` / `forgot-password` / `set-password` / `onboarding` / `terms` / `privacy`——其中前五个各有自己的 `layout.tsx`；`(main)/browse` 是 `route.ts` 307 重定向到 `/`。
