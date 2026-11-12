@@ -211,30 +211,37 @@ async def test_draft_and_submission_obey_the_same_locked_state_transition(save_f
 
 @pytest.mark.parametrize("restart", [True, False])
 async def test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history(restart):
-    """Overlapping submit/start on one account must not close a lock cycle.
+    """A start that lands after a submit must not delete the submitted history.
 
     Both bodies call the service functions exactly the way the API endpoints
-    do — no pre-held row lock. That matters: an earlier version of this test
-    locked the session row by hand before calling ``submit()``, which is a
-    stricter interleaving than any request can produce and which deadlocks
-    *by construction* once both paths take the account lock first (the test's
-    own lock is the session row, so submit holds session and waits for the
-    account while start holds the account and waits for session). The lock
-    order the fix establishes — account first, session second — is only
-    observable when the callers do not jump the queue.
+    do — no pre-held row lock, and no artificial barrier. An earlier version
+    hand-locked the session row before calling ``submit()``; that interleaving
+    is stricter than any request can produce and deadlocks *by construction*
+    once both paths take the account lock first (the test's own lock holds the
+    session row, so submit waits for the account while start holds the account
+    and waits for session). The lock order the fix establishes — account first,
+    session second — is what removes that cycle; this test pins the ordering
+    that the history assertion actually needs.
     """
     uid, vid, sid, _answers = await seed()
     maker = get_async_session_maker()
-    barrier = asyncio.Barrier(2)
+    # Submit commits first, then start runs against the already-submitted row.
+    # The order is pinned on purpose: with a bare racing barrier the outcome is
+    # not a race at all but a coin flip between "submit won, start sees nothing
+    # to delete" and "start won, deletes the pending row submit is about to
+    # commit" — and only the first one is the production case this guards.
+    # Neither side pre-takes a row lock here (an earlier version did, which
+    # deadlocks by construction once both paths take the account lock first).
+    submitted = asyncio.Event()
 
     async def submit():
-        await barrier.wait()
         async with maker() as db:
             await listening_service.submit(db, sid, uid)
             await db.commit()
+        submitted.set()
 
     async def start():
-        await barrier.wait()
+        await asyncio.wait_for(submitted.wait(), timeout=10)
         async with maker() as db:
             user = await db.get(User, uid)
             row = await listening_service.start(db, user, vid, 5, restart)
