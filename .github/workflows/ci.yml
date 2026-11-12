@@ -345,7 +345,13 @@ jobs:
           # dev mode so next.config.ts rewrites proxy /api and /media to the
           # backend - production `next start` has no proxy and there is no
           # nginx in this job, so a prod build cannot reach the backend.
-          (cd ../backend && nohup uvicorn app.main:app --port 8000 > /tmp/backend.log 2>&1 &)
+          # --timeout-keep-alive 120 is not optional: Next's dev proxy reuses
+          # idle connections, uvicorn's 5s default closes them from under it,
+          # and the ECONNRESET surfaces as a proxy 500 that never reaches the
+          # backend log (design-rollout.spec.ts:303 collects exactly those).
+          # playwright.config.ts and cross-browser.yml already set it; this job
+          # was the only one without it.
+          (cd ../backend && nohup uvicorn app.main:app --port 8000 --timeout-keep-alive 120 > /tmp/backend.log 2>&1 &)
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:8000/health
           nohup npm run dev > /tmp/frontend.log 2>&1 &
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:3000

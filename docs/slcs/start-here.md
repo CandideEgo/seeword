@@ -94,7 +94,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-五条腿长期是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的；`e2e` 会随运行波动，失败时见下面第二节。
+五条腿长期是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的（`test_listening_pg` 死锁，见本章末尾）；`e2e` 曾有两条确定性失败，2026-11-12 已修但**尚未经 CI 确认**，另两条仍是抖动，见下面。
 
 **不是这个分支引入的。** 证据：
 
@@ -133,18 +133,33 @@ B: BEGIN; INSERT INTO probe_child VALUES (1,1);   -- probe_child.pid REFERENCES 
 
 没有一条与课程有关。但要分清性质——**四条里只有两条是真抖动**，另外两条每轮必红，原因是固定的：
 
-| 用例                                | 失败在哪                                | 性质                                      |
-| ----------------------------------- | --------------------------------------- | ----------------------------------------- |
-| `design-rollout.spec.ts:139`        | 找不到「视频 / 字幕 / 词汇 / 频道」标题 | **确定性**：CI 的搜索数据是空的（见下）   |
-| `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/…`（每轮端点不同）    | **确定性**：CI 起后端少了 keep-alive 参数 |
-| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动                            |
-| `home-feed.spec.ts:163`             | 20 秒内没等到带 `level=B2` 的 feed 响应 | 请求时序抖动                              |
+| 用例                                | 失败在哪                                | 性质                                              |
+| ----------------------------------- | --------------------------------------- | ------------------------------------------------- |
+| `design-rollout.spec.ts:139`        | 找不到「视频 / 字幕 / 词汇 / 频道」标题 | **确定性**：CI 的搜索数据是空的 —— 已修           |
+| `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/…`（每轮端点不同）    | **确定性**：CI 起后端少了 keep-alive 参数 —— 已修 |
+| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动（未修）                            |
+| `home-feed.spec.ts:163`             | 20 秒内没等到带 `level=B2` 的 feed 响应 | 请求时序抖动（未修）                              |
 
-**`design-rollout:139` 是 fixture 缺口，不是回归。** 这个用例搜 `habit`，然后断言四个分组各有 `<h2>` 标题。CI 的库是「空库迁移 + `seed_e2e.py`」：种子字幕里没有 `habit`，视频标题里也没有；而「词汇」组要靠 ECDICT，`backend/data/ecdict.db` 被 `.gitignore` 忽略、CI 从不下载（`grep ecdict .github/workflows/` 为空）。四组计数全 0 ⇒ `totalHits === 0` ⇒ `allEmpty` 成立 ⇒ 页面渲染空态、**四个分组标题根本不渲染**（`search/page.tsx:165` 与 `:414`）。本机看不出来，是因为本机有 51 条视频和一份 ECDICT（实测把词典指到不存在的路径后，`habit` 的「词汇」组从 10 条掉到 0 条）。修法二选一：给种子加一条含 `habit` 的字幕，或在 CI 提供词典——**不要去改那条断言**，页面在空结果下渲染空态是设计行为。
+**`design-rollout:139` 是 fixture 缺口，不是回归。** 这个用例搜 `habit`，然后断言四个分组各有 `<h2>` 标题。CI 的库是「空库迁移 + `seed_e2e.py`」：种子字幕里没有 `habit`，视频标题里也没有；而「词汇」组要靠 ECDICT，`backend/data/ecdict.db` 被 `.gitignore` 忽略、CI 从不下载（`grep ecdict .github/workflows/` 为空）。四组计数全 0 ⇒ `totalHits === 0` ⇒ `allEmpty` 成立 ⇒ 页面渲染空态、**四个分组标题根本不渲染**（`search/page.tsx:165` 与 `:414`）。本机看不出来，是因为本机有 51 条视频和一份 ECDICT。
 
-**`design-rollout:303` 是 CI 漏了一个参数。** 这条用例从 `page.on("response")` 收集 5xx，同一轮里报的端点在四轮之间每次不同（`plan/profile`、`discovery/practice-summary`、`users/me`、`users/me/deletion`、`videos/search/hot`），且**这些请求在后端日志里一次都不存在**——没到后端，是 `next dev` 代理回了 500。仓库里已经把原因写清楚了：`playwright.config.ts:53-55` 的注释说 uvicorn 默认 5s keep-alive 与 Next 代理复用的空闲连接撞车会 `ECONNRESET` → 代理 500，因此那行显式加了 `--timeout-keep-alive 120`。`cross-browser.yml:74` 也加了。**只有 `ci.yml` 的那行没有**（`nohup uvicorn app.main:app --port 8000`，自 2026-07 建 job 起就没跟过）。补上这一个参数即可。
+**修法**：给种子的字幕、演示视频标题与频道描述各加一处 `habit`，让四组里三组命中（`words` 仍为 0 也没关系——`groupSection` 只要 `data` 存在就渲染 `<h2>`）。**没有改那条断言**：页面在空结果下渲染空态是设计行为。种子对既有行做了回填（按旧标题匹配、重写字幕与描述），所以在长时间没重建的库上重跑也不会插出第二个演示视频。
 
-这两条的关闭应当各自单独验证，不要因为「e2e 其它也红」就一起算作波动。
+**验证（双向）**：建一个空库迁到 head、用**旧**种子播种，`habit` 四组全 0（`allEmpty: true`）；同一个库换**新**种子重播，变成 `videos 1 / subtitles 1 / words 0 / channels 1`（`allEmpty: false`）。在无词典的后端上真跑这条 spec：新种子 **1 passed**，把种子行改回旧文案后 **1 failed，且失败点就是 `:148`**——与 CI 的失败行一致。
+
+**`design-rollout:303` 是 CI 漏了一个参数。** 这条用例从 `page.on("response")` 收集 5xx，同一轮里报的端点在四轮之间每次不同（`plan/profile`、`discovery/practice-summary`、`users/me`、`users/me/deletion`、`videos/search/hot`），且**这些请求在后端日志里一次都不存在**——没到后端，是 `next dev` 代理回了 500。仓库里已经把原因写清楚了：`playwright.config.ts:53-55` 的注释说 uvicorn 默认 5s keep-alive 与 Next 代理复用的空闲连接撞车会 `ECONNRESET` → 代理 500，因此那行显式加了 `--timeout-keep-alive 120`。`cross-browser.yml:74` 也加了。**只有 `ci.yml` 的那行没有**（`nohup uvicorn app.main:app --port 8000`，自 2026-07 建 job 起就没跟过）。已补上。
+
+**机制是实测的，不是推断**：两个最小 uvicorn 实例，一个默认、一个 `--timeout-keep-alive 120`；同一条 keep-alive 连接先用一次、空闲 7 秒后再用一次：
+
+```
+默认 5s      -> ConnectionAbortedError: [WinError 10053] ...
+120s         -> 正常返回 {"ok": true}
+```
+
+uvicorn 在每个响应结束后都会 `call_later(timeout_keep_alive, ...)` 关掉空闲连接，所以「代理复用被服务端关掉的连接」是必然而非偶发。
+
+两条都已修，但**结论要等 CI 跑过才算确认**：本地能复现的是机制，不是 CI 的整体时序。`watch-immersive:74` 与 `home-feed:163` 仍属抖动，没动。
+
+**本地跑 `:303` 会先撞上另一件事（不是这次修的）**：这条用例在本地失败于 `/history` 页的 `#main-scroll` 横向溢出（`:385`），而 CI 失败于更后面的 5xx 收集（`:392`）。两者都真实存在：把种子文案改回旧版、以及把本次两处修复整体 stash 掉，`/history main` 都照样失败——**这是既存问题，与本次修复无关，也还没修**。它挡在本地复现 `:303` 的路上，排查这条 spec 时别把它当成本次改动引入的。
 
 ## 六、这一轮补了什么（相对昨晚）
 
@@ -155,5 +170,6 @@ B: BEGIN; INSERT INTO probe_child VALUES (1,1);   -- probe_child.pid REFERENCES 
 - 嵌入**失败态**实测：显示「嵌入播放暂不可用」，字幕与释义仍可读。
 - 移动端 390px 无横向溢出。
 - 修掉两个只在真实库上暴露的签发方缺陷（见验收记录）。
+- 两条确定性 e2e 失败（fixture 缺口与 CI 少 keep-alive 参数）已修并双向验证，待 CI 确认。
 
-细节与证据：[`docs/evidence/slcs-2026-11-11/acceptance.md`](../evidence/slcs-2026-11-11/acceptance.md)。
+- 详情与证据：[`docs/evidence/slcs-2026-11-11/acceptance.md`](../evidence/slcs-2026-11-11/acceptance.md)。
