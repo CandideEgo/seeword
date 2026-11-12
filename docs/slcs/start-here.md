@@ -100,7 +100,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 - master 从 2026-10-31 起**连续 12 轮 CI 全部失败**（10-31 早期是 mypy 门禁，11-05 起固定成下面这条）。
 - `git diff master...HEAD` 对 `listening_service.py`、`test_listening_pg.py`、`learning_event_service.py` 的加锁路径均为空（唯一的改动是新增一个与本问题无关的 `claim_watch_day`）。
-- 本机连跑 10 次（含用真实服务代码在迁移库上驱动同一时序）**一次都没复现**；CI 上则每轮必现（两次运行各 2 条失败）。说明它依赖 CI 的执行时序，尤其是全量套件在同一进程里跑完 1761 项之后留下的连接池与事务状态。
+- 本机连跑 10 次（含用真实服务代码在迁移库上驱动同一时序）**一次都没复现**；CI 上则每轮必现（两次运行各 2 条失败）。说明它依赖 CI 的执行时序，尤其是全量套件在同一进程里跑完 1761 项之后留下的连接池与事务状态。（2026-11-12 追加：本地 Postgres 上整套 `test_listening_pg.py` 7 项全过。）
 
 **注意 `paths-ignore` 在 PR 上不生效**：同一个只改 `.md` 的提交会在 PR 上产生两个 run，一个按 `paths-ignore` 跳过 backend，另一个照跑全量（PR 的 diff 含整条分支）。所以「只改文档」并不能让 backend 那条红腿消失。
 
@@ -111,28 +111,40 @@ tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_d
 asyncpg.exceptions.DeadlockDetectedError: deadlock detected
 ```
 
-CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 里对 pending session 行的 `SELECT ... FOR UPDATE`）。`submit()` 先持有同一 session 行的锁，随后经 `record_event` 写 `learning_events` / `user_learning_profiles`；`start()` 在此之前已对 `users` 行取了 `FOR NO KEY UPDATE`。两个事务交叉成环。
+CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 里对 pending session 行的 `SELECT ... FOR UPDATE`）。`submit()` 先持有同一 session 行的锁，随后经 `record_event` 写 `learning_events` / `user_learning_profiles`；`start()` 在正要阻塞的那一刻，手里只有 `users` 行上的 `FOR NO KEY UPDATE`（见 `:99`，测试正是靠监听它才确认了时序）。两个事务交叉成环：`start` 等 session 行，`submit` 等 `start` 手里的东西。
 
-**为什么没修**：本机复现不出来（10 次全过），改加锁顺序属于真实的并发生产路径，而且改完在本地也无法验证是否真的解决。盲改一个无法复现、无法验证的并发缺陷，比留着它更糟。
+**我今天推翻了自己上一版写在这页的一个说法**：上一版建议「统一成先 account、后 session」。那条建议基于「`submit` 侧会去拿 users 行」这个假设，我用真实 Postgres 直接测了：`FOR NO KEY UPDATE` 与「插入一条外键指向 users 的子行」**不冲突**（探针见下）。所以 `start` 手里那把锁本身不会挡住 `submit` 写 `learning_events`——环必然从 `submit` 侧的**另一处写**（`submit()` 自己会写 `learning_sessions.submitted_at`，并用 `ON CONFLICT DO NOTHING` 插 `user_learning_profiles`）去合上。**不要照上一版那条建议改**：改加锁顺序之前，要先用 `pg_locks` 抓到真实的等待边，而不是推断。
+
+**为什么仍然没修**：本机连跑 16 次（直接跑、用真实服务代码驱动同一时序、加 `--cov`）一次都没复现；今天用本地 Postgres 跑整套 `test_listening_pg.py` 也是 7 项全过（50.91s）。盲改一个无法复现、也无法验证的并发缺陷，比留着它更糟。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
 
-要处理它的人，建议顺序：先在 CI 上加超时重试或固定 `statement_timeout` 拿到稳定复现，再调整两侧的加锁顺序（统一成「先 account、后 session」）。
+要处理它的人，建议顺序：先在 CI 上把 `statement_timeout` 固定住拿到稳定复现，同时抓 `pg_locks` 的等待边，再动手。**不要从文档推断加锁顺序。**
 
-### `e2e` 那几条：不是后端错误，也没有一条与课程有关
+**「account 锁不会挡住子行插入」的实测**（本地 Postgres 16，两个连接）：
 
-`e2e` 的结论会随运行波动（同一提交重跑可能不同），失败的永远是同一批用例。逐个查到的失败点：
+```
+A: BEGIN; SELECT id FROM probe_parent WHERE id=1 FOR NO KEY UPDATE;
+B: BEGIN; INSERT INTO probe_child VALUES (1,1);   -- probe_child.pid REFERENCES probe_parent(id)
+=> RESULT: child INSERT did NOT block on FOR NO KEY UPDATE  -> no conflict
+```
 
-| 用例                                | 失败在哪                                | 性质                 |
-| ----------------------------------- | --------------------------------------- | -------------------- |
-| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动       |
-| `home-feed.spec.ts:163`             | 20 秒内没等到带 `level=B2` 的 feed 响应 | 请求时序抖动         |
-| `design-rollout.spec.ts:139`        | 找不到「视频」分组标题                  | 撞的是已下线的旧入口 |
-| `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/users/me`             | 见下                 |
+### `e2e` 那几条：两条是确定性的，两条是抖动
 
-`design-rollout:303` 那条要单独说：它报 500，但**整场 e2e 的后端日志里零个 5xx**，同一时刻该路径返回 200 —— 请求根本没到后端，是 `next dev` 代理层的瞬时失败被 Playwright 记成 500。（master 上这条错的是 `/videos/search/hot`，原因并不相同，所以我没有拿「master 也红」当理由。）
+没有一条与课程有关。但要分清性质——**四条里只有两条是真抖动**，另外两条每轮必红，原因是固定的：
 
-这四条都不碰课程相关路径。想稳定它们，方向是去掉对固定网络时序的假设、或给这几条加显式重试，属于独立的 e2e 稳定性任务。
+| 用例                                | 失败在哪                                | 性质                                      |
+| ----------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `design-rollout.spec.ts:139`        | 找不到「视频 / 字幕 / 词汇 / 频道」标题 | **确定性**：CI 的搜索数据是空的（见下）   |
+| `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/…`（每轮端点不同）    | **确定性**：CI 起后端少了 keep-alive 参数 |
+| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动                            |
+| `home-feed.spec.ts:163`             | 20 秒内没等到带 `level=B2` 的 feed 响应 | 请求时序抖动                              |
+
+**`design-rollout:139` 是 fixture 缺口，不是回归。** 这个用例搜 `habit`，然后断言四个分组各有 `<h2>` 标题。CI 的库是「空库迁移 + `seed_e2e.py`」：种子字幕里没有 `habit`，视频标题里也没有；而「词汇」组要靠 ECDICT，`backend/data/ecdict.db` 被 `.gitignore` 忽略、CI 从不下载（`grep ecdict .github/workflows/` 为空）。四组计数全 0 ⇒ `totalHits === 0` ⇒ `allEmpty` 成立 ⇒ 页面渲染空态、**四个分组标题根本不渲染**（`search/page.tsx:165` 与 `:414`）。本机看不出来，是因为本机有 51 条视频和一份 ECDICT（实测把词典指到不存在的路径后，`habit` 的「词汇」组从 10 条掉到 0 条）。修法二选一：给种子加一条含 `habit` 的字幕，或在 CI 提供词典——**不要去改那条断言**，页面在空结果下渲染空态是设计行为。
+
+**`design-rollout:303` 是 CI 漏了一个参数。** 这条用例从 `page.on("response")` 收集 5xx，同一轮里报的端点在四轮之间每次不同（`plan/profile`、`discovery/practice-summary`、`users/me`、`users/me/deletion`、`videos/search/hot`），且**这些请求在后端日志里一次都不存在**——没到后端，是 `next dev` 代理回了 500。仓库里已经把原因写清楚了：`playwright.config.ts:53-55` 的注释说 uvicorn 默认 5s keep-alive 与 Next 代理复用的空闲连接撞车会 `ECONNRESET` → 代理 500，因此那行显式加了 `--timeout-keep-alive 120`。`cross-browser.yml:74` 也加了。**只有 `ci.yml` 的那行没有**（`nohup uvicorn app.main:app --port 8000`，自 2026-07 建 job 起就没跟过）。补上这一个参数即可。
+
+这两条的关闭应当各自单独验证，不要因为「e2e 其它也红」就一起算作波动。
 
 ## 六、这一轮补了什么（相对昨晚）
 
