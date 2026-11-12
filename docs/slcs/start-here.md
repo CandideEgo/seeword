@@ -94,7 +94,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`，以及 `e2e`（2026-11-12 深夜 **pass 31m1s**，`--timeout-keep-alive 120` 那条修复生效）。`backend` 仍红（`test_listening_pg` 死锁，环已由 tuple 级锁快照解出并修，见本章末尾）。
+五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`，以及 `backend`（2026-11-13 凌晨 **pass 24m48s**，加锁顺序修复生效）。`e2e` 仍有 `home-feed:163` 一处，修在 `chooseSelectMenu` 的 listbox 取法上，等下一轮确认。
 
 **不是这个分支引入的。** 证据：
 
@@ -104,7 +104,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 **注意 `paths-ignore` 在 PR 上不生效**：同一个只改 `.md` 的提交会在 PR 上产生两个 run，一个按 `paths-ignore` 跳过 backend，另一个照跑全量（PR 的 diff 含整条分支）。所以「只改文档」并不能让 backend 那条红腿消失。
 
-### `backend` 那一条：真实的并发缺陷，已定位并已修（等 CI 确认）
+### `backend` 那一条：真实的并发缺陷，已定位并已修（CI 已确认通过）
 
 ```
 tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history[True/False]
