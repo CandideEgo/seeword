@@ -111,23 +111,46 @@ tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_d
 asyncpg.exceptions.DeadlockDetectedError: deadlock detected
 ```
 
-CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 里对 pending session 行的 `SELECT ... FOR UPDATE`）。`submit()` 先持有同一 session 行的锁，随后经 `record_event` 写 `learning_events` / `user_learning_profiles`；`start()` 在正要阻塞的那一刻，手里只有 `users` 行上的 `FOR NO KEY UPDATE`（见 `:99`，测试正是靠监听它才确认了时序）。两个事务交叉成环：`start` 等 session 行，`submit` 等 `start` 手里的东西。
+CI 日志里异常栈落在 `app/services/listening_service.py:102`（`start()` 里对 pending session 行的 `SELECT ... FOR UPDATE`）。`start()` 在正要阻塞的那一刻，手里只有 `users` 行上的 `FOR NO KEY UPDATE`（见 `:99`，测试靠监听它确认时序）。`submit()` 先持有同一 session 行的锁，再经 `record_event` 写 `learning_events` 与 `user_learning_profiles`。
 
-**我今天推翻了自己上一版写在这页的一个说法**：上一版建议「统一成先 account、后 session」。那条建议基于「`submit` 侧会去拿 users 行」这个假设，我用真实 Postgres 直接测了：`FOR NO KEY UPDATE` 与「插入一条外键指向 users 的子行」**不冲突**（探针见下）。所以 `start` 手里那把锁本身不会挡住 `submit` 写 `learning_events`——环必然从 `submit` 侧的**另一处写**（`submit()` 自己会写 `learning_sessions.submitted_at`，并用 `ON CONFLICT DO NOTHING` 插 `user_learning_profiles`）去合上。**不要照上一版那条建议改**：改加锁顺序之前，要先用 `pg_locks` 抓到真实的等待边，而不是推断。
+**2026-11-12：拿到了 Postgres 服务端日志，这是十几轮里第一次看到真语句对。** CI 之前丢弃了 service 容器的日志，现在 `backend` job 失败时会导出（`ci.yml` 的「Dump Postgres server log on failure」）。实际内容：
 
-**为什么仍然没修**：本机连跑 16 次（直接跑、用真实服务代码驱动同一时序、加 `--cov`）一次都没复现；今天用本地 Postgres 跑整套 `test_listening_pg.py` 也是 7 项全过（50.91s）。盲改一个无法复现、也无法验证的并发缺陷，比留着它更糟。
+```
+Process 790 waits for ShareLock on transaction 979; blocked by process 789.
+Process 789 waits for ShareLock on transaction 980; blocked by process 790.
+Process 790: SELECT ... FROM listening_sessions
+             WHERE user_id=$1 AND video_id=$2 AND submitted_at IS NULL
+             ORDER BY started_at DESC LIMIT $3 FOR UPDATE
+Process 789: INSERT INTO learning_events (...) VALUES (...)
+Process 790 CONTEXT: while locking tuple (0,1) in relation "listening_sessions"
+```
+
+**但这两条语句按字面推不出环，我用真实表结构验过。** 在迁移到 head 的库上原样复演（A 取 `users` 的 `FOR NO KEY UPDATE` 后等 session 行，B 持 session 行后执行那条 INSERT）：
+
+```
+A blocked on session row: True
+B blocked on learning_events INSERT: False
+=> no cycle
+```
+
+并且把 `submit()` 的四种写入逐个试了一遍，在 A 持锁期间**没有一种阻塞**：
+
+```
+ok  learning_events INSERT
+ok  user_learning_profiles INSERT ON CONFLICT DO NOTHING
+ok  user_learning_profiles SELECT
+ok  listening_sessions UPDATE (submitted_at)
+```
+
+（这与另一条独立的实测一致：`FOR NO KEY UPDATE` 不会阻塞插入外键指向该行的子行。）
+
+所以结论只能到这里：**语句对是硬证据，但环如何闭合还没定论。** 可能 B 在事件 INSERT 之前已经因为别的写拿到/等待了某个锁（`learning_events` 上的唯一约束或索引、序列，或测试自身 `seed()` 那条 `start()` 留下的行），也可能阻塞点是 CI 特有的（同一进程内已跑完 1800 项后的连接池状态）。**在没有抓到真实等待边之前不要改加锁顺序**——我这一页上一版给过一条「统一成先 account、后 session」的建议，就是没验就写下的，已被上面两个探针推翻。
+
+**为什么仍然没修**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过（50.91s）；按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**这次实验未完成，不构成证据**）。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
 
-要处理它的人，建议顺序：先在 CI 上把 `statement_timeout` 固定住拿到稳定复现，同时抓 `pg_locks` 的等待边，再动手。**不要从文档推断加锁顺序。**
-
-**「account 锁不会挡住子行插入」的实测**（本地 Postgres 16，两个连接）：
-
-```
-A: BEGIN; SELECT id FROM probe_parent WHERE id=1 FOR NO KEY UPDATE;
-B: BEGIN; INSERT INTO probe_child VALUES (1,1);   -- probe_child.pid REFERENCES probe_parent(id)
-=> RESULT: child INSERT did NOT block on FOR NO KEY UPDATE  -> no conflict
-```
+**下一步**：服务端日志已经在 CI 里了，下一轮再红时先看 `pg_stat_activity` 与 deadlock 段里的 `CONTEXT` 行（它指出具体等的是哪张表的哪个 tuple）。若仍不足以定环，就在测试里按 CI 的执行顺序把 `pg_locks` 快照打出来——而不是继续从代码推断。
 
 ### `e2e` 那几条：两条是确定性的，两条是抖动
 
