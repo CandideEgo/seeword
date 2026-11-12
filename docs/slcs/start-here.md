@@ -186,6 +186,10 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 判断依据：`api/v1/listening.py` 的 `submit` / `start` 端点都是直接调服务函数，中间没有任何 `with_for_update`；预置锁只可能出现在测试里。
 
+**并发本身另立一条用例守着**：`test_concurrent_submit_and_start_do_not_deadlock` 让两条路径用 `asyncio.Barrier` 同时起跑、各自从头走服务函数，`DeadlockDetectedError` 会直接从 `gather` 抛出并使测试失败。用 `restart=False`——`restart=True` 时结果本就取决于谁先提交（`start` 会删掉它找到的 pending 行），断言不了单一结果。
+
+**但它有一条尚未证实的局限，别当它已经有效**：改前的那条用例在本地从来跑不出死锁（靠 CI 的机器时序），所以这条新用例大概率也不会在本地失败。它能守住的东西只有在时序真的撞上时才显现，而我**没有**做过「把修复回退、看它是否变红」的反向验证。要做那个验证得先把本机 Docker 恢复（见下）。
+
 **为什么本机一直复现不了**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。环需要「两边恰好都在对方要的行上」这个窗口，CI 的机器时序更容易撞上它。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
