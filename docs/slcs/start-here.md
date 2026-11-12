@@ -104,7 +104,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 **注意 `paths-ignore` 在 PR 上不生效**：同一个只改 `.md` 的提交会在 PR 上产生两个 run，一个按 `paths-ignore` 跳过 backend，另一个照跑全量（PR 的 diff 含整条分支）。所以「只改文档」并不能让 backend 那条红腿消失。
 
-### `backend` 那一条：真实的并发缺陷，但没有被修
+### `backend` 那一条：真实的并发缺陷，已定位并已修（等 CI 确认）
 
 ```
 tests/test_listening_pg.py::test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history[True/False]
@@ -182,7 +182,7 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 **修法**：把 `start()` 里那段内联的账号锁提成 `_lock_account()`，让 `submit()` 也在锁 session 行**之前**调用它。两边统一成「先账号、后 session」，交叉消失。没有放宽任何一道锁，也没有改判分逻辑。
 
-**为什么仍然没修**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。
+**为什么本机一直复现不了**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。环需要「两边恰好都在对方要的行上」这个窗口，CI 的机器时序更容易撞上它。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
 
