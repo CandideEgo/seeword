@@ -221,7 +221,13 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 **修法三处**：`SelectMenu` 传 `modal={false}`（非对话框式下拉本来就不该冻结整页，遮罩层随之消失）；用例不再靠「按 Escape 关面板」这一步验证筛选，改成选一个确定存在的排序值来关面板——那条断言验的是关闭行为，与本用例要验的「筛选进 URL、进请求」无关，却让用例依赖库的按键时序；`chooseSelectMenu` 改成在**可见的** listbox 里找选项。
 
-第三处是修完前两处才暴露出来的下一个坑，单独记：Base UI 的 `Select` 用 `keepMounted` 保留关闭状态的弹出层，所以**两个 SelectMenu 的 listbox 会同时存在于 DOM**。`getByRole("listbox").last()` 取的是 DOM 顺序最后那个，恰好是难度面板（`visible: false`，高宽为 0），里面的选项永远等不到 `visible`——CI 报的就是 `helpers.ts:44` 等到 60s 超时。加 `filter({ visible: true })` 后只会命中刚展开的那个。
+第三处是修完前两处才暴露出来的下一个坑，而且**改了两轮才对**——记下来免得再走一次：
+
+1. 第一版 `getByRole("listbox").last()`：Base UI 用 `keepMounted` 保留关闭状态的弹出层，两个 SelectMenu 的 listbox 同时在 DOM 里，`.last()` 抓到的是难度面板（`visible: false`，高宽为 0），里面的选项永远等不到可见。CI 报在 `helpers.ts:44`。
+2. 第二版加 `filter({ visible: true })`：仍然超时。因为**点击之后那一刻还没有任何可见 listbox**，filter 解析成空集，`.click()` 等满 60s。
+3. 第三版先 `toHaveAttribute("aria-expanded", "true")` 再取可见的那个。依据是 ego-browser 的实测时间序列：点开后 +200ms 时 `aria-expanded` 仍是 `"false"`、`inerts=0`，到 +1200ms 才变 true 并铺出面板。**面板是异步挂载的**，点击返回不等于面板已就绪。
+
+两层各有各的理由，缺一不可：等 `expanded` 是因为异步挂载；按可见筛是因为关闭的那个 listbox 还留在 DOM 里。
 
 **为什么 CI 上必现、上一版却在本地看不出来**：本地的 `enabled` 判定与 CI 的机器速度不同，用例在「打开动画未完成」的窗口里按 Escape 的概率不同；而且本地跑这条要先过 `/history` 溢出那道坎，掩盖了后面的失败。
 
