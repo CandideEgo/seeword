@@ -22,6 +22,11 @@ async def _snapshot_lock_waits() -> list[str]:
     Taken *during* the race, not after it: by the time DeadlockDetectedError
     reaches us Postgres has already aborted one side, so a post-mortem snapshot
     shows no waits at all (verified on CI).
+
+    Also dumps *every* lock held by the blocked pids and by their blockers. The
+    transactionid-level edge alone is ambiguous: it says "waits for that
+    transaction", not which row lock formed the cycle, and the two sides may be
+    waiting on different lock types entirely.
     """
     from sqlalchemy import text
 
@@ -52,9 +57,34 @@ async def _snapshot_lock_waits() -> list[str]:
                 )
             )
         ).all()
-    return [
-        f"pid {waiter} wants {want} on {rel} <- pid {blocker} holds {held}" for waiter, want, rel, blocker, held in rows
-    ]
+        lines = [f"pid {w} wants {want} on {rel} <- pid {b} holds {held}" for w, want, rel, b, held in rows]
+        if not lines:
+            return []
+        pids = sorted({row[0] for row in rows} | {row[3] for row in rows})
+        held_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT l.pid, a.state, a.wait_event_type, a.wait_event,
+                           l.locktype, l.mode, l.granted,
+                           l.relation::regclass::text AS rel, l.transactionid,
+                           left(a.query, 110) AS q
+                    FROM pg_locks l
+                    JOIN pg_stat_activity a ON a.pid = l.pid
+                    WHERE l.pid = ANY(:pids)
+                    ORDER BY l.pid, l.granted DESC, l.mode
+                    """
+                ),
+                {"pids": pids},
+            )
+        ).all()
+    lines.append("  held locks:")
+    lines.extend(
+        f"    pid {pid} state={state} wait={wet or '-'}/{we or '-'} {ltype} {mode} "
+        f"granted={granted} rel={rel} xid={xid} :: {q}"
+        for pid, state, wet, we, ltype, mode, granted, rel, xid, q in held_rows
+    )
+    return lines
 
 
 async def _watch_lock_waits(sink: list[str], stop: asyncio.Event, interval: float = 0.01) -> None:
