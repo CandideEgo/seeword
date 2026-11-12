@@ -161,6 +161,16 @@ test.describe("首页下滑流 · 筛选", () => {
   });
 
   test("分类与难度写进 URL 并带进请求；筛选时不再提供「推荐」排序", async ({ page }) => {
+    // 断言的是「最终那次 feed 请求带上了哪些筛选」，而不是「每次点击各发一次
+    // 请求」。两次点击可能被合并成一次 URL 变更再取一次数据，那是合法行为
+    // （见下面 feedRequests 的注释）；按「点击 A 就要看到请求 A」写，会在
+    // 合并发生时等到超时——CI 上这条曾经三次都卡在 level=B2 那一步。
+    const feedRequests: string[] = [];
+    page.on("request", (request) => {
+      const url = request.url();
+      if (url.includes("/browse/feed")) feedRequests.push(url);
+    });
+
     await openHome(page);
     const feed = page.locator("#feed");
     const sort = page.locator("#feed-sort");
@@ -170,33 +180,30 @@ test.describe("首页下滑流 · 筛选", () => {
     await expect(page.getByRole("link", { name: "看全部视频" })).toHaveCount(0);
     await expect(sort).toContainText("推荐");
 
-    const [categoryResponse] = await Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes("/browse/feed") && r.url().includes("category=news"),
-        { timeout: 20000 }
-      ),
-      feed.getByRole("button", { name: "新闻", exact: true }).click(),
-    ]);
-    expect(categoryResponse.status()).toBe(200);
+    await feed.getByRole("button", { name: "新闻", exact: true }).click();
     await expect(page).toHaveURL(/category=news/);
     // 后端没有「分类内的个性化」这条排序，界面如实显示最新，并隐藏推荐
     await expect(sort).toContainText("最新");
+    await expect
+      .poll(() => feedRequests.some((url) => url.includes("category=news")), { timeout: 20000 })
+      .toBe(true);
+
     await sort.click();
     await expect(
       page.getByRole("listbox").getByRole("option", { name: "推荐", exact: true })
     ).toHaveCount(0);
     await page.keyboard.press("Escape");
 
-    const [levelResponse] = await Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes("/browse/feed") && r.url().includes("level=B2"),
-        { timeout: 20000 }
-      ),
-      chooseSelectMenu(page, level, /^B2 · /),
-    ]);
-    expect(levelResponse.status()).toBe(200);
+    await chooseSelectMenu(page, level, /^B2 · /);
     await expect(page).toHaveURL(/level=B2/);
     await expect(page).toHaveURL(/category=news/);
+    // 两个筛选都必须到请求里：同时带上的那一次，或各自一次。
+    await expect
+      .poll(
+        () => feedRequests.some((url) => url.includes("level=B2") && url.includes("category=news")),
+        { timeout: 20000 }
+      )
+      .toBe(true);
   });
 
   test("空结果可清除筛选，回到推荐流", async ({ page }) => {
