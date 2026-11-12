@@ -144,13 +144,24 @@ ok  listening_sessions UPDATE (submitted_at)
 
 （这与另一条独立的实测一致：`FOR NO KEY UPDATE` 不会阻塞插入外键指向该行的子行。）
 
+**2026-11-12 晚：在真 PG16 上把锁模式矩阵实测了一遍，得到一条与 CI 等待边互相矛盾的对照。**
+
+```
+users 行持 FOR NO KEY UPDATE  → 外键 FOR KEY SHARE 插入   不阻塞
+users 行持 FOR UPDATE          → 外键 FOR KEY SHARE 插入   阻塞（等 users 的 tuple (0,1)）
+```
+
+即：只有 `FOR UPDATE` 会让外键检查排队。而 `start()` 按代码只取 `key_share=True`（编译成 `FOR NO KEY UPDATE`），CI 的等待边却说 submit 的 `INSERT INTO learning_events` 正在等 start 的事务。**这两件事在当前模型下不可能同时成立**，所以缺的不是推断，是「双方各自持有了什么」。
+
+**又试了一次强制交错，本地仍不阻塞**：用真实 schema 与真实 `record_event`，把顺序钉成「submit 先持 session 行 → start 取 users 锁 → start 发 pending 查询 → submit 更新并插事件」，连跑三轮全过（50s / 37s / 39s）。同文件 7 项在迁移到 head 的库上也全过。
+
 所以结论只能到这里：**语句对是硬证据，但环如何闭合还没定论。** 可能 B 在事件 INSERT 之前已经因为别的写拿到/等待了某个锁（`learning_events` 上的唯一约束或索引、序列，或测试自身 `seed()` 那条 `start()` 留下的行），也可能阻塞点是 CI 特有的（同一进程内已跑完 1800 项后的连接池状态）。**在没有抓到真实等待边之前不要改加锁顺序**——我这一页上一版给过一条「统一成先 account、后 session」的建议，就是没验就写下的，已被上面两个探针推翻。
 
-**为什么仍然没修**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过（50.91s）；按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**这次实验未完成，不构成证据**）。
+**为什么仍然没修**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
 
-**下一步**：服务端日志已经在 CI 里了，下一轮再红时先看 `pg_stat_activity` 与 deadlock 段里的 `CONTEXT` 行（它指出具体等的是哪张表的哪个 tuple）。若仍不足以定环，就在测试里按 CI 的执行顺序把 `pg_locks` 快照打出来——而不是继续从代码推断。
+**下一步（本轮已做）**：等待边只回答「等谁的 transactionid」，而 transactionid 级等待在锁被完整看完之前是有歧义的——外键的 `FOR KEY SHARE`、行的 `FOR NO KEY UPDATE`、乃至表锁都会落到同一个 xid 上。`240da713` 把快照扩成「被阻塞进程与阻塞者的全部 `pg_locks` 行 + `state`/`wait_event` + 当前语句」。下一轮 CI 若仍是同一个环，从这份输出就能读出闭合成环的那一行；**若依然读不出，就说明这条用例在 CI 的执行环境下不成立，该查的是测试本身而不是加锁顺序**。
 
 ### `e2e` 那几条：两条是确定性的，两条是抖动
 
