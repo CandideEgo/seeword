@@ -94,7 +94,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-五条腿长期是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`。`backend` 是红的（`test_listening_pg` 死锁，见本章末尾）；`e2e` 曾有两条确定性失败，2026-11-12 已修但**尚未经 CI 确认**，另两条仍是抖动，见下面。
+五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`，以及 `e2e`（2026-11-12 深夜 **pass 31m1s**，`--timeout-keep-alive 120` 那条修复生效）。`backend` 仍红（`test_listening_pg` 死锁，环已由 tuple 级锁快照解出并修，见本章末尾）。
 
 **不是这个分支引入的。** 证据：
 
@@ -157,11 +157,36 @@ users 行持 FOR UPDATE          → 外键 FOR KEY SHARE 插入   阻塞（等 
 
 所以结论只能到这里：**语句对是硬证据，但环如何闭合还没定论。** 可能 B 在事件 INSERT 之前已经因为别的写拿到/等待了某个锁（`learning_events` 上的唯一约束或索引、序列，或测试自身 `seed()` 那条 `start()` 留下的行），也可能阻塞点是 CI 特有的（同一进程内已跑完 1800 项后的连接池状态）。**在没有抓到真实等待边之前不要改加锁顺序**——我这一页上一版给过一条「统一成先 account、后 session」的建议，就是没验就写下的，已被上面两个探针推翻。
 
+**2026-11-12 深夜：tuple 级锁快照把环解开了——是加锁顺序反转，上一版撤掉那条建议撤早了。**
+
+`240da713` 扩出的快照在 CI 上拿到了完整两侧。把 `granted=False` 与 tuple 级的行抽出来，环是这样的：
+
+```
+pid 792 (submit, 正在执行 INSERT INTO learning_events)
+  持: tuple "users" AccessShareLock        <- 外键检查摸到的父行
+      transactionid 989 ExclusiveLock
+  等: transactionid 990 ShareLock          <- start 的事务
+
+pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
+  持: tuple "listening_sessions" AccessExclusiveLock   <- FOR UPDATE 拿到的那一行
+      transactionid 990 ExclusiveLock
+  等: transactionid 989 ShareLock          <- submit 的事务
+```
+
+两侧碰的是**同样两行**（`listening_sessions` 那一行、`users` 那一行），顺序相反：
+
+- `submit()`：先锁 session 行 → 写它 → 插 `learning_events`，外键把 `users` 行也带进来
+- `start()`：先锁 `users` 行 → 再要 session 行
+
+这正是我上一版写过后又撤掉的那条判断。当时撤掉的**理由本身没错**（本地微探针确实证明 `FOR NO KEY UPDATE` 不挡外键的 `FOR KEY SHARE`），但那条实测只覆盖了「锁模式兼容性」，没覆盖「两事务各自持有对方要的行」——后者与模式兼不兼容无关，只看顺序。快照里的 `tuple users AccessShareLock`（不是 `ExclusiveLock`）恰好说明了这点：外键那边只拿了共享锁，挡它的是 793 尚未提交、以及两边互相要对方手里的行。
+
+**修法**：把 `start()` 里那段内联的账号锁提成 `_lock_account()`，让 `submit()` 也在锁 session 行**之前**调用它。两边统一成「先账号、后 session」，交叉消失。没有放宽任何一道锁，也没有改判分逻辑。
+
 **为什么仍然没修**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
 
-**下一步（本轮已做）**：等待边只回答「等谁的 transactionid」，而 transactionid 级等待在锁被完整看完之前是有歧义的——外键的 `FOR KEY SHARE`、行的 `FOR NO KEY UPDATE`、乃至表锁都会落到同一个 xid 上。`240da713` 把快照扩成「被阻塞进程与阻塞者的全部 `pg_locks` 行 + `state`/`wait_event` + 当前语句」。下一轮 CI 若仍是同一个环，从这份输出就能读出闭合成环的那一行；**若依然读不出，就说明这条用例在 CI 的执行环境下不成立，该查的是测试本身而不是加锁顺序**。
+**下一步（已做）**：等待边只回答「等谁的 transactionid」，transactionid 级等待在锁被完整看完之前是有歧义的——外键的 `FOR KEY SHARE`、行的 `FOR NO KEY UPDATE`、乃至表锁都会落到同一个 xid 上。`240da713` 把快照扩成「被阻塞进程与阻塞者的全部 `pg_locks` 行 + `state`/`wait_event` + 当前语句」，正是这份输出解出了上面那个环。
 
 ### `e2e` 那几条：两条是确定性的，两条是抖动
 
@@ -172,7 +197,27 @@ users 行持 FOR UPDATE          → 外键 FOR KEY SHARE 插入   阻塞（等 
 | `design-rollout.spec.ts:139`        | 找不到「视频 / 字幕 / 词汇 / 频道」标题 | **确定性**：CI 的搜索数据是空的 —— 已修           |
 | `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/…`（每轮端点不同）    | **确定性**：CI 起后端少了 keep-alive 参数 —— 已修 |
 | `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动（未修）                            |
-| `home-feed.spec.ts:163`             | 20 秒内没等到带 `level=B2` 的 feed 响应 | 请求时序抖动（未修）                              |
+| `home-feed.spec.ts:163`             | 点 `#feed-level` 时被全屏遮罩挡住点击    | **确定性**：`SelectMenu` 模态遮罩的 Escape 竞态 —— 已修 |
+
+**`home-feed:163` 不是抖动，是用户能撞上的真 bug。** 上一版把它记成「请求时序抖动」，那是因为只看到了「20 秒内没等到 `level=B2` 的请求」。看 CI 的完整报错才知道点击根本没发生：
+
+```
+- <div role="presentation" data-base-ui-inert=""></div>
+  from <div id="_r_k_" data-base-ui-portal=""> subtree intercepts pointer events
+```
+
+用例在第 191 行打开排序面板、第 195 行按 Escape 关它，第 197 行去点难度——那个 inert 遮罩还在，把点击全吃掉，重试两次都卡在同一行。
+
+**根因用 ego-browser 在真机上复现了，而且稳定**：`SelectMenu` 走 Base UI 的 `Select`，`modal` 默认 `true`，打开期间铺一层全屏 `InternalBackdrop`。**在打开动画尚未完成的窗口里按 Escape，面板不但不关，反而卡在打开态、遮罩留在页面上**——之后整页点不动。时间序列（点开后每隔一段按 Escape）：
+
+```
+点开后立刻按（0/50/150ms）  → expanded=true, inerts=7, 难度触发器命中 DIV  ← 卡死
+等 expanded=true 后再按      → expanded=false, inerts=0, 命中 BUTTON#feed-level ← 正常
+```
+
+**修法两处**：`SelectMenu` 传 `modal={false}`（非对话框式下拉本来就不该冻结整页，遮罩层随之消失）；用例不再靠「按 Escape 关面板」这一步验证筛选，改成选一个确定存在的排序值来关面板——那条断言验的是关闭行为，与本用例要验的「筛选进 URL、进请求」无关，却让用例依赖库的按键时序。
+
+**为什么 CI 上必现、上一版却在本地看不出来**：本地的 `enabled` 判定与 CI 的机器速度不同，用例在「打开动画未完成」的窗口里按 Escape 的概率不同；而且本地跑这条要先过 `/history` 溢出那道坎，掩盖了后面的失败。
 
 **`design-rollout:139` 是 fixture 缺口，不是回归。** 这个用例搜 `habit`，然后断言四个分组各有 `<h2>` 标题。CI 的库是「空库迁移 + `seed_e2e.py`」：种子字幕里没有 `habit`，视频标题里也没有；而「词汇」组要靠 ECDICT，`backend/data/ecdict.db` 被 `.gitignore` 忽略、CI 从不下载（`grep ecdict .github/workflows/` 为空）。四组计数全 0 ⇒ `totalHits === 0` ⇒ `allEmpty` 成立 ⇒ 页面渲染空态、**四个分组标题根本不渲染**（`search/page.tsx:165` 与 `:414`）。本机看不出来，是因为本机有 51 条视频和一份 ECDICT。
 
@@ -191,9 +236,9 @@ users 行持 FOR UPDATE          → 外键 FOR KEY SHARE 插入   阻塞（等 
 
 uvicorn 在每个响应结束后都会 `call_later(timeout_keep_alive, ...)` 关掉空闲连接，所以「代理复用被服务端关掉的连接」是必然而非偶发。
 
-两条都已修，但**结论要等 CI 跑过才算确认**：本地能复现的是机制，不是 CI 的整体时序。`watch-immersive:74` 与 `home-feed:163` 仍属抖动，没动。
+`design-rollout:139` 与 `:303`、`home-feed:163` 三处都已修，但**结论要等 CI 跑过才算确认**：本地能复现的是机制，不是 CI 的整体时序。`watch-immersive:74` 仍属抖动，没动。
 
-**本地跑 `:303` 会先撞上另一件事（不是这次修的）**：这条用例在本地失败于 `/history` 页的 `#main-scroll` 横向溢出（`:385`），而 CI 失败于更后面的 5xx 收集（`:392`）。两者都真实存在：把种子文案改回旧版、以及把本次两处修复整体 stash 掉，`/history main` 都照样失败——**这是既存问题，与本次修复无关，也还没修**。它挡在本地复现 `:303` 的路上，排查这条 spec 时别把它当成本次改动引入的。
+**本地跑 `:303` 会先撞上另一件事（已修）**：这条用例在本地失败于 `/history` 页的 `#main-scroll` 横向溢出（`:385`），而 CI 失败于更后面的 5xx 收集（`:392`）。两者都真实存在，`d3dac802` 一并修掉了前者：`/history` 记录列表上方那三张摘要卡用的是裸 `grid`，列宽 `auto`，卡里不换行的视频标题把列撑到 560px，375px 视口下整页横向溢出；改成 `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` 后回到容器宽度。**那不是本次修复引入的**，是既存问题。
 
 ## 六、这一轮补了什么（相对昨晚）
 
