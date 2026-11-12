@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import event, func, select
+from sqlalchemy import func, select
 
 from app.core.database import get_async_session_maker
 from app.models.learning_plan import LearningEvent
@@ -211,43 +211,44 @@ async def test_draft_and_submission_obey_the_same_locked_state_transition(save_f
 
 @pytest.mark.parametrize("restart", [True, False])
 async def test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_history(restart):
+    """Overlapping submit/start on one account must not close a lock cycle.
+
+    Both bodies call the service functions exactly the way the API endpoints
+    do — no pre-held row lock. That matters: an earlier version of this test
+    locked the session row by hand before calling ``submit()``, which is a
+    stricter interleaving than any request can produce and which deadlocks
+    *by construction* once both paths take the account lock first (the test's
+    own lock is the session row, so submit holds session and waits for the
+    account while start holds the account and waits for session). The lock
+    order the fix establishes — account first, session second — is only
+    observable when the callers do not jump the queue.
+    """
     uid, vid, sid, _answers = await seed()
     maker = get_async_session_maker()
-    engine = maker.kw["bind"].sync_engine
-    session_locked, account_locked = asyncio.Event(), asyncio.Event()
-
-    def observe_account_lock(conn, cursor, statement, parameters, context, executemany):
-        if "FROM users" in statement and ("FOR UPDATE" in statement or "FOR NO KEY UPDATE" in statement):
-            account_locked.set()
+    barrier = asyncio.Barrier(2)
 
     async def submit():
+        await barrier.wait()
         async with maker() as db:
-            await listening_service.owned_session(db, sid, uid, lock=True)
-            session_locked.set()
-            # start now holds its account lock and is about to wait for this
-            # attempt. A learning-event FK must remain able to take KEY SHARE.
-            await asyncio.wait_for(account_locked.wait(), timeout=5)
             await listening_service.submit(db, sid, uid)
             await db.commit()
 
     async def start():
-        await asyncio.wait_for(session_locked.wait(), timeout=5)
+        await barrier.wait()
         async with maker() as db:
             user = await db.get(User, uid)
             row = await listening_service.start(db, user, vid, 5, restart)
             await db.commit()
             return row.id
 
-    event.listen(engine, "after_cursor_execute", observe_account_lock)
     observed_waits: list[str] = []
     watcher_stop = asyncio.Event()
     watcher = asyncio.create_task(_watch_lock_waits(observed_waits, watcher_stop))
     try:
         _, new_id = await asyncio.wait_for(asyncio.gather(submit(), start()), timeout=20)
     except Exception:
-        # CI reproduces this deadlock on every run while a local Postgres does
-        # not. Postgres' deadlock DETAIL names the two statements but not the
-        # lock modes, and log_lock_waits stays silent (the victim is picked at
+        # Postgres' deadlock DETAIL names the two statements but not the lock
+        # modes, and log_lock_waits stays silent (the victim is picked at
         # deadlock_timeout). The waits only exist while the race is in flight,
         # so they are sampled above and reported here.
         waits = "\n  ".join(observed_waits or ["(none observed)"])
@@ -256,7 +257,6 @@ async def test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_hi
     finally:
         watcher_stop.set()
         watcher.cancel()
-        event.remove(engine, "after_cursor_execute", observe_account_lock)
     assert new_id != sid
     async with maker() as db:
         old = await db.get(ListeningSession, sid)
