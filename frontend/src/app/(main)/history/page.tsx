@@ -281,8 +281,10 @@ export default function HistoryPage() {
           </Card>
         )}
 
-        {/* 设计在记录列表上方补三张卡：最近观看 / 最近练习 / 词汇进展（V-19）。 */}
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {/* 设计在记录列表上方补三张卡：最近观看 / 最近练习 / 词汇进展（V-19）。
+            手机必须显式 grid-cols-1：裸 `grid` 的列宽是 auto，卡片里那条不换行的
+            视频标题会把列撑到 560px，整页在 375px 下横向溢出（e2e 三档视口用例）。 */}
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           <Card variant="outline" padding={5}>
             <h2 className="text-copy font-semibold text-ink">最近观看</h2>
             {recent ? (
