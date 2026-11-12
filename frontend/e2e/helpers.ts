@@ -40,7 +40,11 @@ export async function chooseSelectMenu(
   option: string | RegExp
 ): Promise<void> {
   await trigger.click();
-  const listbox = page.getByRole("listbox").last();
+  // 两个 SelectMenu 的弹出层可能同时在 DOM 里（Base UI 用 keepMounted 保留关闭
+  // 状态的那一个），而 `getByRole("listbox").last()` 取到的不一定是刚打开的那个
+  // —— 它可能是一个高宽为 0 的隐藏 listbox，里面的选项永远等不到 visible。
+  // 按「可见」筛，只可能命中刚展开的那一个。
+  const listbox = page.getByRole("listbox").filter({ visible: true }).last();
   await listbox.getByRole("option", { name: option, exact: typeof option === "string" }).click();
 }
 
