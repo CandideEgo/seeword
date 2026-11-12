@@ -111,6 +111,20 @@ jobs:
           fi
           echo "No new mypy errors (baseline: $(wc -l < .mypy-baseline) file:code pairs). Lower the baseline as you fix existing ones."
 
+      - name: Surface lock waits in the Postgres log
+        # The deadlock's server-log DETAIL names both statements but not what
+        # each side was waiting on, which is the one fact needed to tell a
+        # lock-order bug from an unrelated wait that merely coincided. With
+        # log_lock_waits on, Postgres logs the waiter, the blocking PID and the
+        # lock mode for every wait longer than deadlock_timeout. Best-effort:
+        # a failure here must not mask the test result.
+        continue-on-error: true
+        run: |
+          PGPASSWORD=seeword_test psql -h localhost -U seeword -d seeword_test \
+            -c "ALTER DATABASE seeword_test SET log_lock_waits = on" \
+            -c "ALTER DATABASE seeword_test SET log_min_duration_statement = 2000" \
+            || echo "(psql unavailable; lock waits will not be logged)"
+
       - name: Run tests
         working-directory: backend
         # The full suite is ~1500 tests and takes 27+ minutes locally (coverage
