@@ -16,6 +16,51 @@ from tests.test_listening_api import seed as seed_video
 pytestmark = pytest.mark.integration
 
 
+async def _dump_locks(label: str) -> None:
+    """Print every lock a request is waiting on, and who holds the blocker.
+
+    Only useful on failure (the snapshot is noise otherwise), and deliberately
+    best-effort: this must never turn a deadlock into a different error.
+    """
+    from sqlalchemy import text
+
+    try:
+        async with get_async_session_maker()() as db:
+            if db.get_bind().dialect.name != "postgresql":
+                return
+            rows = (
+                await db.execute(
+                    text(
+                        """
+                        SELECT w.pid AS waiter, w.mode AS want, w.relation::regclass::text AS rel,
+                               b.pid AS blocker, b.mode AS held, b.granted
+                        FROM pg_locks w
+                        JOIN pg_locks b
+                          ON b.locktype = w.locktype
+                         AND b.database IS NOT DISTINCT FROM w.database
+                         AND b.relation IS NOT DISTINCT FROM w.relation
+                         AND b.page IS NOT DISTINCT FROM w.page
+                         AND b.tuple IS NOT DISTINCT FROM w.tuple
+                         AND b.virtualxid IS NOT DISTINCT FROM w.virtualxid
+                         AND b.transactionid IS NOT DISTINCT FROM w.transactionid
+                         AND b.classid IS NOT DISTINCT FROM w.classid
+                         AND b.objid IS NOT DISTINCT FROM w.objid
+                         AND b.objsubid IS NOT DISTINCT FROM w.objsubid
+                         AND b.pid <> w.pid
+                        WHERE NOT w.granted AND b.granted
+                        """
+                    )
+                )
+            ).all()
+            print(f"\n[pg_locks] {label}")
+            for waiter, want, rel, blocker, held, _granted in rows:
+                print(f"  pid {waiter} wants {want} on {rel} <- pid {blocker} holds {held}")
+            if not rows:
+                print("  (no ungranted lock waits at snapshot time)")
+    except Exception as exc:  # pragma: no cover - diagnostics only
+        print(f"[pg_locks] {label}: snapshot failed ({exc})")
+
+
 async def seed(*, start=True):
     async with get_async_session_maker()() as db:
         user = User(phone="13800009854", name="Listening race")
@@ -151,6 +196,14 @@ async def test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_hi
     event.listen(engine, "after_cursor_execute", observe_account_lock)
     try:
         _, new_id = await asyncio.wait_for(asyncio.gather(submit(), start()), timeout=20)
+    except Exception:
+        # CI reproduces this deadlock on every run while a local Postgres does
+        # not, so the one thing worth having is the server's own view of who
+        # waited on what. Postgres' deadlock DETAIL names the two statements but
+        # not the lock modes, and log_lock_waits stays silent because the victim
+        # is chosen at deadlock_timeout. A pg_locks snapshot says it directly.
+        await _dump_locks("after deadlock in start/submit race")
+        raise
     finally:
         event.remove(engine, "after_cursor_execute", observe_account_lock)
     assert new_id != sid
