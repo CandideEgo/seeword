@@ -290,3 +290,46 @@ async def test_two_starts_share_one_pending_session():
     assert first == second
     async with get_async_session_maker()() as db:
         assert await db.scalar(select(func.count(ListeningSession.id))) == 1
+
+
+async def test_concurrent_submit_and_start_do_not_deadlock():
+    """The two paths must queue on the account lock, not cycle.
+
+    This is the case that used to raise ``DeadlockDetectedError`` in CI: submit
+    reaches the account row through the ``learning_events`` foreign key while
+    start takes it explicitly, so with the two paths acquiring the session row
+    and the account row in opposite orders they closed a wait cycle (see the
+    pg_locks dump in ``docs/slcs/start-here.md`` §5). Both paths now take the
+    account lock first.
+
+    ``restart=False`` on purpose: with ``restart=True`` the outcome genuinely
+    depends on which transaction commits first (start deletes the pending row
+    it finds), so that variant cannot assert a single result. Here the only
+    claim is that the overlap completes, both ways round.
+    """
+    uid, vid, sid, answers = await seed()
+    async with get_async_session_maker()() as db:
+        await listening_service.save(db, sid, uid, answers, 0)
+        await db.commit()
+
+    barrier = asyncio.Barrier(2)
+
+    async def submit():
+        async with get_async_session_maker()() as db:
+            await barrier.wait()
+            await listening_service.submit(db, sid, uid)
+            await db.commit()
+
+    async def start():
+        async with get_async_session_maker()() as db:
+            user = await db.get(User, uid)
+            await barrier.wait()
+            await listening_service.start(db, user, vid, 5, False)
+            await db.commit()
+
+    # A DeadlockDetectedError propagates out of gather and fails the test.
+    await asyncio.wait_for(asyncio.gather(submit(), start()), timeout=20)
+    async with get_async_session_maker()() as db:
+        row = await db.get(ListeningSession, sid)
+        assert row is not None and row.submitted_at is not None
+        assert await db.scalar(select(func.count(LearningEvent.id))) == 1
