@@ -16,49 +16,64 @@ from tests.test_listening_api import seed as seed_video
 pytestmark = pytest.mark.integration
 
 
-async def _dump_locks(label: str) -> None:
-    """Print every lock a request is waiting on, and who holds the blocker.
+async def _snapshot_lock_waits() -> list[str]:
+    """Every ungranted lock request plus who holds the blocker.
 
-    Only useful on failure (the snapshot is noise otherwise), and deliberately
-    best-effort: this must never turn a deadlock into a different error.
+    Taken *during* the race, not after it: by the time DeadlockDetectedError
+    reaches us Postgres has already aborted one side, so a post-mortem snapshot
+    shows no waits at all (verified on CI).
     """
     from sqlalchemy import text
 
-    try:
-        async with get_async_session_maker()() as db:
-            if db.get_bind().dialect.name != "postgresql":
-                return
-            rows = (
-                await db.execute(
-                    text(
-                        """
-                        SELECT w.pid AS waiter, w.mode AS want, w.relation::regclass::text AS rel,
-                               b.pid AS blocker, b.mode AS held, b.granted
-                        FROM pg_locks w
-                        JOIN pg_locks b
-                          ON b.locktype = w.locktype
-                         AND b.database IS NOT DISTINCT FROM w.database
-                         AND b.relation IS NOT DISTINCT FROM w.relation
-                         AND b.page IS NOT DISTINCT FROM w.page
-                         AND b.tuple IS NOT DISTINCT FROM w.tuple
-                         AND b.virtualxid IS NOT DISTINCT FROM w.virtualxid
-                         AND b.transactionid IS NOT DISTINCT FROM w.transactionid
-                         AND b.classid IS NOT DISTINCT FROM w.classid
-                         AND b.objid IS NOT DISTINCT FROM w.objid
-                         AND b.objsubid IS NOT DISTINCT FROM w.objsubid
-                         AND b.pid <> w.pid
-                        WHERE NOT w.granted AND b.granted
-                        """
-                    )
+    async with get_async_session_maker()() as db:
+        if db.get_bind().dialect.name != "postgresql":
+            return []
+        rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT w.pid AS waiter, w.mode AS want, w.relation::regclass::text AS rel,
+                           b.pid AS blocker, b.mode AS held
+                    FROM pg_locks w
+                    JOIN pg_locks b
+                      ON b.locktype = w.locktype
+                     AND b.database IS NOT DISTINCT FROM w.database
+                     AND b.relation IS NOT DISTINCT FROM w.relation
+                     AND b.page IS NOT DISTINCT FROM w.page
+                     AND b.tuple IS NOT DISTINCT FROM w.tuple
+                     AND b.virtualxid IS NOT DISTINCT FROM w.virtualxid
+                     AND b.transactionid IS NOT DISTINCT FROM w.transactionid
+                     AND b.classid IS NOT DISTINCT FROM w.classid
+                     AND b.objid IS NOT DISTINCT FROM w.objid
+                     AND b.objsubid IS NOT DISTINCT FROM w.objsubid
+                     AND b.pid <> w.pid
+                    WHERE NOT w.granted AND b.granted
+                    """
                 )
-            ).all()
-            print(f"\n[pg_locks] {label}")
-            for waiter, want, rel, blocker, held, _granted in rows:
-                print(f"  pid {waiter} wants {want} on {rel} <- pid {blocker} holds {held}")
-            if not rows:
-                print("  (no ungranted lock waits at snapshot time)")
-    except Exception as exc:  # pragma: no cover - diagnostics only
-        print(f"[pg_locks] {label}: snapshot failed ({exc})")
+            )
+        ).all()
+    return [
+        f"pid {waiter} wants {want} on {rel} <- pid {blocker} holds {held}" for waiter, want, rel, blocker, held in rows
+    ]
+
+
+async def _watch_lock_waits(sink: list[str], stop: asyncio.Event, interval: float = 0.01) -> None:
+    """Poll pg_locks until ``stop`` is set, keeping the last non-empty snapshot.
+
+    Best-effort throughout: a diagnostics failure must never change the test's
+    own outcome.
+    """
+    while not stop.is_set():
+        try:
+            waits = await _snapshot_lock_waits()
+        except Exception:  # pragma: no cover - pool may be busy while the race runs
+            waits = []
+        if waits:
+            sink[:] = waits
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+        except TimeoutError:
+            continue
 
 
 async def seed(*, start=True):
@@ -194,17 +209,23 @@ async def test_start_waiting_for_submit_does_not_deadlock_or_delete_submitted_hi
             return row.id
 
     event.listen(engine, "after_cursor_execute", observe_account_lock)
+    observed_waits: list[str] = []
+    watcher_stop = asyncio.Event()
+    watcher = asyncio.create_task(_watch_lock_waits(observed_waits, watcher_stop))
     try:
         _, new_id = await asyncio.wait_for(asyncio.gather(submit(), start()), timeout=20)
     except Exception:
         # CI reproduces this deadlock on every run while a local Postgres does
-        # not, so the one thing worth having is the server's own view of who
-        # waited on what. Postgres' deadlock DETAIL names the two statements but
-        # not the lock modes, and log_lock_waits stays silent because the victim
-        # is chosen at deadlock_timeout. A pg_locks snapshot says it directly.
-        await _dump_locks("after deadlock in start/submit race")
+        # not. Postgres' deadlock DETAIL names the two statements but not the
+        # lock modes, and log_lock_waits stays silent (the victim is picked at
+        # deadlock_timeout). The waits only exist while the race is in flight,
+        # so they are sampled above and reported here.
+        waits = "\n  ".join(observed_waits or ["(none observed)"])
+        print(f"\n[pg_locks] start/submit race, last non-empty snapshot:\n  {waits}")
         raise
     finally:
+        watcher_stop.set()
+        watcher.cancel()
         event.remove(engine, "after_cursor_execute", observe_account_lock)
     assert new_id != sid
     async with maker() as db:
