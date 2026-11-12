@@ -20,6 +20,12 @@ export interface SelectMenuOption<T extends string> {
  * - 需要自定义选项排版、要与站内其它弹层视觉一致 → 用这里。
  *
  * 面板挂到 `useOverlayContainer()` 给的容器，跟随 `.user-ui` 品牌作用域。
+ *
+ * **`modal={false}` 是修 bug 的，不是偏好。** Base UI 默认 `modal=true`：面板打开
+ * 期间铺一层全屏 `InternalBackdrop`，让页面其余部分不可点。Escape 在「打开动画
+ * 尚未完成」的窗口里按下时，面板不会关，反而卡在打开态、遮罩留在页面上——之后
+ * 整页点不动（首页筛选工具条的 e2e 就这样被卡了 60s）。非对话框式的下拉本来也
+ * 不该冻结整页，改用非模态后遮罩层根本不存在，这一类失败面随之消失。
  */
 export function SelectMenu<T extends string>({
   value,
@@ -46,6 +52,7 @@ export function SelectMenu<T extends string>({
     <Select.Root
       items={options}
       value={value}
+      modal={false}
       onValueChange={(next) => {
         if (typeof next === "string") onValueChange(next as T);
       }}
