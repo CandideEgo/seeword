@@ -182,6 +182,10 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 **修法**：把 `start()` 里那段内联的账号锁提成 `_lock_account()`，让 `submit()` 也在锁 session 行**之前**调用它。两边统一成「先账号、后 session」，交叉消失。没有放宽任何一道锁，也没有改判分逻辑。
 
+**用例也跟着改了，这一点容易再踩**：那条用例原本在调 `submit()` 之前先手工 `owned_session(lock=True)` 锁住 session 行，再用事件把 start 的账号锁时序钉住。修复之后这个预置**本身就构成环**——用例自己持着 session 行，`submit()` 进来先等账号锁，而 start 持着账号锁在等 session 行。环是用例造出来的，不是代码里的，两个真实请求都不会预置锁。所以改成两个任务用 `asyncio.Barrier` 同时起跑、各自从头走服务函数，没有任何手工持锁。
+
+判断依据：`api/v1/listening.py` 的 `submit` / `start` 端点都是直接调服务函数，中间没有任何 `with_for_update`；预置锁只可能出现在测试里。
+
 **为什么本机一直复现不了**：本机连跑 16 次一次没复现；本地 Postgres 上整套 `test_listening_pg.py` 7 项全过；强制交错的复演脚本连跑三轮也全过。按 CI 方式跑全套还没跑完就因 `test_catalog_pg.py` 超时中断（**那次实验未完成，不构成证据**）。环需要「两边恰好都在对方要的行上」这个窗口，CI 的机器时序更容易撞上它。
 
 **也不要把它标成 `xfail`**：`pytest.ini` 没设 `xfail_strict`，标了会让这个真实缺陷变成静默通过。
