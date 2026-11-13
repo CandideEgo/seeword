@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { BookmarkPlus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { toastApiError } from "@/lib/errors";
@@ -75,33 +74,5 @@ export function ChannelSubscribeButton({ slug }: { slug: string }) {
             ? "已订阅 · 取消"
             : "订阅频道"}
     </Button>
-  );
-}
-
-export function SubscribedChannels() {
-  const [items, setItems] = useState<Subscription[]>([]);
-  useEffect(() => {
-    const controller = new AbortController();
-    api<Subscription[]>("/api/v1/discovery/subscriptions", { signal: controller.signal })
-      .then(setItems)
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
-  if (!items.length) return null;
-  return (
-    <section className="user-section">
-      <h2 className="user-sec-title mb-3">我订阅的频道</h2>
-      <div className="flex flex-wrap gap-2">
-        {items.map((c) => (
-          <Link
-            key={c.id}
-            href={`/channels/${c.slug}`}
-            className="inline-flex h-8 items-center rounded-pill border border-hairline-strong bg-canvas px-3 text-meta text-body hover:border-muted-soft hover:text-ink"
-          >
-            {c.name}
-          </Link>
-        ))}
-      </div>
-    </section>
   );
 }

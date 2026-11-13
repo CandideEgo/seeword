@@ -19,15 +19,16 @@
 ### REV01 · P1 · 本地过期会把漏通知的已付订单排除出补单
 
 - 来源：HEAD 旧站内 Order 支路，工作区未改这些代码。金数据使用独立收款模型，不能把本结论外推为金数据已发生同类故障。
-- 位置：[order_tasks.py](../../backend/app/tasks/order_tasks.py) 的 `expire_pending_orders`（15）与 `reconcile_pending_orders`（57）；[payments.py](../../backend/app/api/v1/payments.py) 的支付回调（186、228）；[celery_app.py](../../backend/app/tasks/celery_app.py) 的订单调度。
+- 位置（**本结论是历史快照**：`backend/app/tasks/order_tasks.py` 与 `backend/app/api/v1/payments.py` 已随 2026-11 会员收费链路下线删除，迁移 `d4e5f6a7b8c9` 删掉 `orders` / `jinshuju_payments` / `user_video_unlocks` 与 `users.plan*`。下面的行号指向审查时的 HEAD `e3f5ecba`）：`order_tasks.py` 的 `expire_pending_orders`（15）与 `reconcile_pending_orders`（57）；`payments.py` 的支付回调（186、228）；`celery_app.py` 的订单调度。
 - 触发：订单已在供应商付款，通知丢失；本地订单超过 30 分钟先被过期任务改为 expired。补单只查 pending，回调也拒绝非 pending。
 - 结果：之后即使供应商认定已付款，补单不会查询该订单，用户无法靠这条自动路径取得会员。过期巡检每 5 分钟、补单每 15 分钟，二者具有重叠窗口。
 - 证据：HEAD 隔离 SQLite 复现，模拟供应商始终返回 paid；先过期再补单，补单计数 0、供应商查询次数 0、状态仍 expired。复现不涉及真实付款。
 - 后续标准：区分本地订单超时和真实支付事实；以订单来源、支付凭证和幂等结算统一处理迟到通知/对账。若明确退役旧支路，保留所需兼容响应和历史财务数据，不默默留着一条看似可启用的收费路径。
+- **现状**：收费链路已整体删除而非留壳，因此本条不再有可修的代码；保留它是为了记录「为什么不要恢复这条支路」的推理。
 
 ### REV02 · P1 · 批量补单调用内部 commit，提前释放后续订单的锁
 
-- 来源：HEAD。位置同上，`order_tasks.reconcile_pending_orders` 与 `payments._process_successful_payment`（65–97）。
+- 来源：HEAD。位置同上（两个文件均已随 2026-11 收费链路下架删除），`order_tasks.reconcile_pending_orders` 与 `payments._process_successful_payment`（65–97）。
 - 证据：任务一次 `FOR UPDATE SKIP LOCKED` 读出全部订单；循环调用的支付 helper 每次自行 commit，第一次成功就释放整个事务的行锁。session 使用 `expire_on_commit=False`，后续订单对象仍保留旧状态；helper 没有重新锁定并校验该订单。
 - 推断：多个订单的批次与另一补单/回调交错时，后续订单可能被重复结算，重复延长会员。只有一笔订单的 happy path 测试不能证明批次安全。
 - 状态：锁释放与提交位置已静态确认；并发重复发放尚未在 PostgreSQL 复现。本机 Docker engine 不可达，不能拿 SQLite 证明 PG 锁行为。
@@ -51,7 +52,7 @@
 
 ### REV05 · P2 · 应用服务与任务反向依赖 HTTP 层
 
-- 来源：HEAD。位置：`order_tasks.py:107` 从 API 导入 `_process_successful_payment`；`notification_service.py:139` 从 API 导入 `push_to_user`。
+- 来源：HEAD。位置：`order_tasks.py:107` 从 API 导入 `_process_successful_payment`（两者均已在收费链路下架时删除）；`notification_service.py:139` 从 API 导入 `push_to_user`（**这一处仍然存在**，是当前要处理的那半条）。
 - 影响：批处理、HTTP 生命周期和业务提交规则相互绑定，难以单独测试或复用到外部接入；REV02、REV03 正是边界不清的具体表现。
 - 后续标准：支付结算归 billing 应用服务；WebSocket 连接管理/Redis 推送归通知传输适配器。HTTP 与 Celery 都调用服务，不让服务反向导入 API。维持已有 URL、任务名和响应契约。
 - 状态：静态 import 与 HEAD/工作区内容一致性已确认；当前测试通过不表示该边界已经合理。
@@ -130,7 +131,8 @@
 $env:PYTHONUTF8 = '1'
 .venv/Scripts/python.exe -m ruff check app/ tests/
 .venv/Scripts/python.exe -m pytest -m 'not integration' tests/test_architecture_invariants.py tests/test_exams_api.py tests/test_exam_snapshots.py tests/test_teaching.py tests/test_v2_runtime.py tests/test_v2_account_data.py tests/test_mcp_adapter.py tests/test_user_overview.py tests/test_account_data.py -q
-.venv/Scripts/python.exe -m pytest -m 'not integration' tests/test_payments.py tests/test_celery_tasks.py tests/test_notifications.py tests/test_vocabulary_mastered.py tests/test_listening_grading.py -q
+# test_payments.py 已随收费链路下架删除；下面这条是还存在的部分（2026-11 复核）。
+.venv/Scripts/python.exe -m pytest -m 'not integration' tests/test_celery_tasks.py tests/test_notifications.py tests/test_vocabulary_mastered.py tests/test_listening_grading.py -q
 ```
 
 隔离复现的最小操作顺序：

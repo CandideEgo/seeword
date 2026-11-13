@@ -105,6 +105,7 @@ function Field({
 }
 
 function ExpressionRow({
+  videoId,
   expression,
   index,
   subtitles,
@@ -113,6 +114,7 @@ function ExpressionRow({
   onChange,
   onRemove,
 }: {
+  videoId: string;
   expression: HomeContentDraftExpression;
   index: number;
   subtitles: Subtitle[];
@@ -146,7 +148,7 @@ function ExpressionRow({
           emptyLabel="选择一句字幕"
         />
       </Field>
-      {subtitle && <SubtitleQuote videoId={subtitle.video_id} subtitle={subtitle} compact />}
+      {subtitle && <SubtitleQuote videoId={videoId} subtitle={subtitle} compact />}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field
           label="短语（原句里的词或短语）"
@@ -201,6 +203,7 @@ function ExpressionRow({
 }
 
 function ScenarioRow({
+  videoId,
   scenario,
   index,
   subtitles,
@@ -209,6 +212,7 @@ function ScenarioRow({
   onChange,
   onRemove,
 }: {
+  videoId: string;
   scenario: HomeContentDraftScenario;
   index: number;
   subtitles: Subtitle[];
@@ -273,7 +277,7 @@ function ScenarioRow({
           emptyLabel="不锚定原句"
         />
       </Field>
-      {subtitle && <SubtitleQuote videoId={subtitle.video_id} subtitle={subtitle} compact />}
+      {subtitle && <SubtitleQuote videoId={videoId} subtitle={subtitle} compact />}
     </div>
   );
 }
@@ -614,6 +618,7 @@ export function HomeContentDraftForm({
             {draft.expressions.map((expression, index) => (
               <ExpressionRow
                 key={expression.id}
+                videoId={videoId}
                 expression={expression}
                 index={index}
                 subtitles={subtitles}
@@ -767,6 +772,7 @@ export function HomeContentDraftForm({
             {draft.scenarios.map((scenario, index) => (
               <ScenarioRow
                 key={scenario.id}
+                videoId={videoId}
                 scenario={scenario}
                 index={index}
                 subtitles={subtitles}

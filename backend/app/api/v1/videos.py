@@ -773,7 +773,7 @@ async def get_admin_video_detail(
     db: AsyncSession = Depends(get_db),
 ):
     """Admin video detail — bypasses check_video_access so admins can view UGC drafts."""
-    result = await _get_video_detail(db, video_id, current_user=None, skip_access_check=True)
+    result = await _get_video_detail(db, video_id, current_user=None, skip_access_check=True, include_word_timings=True)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
     return result

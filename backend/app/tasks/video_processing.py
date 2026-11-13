@@ -938,6 +938,12 @@ async def _run_watchdog_pipeline() -> None:
     # Per-step timeout lookup (seconds) — see pipeline_helpers.get_step_timeouts,
     # which is also the "every step has a budget" invariant's test seam.
     step_timeouts = get_step_timeouts()
+    # The admin panel exposes two of these budgets directly (翻译步 / 下载步) and
+    # its copy says changing them controls the watchdog, so the row wins over
+    # the env default here. An absent row keeps the env values.
+    if gate_row is not None:
+        step_timeouts["translating"] = gate_row.translate_timeout_sec
+        step_timeouts["downloading"] = gate_row.download_timeout_sec
     default_timeout = settings.pipeline_step_timeout_default
     transcribe_timeout = settings.video_transcribe_timeout
 

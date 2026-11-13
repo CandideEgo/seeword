@@ -8,10 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
-# Default notification preferences — all types enabled.
-# Phase 1 D6 adds the 20:00 review reminder time + the streak warning
-# toggle. These keys live inside notification_preferences JSON so the
-# existing PUT/GET merge logic carries them through (exclude_none merge).
+# Storage default for the ``notification_preferences`` JSON column.
+#
+# This is NOT the API's preference key set — that one is
+# ``app.schemas.notification.DEFAULT_NOTIFICATION_PREFS`` (what the client GETs
+# and PUTs). This dict is the row-level default, so it also carries keys no
+# client sends: ``vocabulary_reminder_time`` (read by reminder_tasks) and the
+# retired toggles sanitize_notification_preferences force back to False. Adding
+# a key here does not expose it, and adding one to the schema does not store it.
 DEFAULT_NOTIFICATION_PREFS: dict = {
     "system": True,
     "comment": True,

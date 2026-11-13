@@ -44,4 +44,5 @@ pre-commit>=3.7
 # only if you need them). Used by scripts/download_youtube_audio.py to intercept
 # YouTube audio streams via a headless browser.
 playwright>=1.44.0
-playwright-stealth>=1.0.0
+# 没有 playwright-stealth：没有任何脚本 import 它（`grep -rn stealth
+# backend/scripts` 为空）。真需要反检测时再按当时的 API 显式加回。

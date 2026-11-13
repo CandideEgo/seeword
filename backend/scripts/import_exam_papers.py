@@ -91,7 +91,8 @@ async def _upsert_questions(db: AsyncSession, paper: ExamPaper, rec: dict) -> in
     return len(rec["questions"])
 
 
-# 试卷科目（app.core.exam_subjects）与词汇大纲等级（app.core.exam_levels）是两套：
+# 试卷科目（展示侧见 frontend/src/lib/examSubjects.ts）与词汇大纲等级
+# （app.core.exam_levels）是两套：
 # 考研题库按英语一/英语二拆成 ky1/ky2，但真题语料的等级键必须是 ECDICT 词表用的 ky，
 # 否则 find_example_sentence(levels=["ky"]) 永远匹配不到这些句子（句子会变成死行）。
 _CORPUS_LEVEL = {"ky1": "ky", "ky2": "ky"}

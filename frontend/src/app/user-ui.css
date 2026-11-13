@@ -143,10 +143,12 @@
 .user-ui .shadow-brand {
   box-shadow: none;
 }
+/* 焦点环只描边、不改形状：outline 会跟随元素自身的 border-radius，在这里再写
+   `border-radius: 4px` 会压过 Tailwind 的 rounded-* 工具类（本文件未分层，优先级
+   高于 @layer utilities），聚焦瞬间把 pill / 圆形按钮改成 4px 方角。 */
 .user-ui *:focus-visible {
   outline: 3px solid var(--color-brand-500);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* Shell geometry mirrors the handoff: 248px sidebar, 56px topbar,
@@ -2446,7 +2448,7 @@
   text-decoration: none;
 }
 .user-ui .home-editorial-scenario-link:focus-visible {
-  outline: 2px solid var(--brand-600);
+  outline: 2px solid var(--color-brand-600);
   outline-offset: 3px;
   border-radius: var(--radius-sm);
 }

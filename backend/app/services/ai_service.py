@@ -7,6 +7,7 @@ import openai
 from openai import NOT_GIVEN, AsyncOpenAI
 
 from app.core.config import get_settings
+from app.core.errors import AppError
 from app.services.llm_provider import (
     TASK_DEFAULT,
     TASK_WORD_NOTES,
@@ -79,6 +80,12 @@ class AIService:
 
         try:
             client, model = TranslationService.resolve_engine_client(name)
+        except AppError as exc:
+            # TranslationService raises DomainError subclasses (503/400), which
+            # are NOT ValueErrors — catching only ValueError let a missing
+            # engine key escape as an unhandled exception instead of the
+            # AIServiceError (→ 502 AI_SERVICE_UNAVAILABLE) the envelope expects.
+            raise AIServiceError(str(exc)) from exc
         except ValueError as exc:
             raise AIServiceError(str(exc)) from exc
         self._engine_clients[name] = (client, model)

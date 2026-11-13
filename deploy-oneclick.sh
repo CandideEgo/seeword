@@ -18,7 +18,7 @@ set -e
 
 PROJECT_DIR="${PROJECT_DIR:-/opt/speaking}"
 REPO_URL="https://github.com/CandideEgo/Speaking.git"
-# 服务器公网地址（NEXT_PUBLIC_API_URL 用）。内测期先用 http；上 HTTPS 后改这里。
+# 服务器公网地址（NEXT_PUBLIC_SITE_URL 用）。内测期先用 http；上 HTTPS 后改这里。
 PUBLIC_URL="${PUBLIC_URL:-http://47.122.109.52}"
 
 echo "========================================="
@@ -83,17 +83,15 @@ DB_NAME=speaking
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 TRANSCRIPTION_CALLBACK_SECRET=${CALLBACK_SECRET}
-WHISPER_MODEL=base
 ENV=production
-# 前端访问地址
-NEXT_PUBLIC_API_URL=${PUBLIC_URL}
-# ── 以下两项必须手动填入后再 up（后端在 production 下会强制校验）──
+# 前端访问地址（构建期常量；浏览器与 API 同源）
+NEXT_PUBLIC_SITE_URL=${PUBLIC_URL}
+# ── 以下一项必须手动填入后再 up（后端在 production 下会强制校验）──
 # OPENAI_API_KEY=sk-...
-# REDIS_URL=redis://redis:6379/0
 EOF
     chmod 600 .env
     echo ""
-    echo "⚠️  已生成 .env 但还缺 OPENAI_API_KEY（与可选 REDIS_URL）。"
+    echo "⚠️  已生成 .env 但还缺 OPENAI_API_KEY。"
     echo "   执行: nano $PROJECT_DIR/.env  填入后重跑本脚本。"
     exit 1
 else

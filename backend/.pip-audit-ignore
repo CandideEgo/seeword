@@ -14,14 +14,19 @@
 # the 2026-10 split). The public server installs requirements-cloud.txt, which
 # carries no suppressions — torch/transformers/nltk are not in it, and its web
 # stack (fastapi/starlette/sentry-sdk) sits on fixed versions. This gate audits
-# requirements-cloud.txt only, so these rows are kept for the GPU worker's own
-# audit rather than for this run.
+# requirements-cloud.txt only, so these rows can never be matched here.
+#
+# ⚠️ The GPU worker's own gate reads gpu-worker/.pip-audit-ignore, NOT this file.
+# Keeping a second copy here means two lists drift (they already have: this one
+# lacks PYSEC-2026-4174 and holds CVE-2026-80047 / PYSEC-2026-3740, which the GPU
+# list does not). Rows here are kept only as the historical record while the
+# stale-warning is a known, harmless noise source; treat
+# gpu-worker/.pip-audit-ignore as the live list.
 #
 # Re-assessed 2026-09-19: none of these are fixable by a version bump we can land
-# safely today. nltk has no upstream fix at all (3.10.3 is the newest release).
-# The torch and transformers fixes are GPU-stack major upgrades — torch is pinned
-# in lockstep with torchaudio/torchvision CUDA builds and pyannote-audio — which
-# belong in their own change, not in a scanner-driven bump.
+# safely today. The torch and transformers fixes are GPU-stack major upgrades —
+# torch is pinned in lockstep with torchaudio/torchvision CUDA builds and
+# pyannote-audio — which belong in their own change, not in a scanner-driven bump.
 #
 # Re-assessed 2026-10-02: CVE-2026-80047 added (new disclosure against the
 # unchanged transformers, CI red on master). Upstream has published no fix at all
@@ -46,5 +51,8 @@ PYSEC-2026-2290  2027-03-01  backend  LightGlue 加载路径下 trust_remote_cod
 PYSEC-2026-3929  2027-03-01  backend  save_pretrained 经 chat template 名做路径穿越；项目只做推理，全仓无 save_pretrained 调用
 CVE-2026-80047  2027-03-01  backend  load_custom_generate() 在 trust_remote_code 同意之前就把 custom_generate/generate.py 写进 ~/.cache/huggingface/modules（GitLab: 4.49.0–5.8.1，无修复版本；CVSS 向量 AV:L）。全仓无 load_custom_generate 调用、无 trust_remote_code，模型仓库全是固定名（whisperx "auto" 对齐模型、oliverguhr 标点模型），不接受用户提供的仓库或 checkpoint——写盘必须先有一次我们不会发起的调用
 
-# ── nltk: not imported by first-party code, and no fix exists upstream ──
-PYSEC-2026-3740  2027-03-01  backend  TransitionParser/AveragedPerceptron/PerceptronTagger/maxent 参数 API 路径穿越；app/ 不 import nltk（经 whisperx/torchmetrics 传递引入），且 3.10.3 已是上游最新、无修复版本
+# ── nltk: not imported by first-party code ──
+# The live nltk pin is gpu-worker/requirements.lock.txt (3.10.4). Whether 3.10.4
+# still carries this advisory is tracked in gpu-worker/.pip-audit-ignore — do not
+# cite a version here, it goes stale.
+PYSEC-2026-3740  2027-03-01  backend  TransitionParser/AveragedPerceptron/PerceptronTagger/maxent 参数 API 路径穿越；app/ 不 import nltk（经 whisperx/torchmetrics 传递引入）

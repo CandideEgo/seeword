@@ -33,9 +33,15 @@ services:
       SLCS_TUTOR_ENABLED: ${SLCS_TUTOR_ENABLED:-false}
       SLCS_VOCABULARY_ENABLED: ${SLCS_VOCABULARY_ENABLED:-false}
       TEACHING_DIALOGUE_ENABLED: ${TEACHING_DIALOGUE_ENABLED:-false}
+      TEACHING_STREAMING_ENABLED: ${TEACHING_STREAMING_ENABLED:-false}
       TEACHING_CONVERSATIONS_ENABLED: ${TEACHING_CONVERSATIONS_ENABLED:-false}
+      # Gateway credentials are loaded from the mounted backend/.env. Avoid empty
+      # Compose defaults here, which would override those dotenv values.
       MCP_READ_ENABLED: ${MCP_READ_ENABLED:-false}
       MCP_WRITE_ENABLED: ${MCP_WRITE_ENABLED:-false}
+      MCP_SDK_ENABLED: ${MCP_SDK_ENABLED:-false}
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
     depends_on:
       - db
       - redis
@@ -48,6 +54,10 @@ services:
     volumes:
       - ./backend:/app
     environment:
+      # Migrations belong to the backend service alone (see backend/entrypoint.sh
+      # and prod's celery service). Without this the worker and the API race on
+      # `alembic upgrade head` and one of them can leave a half-migrated schema.
+      RUN_MIGRATIONS: "0"
       DATABASE_URL: postgresql+asyncpg://seeword:seeword_dev@db:5432/seeword
       REDIS_URL: redis://redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -64,6 +74,11 @@ services:
       - /app/node_modules
     ports:
       - "3000:3000"
+    environment:
+      # next.config.js 的 dev 代理默认打 127.0.0.1:8000（本机原生开发）；容器内
+      # 那指向 frontend 自己，所以要显式改成 compose 的 backend 服务名，否则
+      # 这条 dev 全栈里所有 /api 与 /media 请求都会 502。
+      BACKEND_PROXY_ORIGIN: http://backend:8000
     depends_on:
       - backend
 
@@ -87,12 +102,8 @@ services:
       SLCS_TUTOR_ENABLED: ${SLCS_TUTOR_ENABLED:-false}
       SLCS_VOCABULARY_ENABLED: ${SLCS_VOCABULARY_ENABLED:-false}
       TEACHING_DIALOGUE_ENABLED: ${TEACHING_DIALOGUE_ENABLED:-false}
+      TEACHING_STREAMING_ENABLED: ${TEACHING_STREAMING_ENABLED:-false}
       TEACHING_CONVERSATIONS_ENABLED: ${TEACHING_CONVERSATIONS_ENABLED:-false}
-      LLM_GATEWAY_BASE_URL: ${LLM_GATEWAY_BASE_URL:-}
-      LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-}
-      LLM_GATEWAY_ADMIN_KEY: ${LLM_GATEWAY_ADMIN_KEY:-}
-      LLM_GATEWAY_V2_TEAM_ID: ${LLM_GATEWAY_V2_TEAM_ID:-}
-      LLM_GATEWAY_GOVERNANCE_VERIFIED: ${LLM_GATEWAY_GOVERNANCE_VERIFIED:-false}
     depends_on:
       - db
       - redis

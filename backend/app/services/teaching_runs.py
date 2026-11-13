@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import AppError, ErrorCode, NotFoundError
 from app.models.lesson_learning import LessonTutorAnchor
 from app.models.teaching import TeachingSession
 from app.models.v2_runtime import AgentRun, AgentRunEvent, AgentStep, TutorConversation
@@ -28,6 +28,17 @@ from app.services.v2_access import require_access
 from app.services.v2_schema import require_conversation_schema, require_teaching_schema
 
 TERMINAL = {"succeeded", "failed", "cancelled", "needs_retry"}
+
+
+def _retention_hours() -> int:
+    """Run-event retention, the single source for both the cursor expiry and sweep.
+
+    Read at call time (not import time) so the admin/env value applies and tests
+    can monkeypatch ``get_settings()``.
+    """
+    from app.core.config import get_settings
+
+    return get_settings().teaching_run_retention_hours
 
 
 def summary(run: AgentRun) -> dict:
@@ -196,7 +207,7 @@ async def _conversation_context(db: AsyncSession, principal, session) -> dict | 
         return None
     context = (await get_learning_context(db, principal, session.id)).model_dump(mode="json")
     if context["material"]["restricted"]:
-        raise AppError(409, "CONTENT_RESTRICTED", "教学内容不可用")
+        raise AppError(409, ErrorCode.CONTENT_RESTRICTED, "教学内容不可用")
     return context
 
 
@@ -295,7 +306,7 @@ async def start_lesson_turn(db: AsyncSession, principal, lesson_id: str, body) -
             body.segment_id,
             body.token_ids,
         ):
-            raise AppError(409, "TEACHING_CONTEXT_CHANGED", "课程对话的原句已固定，请打开新的对话")
+            raise AppError(409, ErrorCode.TEACHING_CONTEXT_CHANGED, "课程对话的原句已固定，请打开新的对话")
     else:
         await lesson_tutor.require_anchor_schema(db)
         conversation = TutorConversation(
@@ -389,8 +400,8 @@ async def events(db: AsyncSession, principal, run_id: str, after: int) -> tuple[
     await require_teaching_schema(db)
     run = await _owned(db, principal.user_id, run_id)
     if after > run.last_sequence:
-        raise AppError(409, "EVENT_CURSOR_INVALID", "事件游标超出当前运行范围")
-    if utc(run.created_at) < datetime.now(UTC) - timedelta(hours=24):
+        raise AppError(409, ErrorCode.EVENT_CURSOR_INVALID, "事件游标超出当前运行范围")
+    if utc(run.created_at) < datetime.now(UTC) - timedelta(hours=_retention_hours()):
         raise AppError(410, "EVENT_CURSOR_EXPIRED", "运行事件已过期，请读取当前教学状态")
     conversation_id = run.conversation_id
     if conversation_id is None and run.response_mode == "conversation" and run.session_id is not None:
@@ -472,7 +483,7 @@ async def _task_state(db: AsyncSession, principal, run: AgentRun, session):
     revision_id = await dialogue.task_revision_id(db, principal, session.id)
     revision = await db.get(ExamAnalysisRevision, revision_id, with_for_update=True)
     if revision is None or not may_disclose(revision, principal, "model"):
-        raise AppError(409, "CONTENT_RESTRICTED", "材料当前不允许模型处理")
+        raise AppError(409, ErrorCode.CONTENT_RESTRICTED, "材料当前不允许模型处理")
     return revision_id
 
 
@@ -515,7 +526,7 @@ async def execute(run_id: str) -> None:
             if session is not None:
                 state = await core.get_session(db, principal, session.id)
                 if state["revision"] != run.bound_session_revision:
-                    raise AppError(409, "TEACHING_CONTEXT_CHANGED", "教学状态已变化")
+                    raise AppError(409, ErrorCode.TEACHING_CONTEXT_CHANGED, "教学状态已变化")
                 await _task_state(db, principal, run, session)
             if run.response_mode == "conversation":
                 if conversation is None:
@@ -585,7 +596,7 @@ async def execute(run_id: str) -> None:
                 or checked.cancel_requested_at
                 or (check_session is not None and check_session.revision != checked.bound_session_revision)
             ):
-                raise AppError(409, "TEACHING_CONTEXT_CHANGED", "教学状态已变化")
+                raise AppError(409, ErrorCode.TEACHING_CONTEXT_CHANGED, "教学状态已变化")
             if checked.session_id is not None:
                 await _task_state(check_db, principal, checked, check_session)
             if checked.response_mode == "conversation":
@@ -648,9 +659,9 @@ async def execute(run_id: str) -> None:
                 state = await core.get_session(db, principal, session.id)
                 await _task_state(db, principal, current, session)
                 if session.revision != current.bound_session_revision:
-                    error = "TEACHING_CONTEXT_CHANGED"
+                    error = ErrorCode.TEACHING_CONTEXT_CHANGED
             if datetime.now(UTC) > utc(deadline):
-                error = error or "EXECUTION_TIMEOUT"
+                error = error or ErrorCode.EXECUTION_TIMEOUT
         except AppError as exc:
             error = exc.code
         if error:
@@ -663,7 +674,7 @@ async def execute(run_id: str) -> None:
                 if reply is None:
                     raise AppError(502, "AI_SERVICE_UNAVAILABLE", "导师回复缺失")
                 if (final_context["learning_context"] is None) != run_target["general"]:
-                    raise AppError(409, "TEACHING_CONTEXT_CHANGED", "对话任务状态已变化")
+                    raise AppError(409, ErrorCode.TEACHING_CONTEXT_CHANGED, "对话任务状态已变化")
                 dialogue.validate_reply(reply, final_context["learning_context"])
             except AppError as exc:
                 current.status, current.error_code = "needs_retry", exc.code
@@ -726,7 +737,9 @@ async def sweep(db: AsyncSession) -> list[str]:
                 .where(_TeachingMessage.run_id.in_(expired_runs), _TeachingMessage.status == "streaming")
                 .values(status="interrupted")
             )
-    old = select(AgentRun.id).where(AgentRun.created_at < now - timedelta(hours=24), AgentRun.status.in_(TERMINAL))
+    old = select(AgentRun.id).where(
+        AgentRun.created_at < now - timedelta(hours=_retention_hours()), AgentRun.status.in_(TERMINAL)
+    )
     await db.execute(delete(AgentRunEvent).where(AgentRunEvent.run_id.in_(old)))
     await db.execute(delete(AgentStep).where(AgentStep.run_id.in_(old)))
     from sqlalchemy import update
@@ -778,12 +791,12 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
                 or checked.cancel_requested_at
                 or (session is not None and session.revision != checked.bound_session_revision)
             ):
-                raise AppError(409, "TEACHING_CONTEXT_CHANGED", "教学状态已变化")
+                raise AppError(409, ErrorCode.TEACHING_CONTEXT_CHANGED, "教学状态已变化")
             if session is not None:
                 revision_id = await dialogue.task_revision_id(db, principal, session.id)
                 revision = await db.get(ExamAnalysisRevision, revision_id, with_for_update=True)
                 if revision is None or not may_disclose(revision, principal, "model"):
-                    raise AppError(409, "CONTENT_RESTRICTED", "材料当前不允许模型处理")
+                    raise AppError(409, ErrorCode.CONTENT_RESTRICTED, "材料当前不允许模型处理")
                 held["content_revision_id"] = revision_id
             value = await _model_input(db, principal, checked, conversation)
             lesson = value.get("lesson_context")
@@ -895,11 +908,11 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
 
                     revision = await db.get(ExamAnalysisRevision, held["content_revision_id"])
                     if session.revision != current.bound_session_revision:
-                        error_code = "TEACHING_CONTEXT_CHANGED"
+                        error_code = ErrorCode.TEACHING_CONTEXT_CHANGED
                     elif revision is None or not may_disclose(revision, principal, "model"):
-                        error_code = "CONTENT_RESTRICTED"
+                        error_code = ErrorCode.CONTENT_RESTRICTED
                 if datetime.now(UTC) > utc(deadline):
-                    error_code = error_code or "EXECUTION_TIMEOUT"
+                    error_code = error_code or ErrorCode.EXECUTION_TIMEOUT
             citations = held.get("citations") or []
             if error_code is not None:
                 mark_interrupted()
@@ -948,7 +961,7 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
                 elif event["type"] == "done":
                     done = event
     except TimeoutError:
-        error_code = "EXECUTION_TIMEOUT"
+        error_code = ErrorCode.EXECUTION_TIMEOUT
     except _StreamStoppedError as exc:
         stopped = exc.reason
     except AppError as exc:
@@ -973,5 +986,5 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
         await settle(None, done, parser)
         return
     if stopped == "rights":
-        error_code = error_code or "CONTENT_RESTRICTED"
+        error_code = error_code or ErrorCode.CONTENT_RESTRICTED
     await settle(error_code, done, parser)

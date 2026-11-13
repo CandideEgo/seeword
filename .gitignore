@@ -21,6 +21,12 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# SLCS 公开发行树的构建输出（backend/scripts/build_slcs_release.py --out release，
+# CI 与本地都会写这里）；发行物本身发布到 CandideEgo/slcs，不入本仓。
+release/
+# 根目录一次性脚本/量具产物（调查、审计时写的临时 .py / .mjs）。
+# 子目录 backend/tmp/ 另有单独规则；这条只管仓库根的 tmp/。
+/tmp/
 .vercel/
 media/
 venv/
@@ -118,7 +124,6 @@ whisper-sentence-segmentation-*.md
 
 # Local agent / workflow artifacts
 .gsd/
-.qoder/
 .claude/worktrees/
 .claude/model_audit_output.json
 .claude/loop-state.local.md
@@ -173,3 +178,13 @@ docs/audit-2026-10-24/_next-dev.log
 
 # 隔离演练渲染出的 Redis ACL（含一次性密码）：模板入库，产物不入库
 deploy/redis/users.acl.generated
+# 生产宿主上渲染出的 ACL（compose 挂载的正是这个文件）：同样含密码，绝不入库。
+deploy/redis/users.acl
+
+# 生产 TLS 证书与私钥（docker-compose.prod.yml 把 ./nginx/ssl 只读挂进容器）。
+# 私钥一旦提交就永久留在历史里；目录本机/服务器上各自放置。
+nginx/ssl/
+*.pem
+*.key
+*.crt
+!frontend/public/*.pem

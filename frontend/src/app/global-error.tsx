@@ -27,6 +27,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
           title="页面加载失败"
           message="资源加载出错，请刷新重试"
           fullPage
+          landmark
           action={
             <Button onClick={() => window.location.reload()} className="mt-5">
               刷新页面

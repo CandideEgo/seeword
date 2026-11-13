@@ -16,13 +16,13 @@
 #   3. 确认服务器上 docker-compose.prod.yml + .env + nginx/ssl 证书已就绪
 #   4. 取消下方 needs: 的注释，部署将仅在 CI 全绿后执行
 #
-# 本模板部署 backend + celery + celery-beat + frontend；GPU worker 镜像
-# 变化少，按需手动构建（backend/Dockerfile）。
+# 本模板部署 backend + celery + celery-beat + frontend。GPU 转录不在这台机器上：
+# 它是独立组件 gpu-worker/（裸 venv + NSSM，没有镜像），本模板完全不涉及它。
 #
 # ⚠️ 不可直接启用（2026-09-20）：下面的 script 走 `git pull` + 就地构建，
 # 而生产机 /opt/speaking 无 .git 且无构建能力（2C/1.6GB，实测就地构建会冻结）。
-# 启用前必须把 job 改成 runner 侧构建 + 传镜像（docker save | gzip | ssh docker load），
-# 流程见 knowledge/operations/RUNBOOK.md §1.1。
+# 启用前必须把 job 改成 runner 侧构建 + 传镜像（docker save | gzip | ssh docker load）。
+# 现行的发布流程是 `.claude/skills/deploy/`（/deploy skill），它就是这么做的。
 
 name: Deploy
 

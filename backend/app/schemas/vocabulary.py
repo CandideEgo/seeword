@@ -47,43 +47,6 @@ class VocabularyEnrichResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class QuizGenerateRequest(BaseModel):
-    quiz_type: Literal["multiple_choice", "spelling", "context_fill", "translation"]
-    count: int = Field(default=10, ge=1, le=30)
-    due_only: bool = False
-
-
-class QuizQuestionResponse(BaseModel):
-    id: str
-    word: str
-    quiz_type: str
-    question: str
-    options: list[str] | None = None
-    correct_answer_index: int | None = None
-
-
-class QuizAnswerItem(BaseModel):
-    question_id: str
-    answer: str
-
-
-class QuizSubmitRequest(BaseModel):
-    answers: list[QuizAnswerItem]
-
-
-class QuizItemResult(BaseModel):
-    question_id: str
-    correct: bool
-    correct_answer: str
-    user_answer: str
-
-
-class QuizSubmitResponse(BaseModel):
-    score: int
-    total: int
-    results: list[QuizItemResult]
-
-
 class VocabularyStatsResponse(BaseModel):
     total: int
     new_count: int

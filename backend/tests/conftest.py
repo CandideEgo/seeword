@@ -127,8 +127,7 @@ class _FakeRedis:
         call sites write ``redis = await get_redis()``; without this the
         ``await`` raises TypeError *inside* their fail-open ``try/except``, so
         detail-cache invalidation silently no-ops in tests — the same blindspot
-        as the missing ``scan_iter`` below. See
-        ``wiki/problems/cache-invalidation-and-media-gate-blindspots.md``.
+        as the missing ``scan_iter`` below.
         """
 
         async def _self() -> "_FakeRedis":

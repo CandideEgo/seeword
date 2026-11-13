@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Subtitle } from "@/types";
 import type { SubtitlePatch } from "@/lib/adminData";
+import { splitSubtitleTextAtTime } from "@/lib/subtitleSplit";
 
 /**
  * One editable subtitle row. Shared by the creator editor and the admin review
@@ -125,31 +126,13 @@ export function SubtitleEditor({
       toast.error("请先把播放器调到要拆分的时间点（在该字幕时间范围内）");
       return;
     }
-    // Compute text_before/text_after. Prefer word timestamps (precise cut at
-    // the first word whose start >= t); fall back to a proportional word-count
-    // split so the feature still works on legacy rows without `words`.
-    let textBefore: string;
-    let textAfter: string;
-    const words = subtitle.words;
-    if (words && words.length) {
-      const idx = words.findIndex((w) => w.start >= t);
-      const cut = idx === -1 ? words.length : idx;
-      textBefore = words
-        .slice(0, cut)
-        .map((w) => w.word)
-        .join(" ");
-      textAfter = words
-        .slice(cut)
-        .map((w) => w.word)
-        .join(" ");
-    } else {
-      const tokens = textEn.split(/\s+/).filter(Boolean);
-      const ratio =
-        (t - subtitle.start_time) / Math.max(0.1, subtitle.end_time - subtitle.start_time);
-      const cut = Math.max(1, Math.min(tokens.length - 1, Math.round(tokens.length * ratio)));
-      textBefore = tokens.slice(0, cut).join(" ");
-      textAfter = tokens.slice(cut).join(" ");
-    }
+    const { textBefore, textAfter } = splitSubtitleTextAtTime(
+      textEn,
+      subtitle.words,
+      subtitle.start_time,
+      subtitle.end_time,
+      t
+    );
     if (!textBefore.trim() || !textAfter.trim()) {
       toast.error("无法在此时间点拆分，请调整播放位置");
       return;

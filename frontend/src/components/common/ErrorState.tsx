@@ -20,6 +20,13 @@ interface ErrorStateProps {
   action?: React.ReactNode;
   /** Full-page mode: centers on min-h-dvh bg-canvas */
   fullPage?: boolean;
+  /**
+   * Render the full-page wrapper as the page's `<main>` landmark. Only the
+   * boundaries ABOVE the app shell may set this (app/error.tsx,
+   * app/global-error.tsx): inside `(main)` / `(admin)` the shell already owns
+   * the single `<main>`, and a second one nests landmarks.
+   */
+  landmark?: boolean;
   /** Additional classes on the wrapper */
   className?: string;
 }
@@ -36,6 +43,7 @@ export function ErrorState({
   retryLabel = "重试",
   action,
   fullPage = false,
+  landmark = false,
   className,
 }: ErrorStateProps) {
   const content = (
@@ -62,7 +70,14 @@ export function ErrorState({
   );
 
   if (fullPage) {
-    return <main className="flex min-h-dvh items-center justify-center bg-canvas">{content}</main>;
+    const shell = "flex min-h-dvh items-center justify-center bg-canvas";
+    // `landmark` is opt-in so a boundary rendered INSIDE the app shell does not
+    // nest a second <main> (the shell already provides the only one).
+    return landmark ? (
+      <main className={shell}>{content}</main>
+    ) : (
+      <div className={shell}>{content}</div>
+    );
   }
 
   return content;

@@ -156,20 +156,38 @@ services:
       # Remote-GPU transcription callback (inbound) auth + watchdog timeout.
       TRANSCRIPTION_CALLBACK_SECRET: ${TRANSCRIPTION_CALLBACK_SECRET:-}
       VIDEO_TRANSCRIBE_TIMEOUT: ${VIDEO_TRANSCRIBE_TIMEOUT:-7200}
-      # Translation engine: agnes 继承 OPENAI_*（可指向 deepseek 等 OpenAI-compatible 端点）
+      # Translation engine. Prod default is agnes (it inherits OPENAI_* — the
+      # production .env points those at an OpenAI-compatible endpoint), which is
+      # deliberately different from Settings' `qwen` default; an operator can
+      # switch engines here. The per-engine keys below must be whitelisted too:
+      # this file has no env_file, so a name that is not listed never reaches the
+      # container no matter what the host .env says.
       TRANSLATION_ENGINE: ${TRANSLATION_ENGINE:-agnes}
       TRANSLATION_FALLBACK_ENGINE: ${TRANSLATION_FALLBACK_ENGINE:-}
       TRANSLATION_CONCURRENT: ${TRANSLATION_CONCURRENT:-false}
+      TRANSLATION_QWEN_API_KEY: ${TRANSLATION_QWEN_API_KEY:-}
+      TRANSLATION_HYMT2_API_KEY: ${TRANSLATION_HYMT2_API_KEY:-}
+      TRANSLATION_GLM_API_KEY: ${TRANSLATION_GLM_API_KEY:-}
+      TRANSLATION_GLM_BASE_URL: ${TRANSLATION_GLM_BASE_URL:-}
+      TRANSLATION_GLM_MODEL: ${TRANSLATION_GLM_MODEL:-}
+      TRANSLATION_CUSTOM_BASE_URL: ${TRANSLATION_CUSTOM_BASE_URL:-}
+      TRANSLATION_CUSTOM_MODEL: ${TRANSLATION_CUSTOM_MODEL:-}
+      TRANSLATION_CUSTOM_API_KEY: ${TRANSLATION_CUSTOM_API_KEY:-}
+      PREWARM_ENGINES: ${PREWARM_ENGINES:-agnes,qwen}
       ENV: ${ENV:-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # SMS 验证码（生产必须配置，否则短信流程 fail-closed；见 sms_service._dev_fake_enabled）
+      # 签名与三个模板 ID 在 Settings 里都有非空默认值（速通互联验证码 /
+      # 100001-100003）。这里**必须把同一份默认值写进 `${VAR:-...}`**：pydantic
+      # 把空串当成有效值，`${VAR:-}` 会在宿主未配置时把它们抹成 ""，发短信时
+      # sign_name/template_code 为空、阿里云直接拒绝——那正是「配了 AK/SK 却发不出」。
       SMS_LOGIN_ENABLED: ${SMS_LOGIN_ENABLED:-false}
       ALIYUN_SMS_ACCESS_KEY: ${ALIYUN_SMS_ACCESS_KEY:-}
       ALIYUN_SMS_SECRET_KEY: ${ALIYUN_SMS_SECRET_KEY:-}
-      ALIYUN_SMS_SIGN_NAME: ${ALIYUN_SMS_SIGN_NAME:-}
-      ALIYUN_SMS_TEMPLATE_REGISTER: ${ALIYUN_SMS_TEMPLATE_REGISTER:-}
-      ALIYUN_SMS_TEMPLATE_CHANGE_PHONE: ${ALIYUN_SMS_TEMPLATE_CHANGE_PHONE:-}
-      ALIYUN_SMS_TEMPLATE_RESET_PASSWORD: ${ALIYUN_SMS_TEMPLATE_RESET_PASSWORD:-}
+      ALIYUN_SMS_SIGN_NAME: ${ALIYUN_SMS_SIGN_NAME:-速通互联验证码}
+      ALIYUN_SMS_TEMPLATE_REGISTER: ${ALIYUN_SMS_TEMPLATE_REGISTER:-100001}
+      ALIYUN_SMS_TEMPLATE_CHANGE_PHONE: ${ALIYUN_SMS_TEMPLATE_CHANGE_PHONE:-100002}
+      ALIYUN_SMS_TEMPLATE_RESET_PASSWORD: ${ALIYUN_SMS_TEMPLATE_RESET_PASSWORD:-100003}
       # Trust X-Forwarded-For from the nginx container so per-IP rate
       # limiting (app.core.limiter) sees real client IPs instead of the
       # nginx container IP for every request. Safe: backend is only
@@ -258,9 +276,21 @@ services:
       OSS_PREFIX: ${OSS_PREFIX:-}
       TRANSCRIPTION_CALLBACK_SECRET: ${TRANSCRIPTION_CALLBACK_SECRET:-}
       VIDEO_TRANSCRIBE_TIMEOUT: ${VIDEO_TRANSCRIBE_TIMEOUT:-7200}
+      # The worker is what actually runs translation + note prewarm, so every
+      # engine's credentials must be reachable here (same whitelist reason as
+      # the backend service above).
       TRANSLATION_ENGINE: ${TRANSLATION_ENGINE:-agnes}
       TRANSLATION_FALLBACK_ENGINE: ${TRANSLATION_FALLBACK_ENGINE:-}
       TRANSLATION_CONCURRENT: ${TRANSLATION_CONCURRENT:-false}
+      TRANSLATION_QWEN_API_KEY: ${TRANSLATION_QWEN_API_KEY:-}
+      TRANSLATION_HYMT2_API_KEY: ${TRANSLATION_HYMT2_API_KEY:-}
+      TRANSLATION_GLM_API_KEY: ${TRANSLATION_GLM_API_KEY:-}
+      TRANSLATION_GLM_BASE_URL: ${TRANSLATION_GLM_BASE_URL:-}
+      TRANSLATION_GLM_MODEL: ${TRANSLATION_GLM_MODEL:-}
+      TRANSLATION_CUSTOM_BASE_URL: ${TRANSLATION_CUSTOM_BASE_URL:-}
+      TRANSLATION_CUSTOM_MODEL: ${TRANSLATION_CUSTOM_MODEL:-}
+      TRANSLATION_CUSTOM_API_KEY: ${TRANSLATION_CUSTOM_API_KEY:-}
+      PREWARM_ENGINES: ${PREWARM_ENGINES:-agnes,qwen}
       ENV: ${ENV:-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # A09/OPS-05：worker 的异常要进 Sentry，管线派发积压告警要走站外 webhook
@@ -452,7 +482,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.cloud
-    # Periodic tasks: order-expiry + stale-transcription watchdog.
+    # Periodic tasks: pipeline watchdog / dispatch outbox, discovery retries,
+    # scoring, rankings, reminders, account purge. (Order expiry and payment
+    # reconciliation were removed with the 2026-11 membership teardown.)
     command: celery -A app.tasks.celery_app beat --loglevel=warning
     # Migrations belong to the backend service alone (see backend/entrypoint.sh).
     environment:

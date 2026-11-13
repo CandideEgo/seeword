@@ -1,14 +1,13 @@
 """Video access control — domain logic (not FastAPI dependencies).
 
-Consolidates the "who can access what" rules and the UGC snapshot predicate
-that were previously duplicated across:
-  - app/api/dependencies.py:check_video_access / is_video_owner
-  - app/services/video_service.py:get_video_detail (inline use_snapshot)
-  - app/services/practice_service.py:should_use_snapshot
-
-These are pure domain functions with no HTTP/FastAPI dependency, so they
-belong in the service layer. Route handlers and services import them
+Consolidates the "who can access what" rules and the UGC snapshot predicate so
+every entry point answers them the same way. These are pure domain functions
+with no HTTP/FastAPI dependency, so route handlers and services import them
 directly from here.
+
+Callers: app/api/v1/media.py, app/api/v1/notes.py, app/services/video_service.py,
+app/services/video_card.py, app/services/subtitle_context.py and
+app/services/discovery_service.py.
 """
 
 from app.models.user import RoleType, User

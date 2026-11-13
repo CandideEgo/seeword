@@ -1,10 +1,9 @@
-"""Tests for milestone_service (Sprint 4 — E4 掌握度可视化 + 成就系统).
+"""Tests for milestone_service.
 
-Covers:
-- Milestone rule triggering (vocab_50, streak_7, etc.)
-- No duplicate awards
-- Mastery snapshot once-per-day
-- API endpoints: /plan/mastery-trend, /plan/milestones
+The achievement/milestone feature is retired: ``GET /plan/milestones`` answers
+410 FEATURE_RETIRED and ``check_and_award`` never awards anything new. These
+tests pin that stance and cover the parts that still run — the daily mastery
+snapshot and the mastery-trend API.
 """
 
 import uuid
@@ -16,7 +15,7 @@ from sqlalchemy import select
 
 from app.core.security import hash_password
 from app.models.learning import Vocabulary
-from app.models.learning_plan import LearningEvent, UserLearningProfile
+from app.models.learning_plan import UserLearningProfile
 from app.models.milestone import MasterySnapshot, UserMilestone
 from app.models.user import RoleType, User
 from app.services.milestone_service import (
@@ -66,20 +65,6 @@ async def _add_vocab(db, user_id: str, count: int, mastery_level: str = "new") -
             mastery_level=mastery_level,
         )
         db.add(v)
-    await db.commit()
-
-
-async def _add_learning_events(db, user_id: str, event_type: str, count: int) -> None:
-    """Add N learning events of a given type."""
-    today = date.today()
-    for _ in range(count):
-        e = LearningEvent(
-            user_id=user_id,
-            event_type=event_type,
-            event_value=1,
-            event_date=today,
-        )
-        db.add(e)
     await db.commit()
 
 

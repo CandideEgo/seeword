@@ -211,11 +211,15 @@ $env:PYTHONUTF8=1; $env:PUNCTUATION_MODEL_DISABLED=1
 
 ### CI（`.github/workflows/ci.yml` 的 `gpu-worker` job）
 
-CI 在 `ubuntu-latest` + Python 3.12 上跑，工作目录固定 `gpu-worker/`，步骤只有三步：
+CI 在 `ubuntu-latest` + Python 3.12 上跑，工作目录固定 `gpu-worker/`（审计与 SBOM 两步在 `backend/`），门依次是：
 
 1. `pip install -r gpu-worker/requirements-ci.txt` — **只装最小依赖子集**（celery/redis/httpx/pydantic-settings/structlog + pytest/ruff），**不装 torch / whisperx / faster-whisper**。测试里这些引擎都被 mock，装 GPU 栈只会让 job 多花几个 GB 和十几分钟。
-2. `ruff check gpu_worker/ tests/ scripts/` 与 `ruff format --check gpu_worker/ tests/ scripts/`（口径来自本目录 `pyproject.toml`）
-3. `pytest tests -q`，env 带 `PUNCTUATION_MODEL_DISABLED=1`（不让测试下载标点模型）
+2. `ruff check gpu_worker/ tests/ scripts/`
+3. `ruff format --check gpu_worker/ tests/ scripts/`（口径来自本目录 `pyproject.toml`）
+4. `pytest tests -q`，env 带 `PUNCTUATION_MODEL_DISABLED=1`（不让测试下载标点模型）
+5. `pip_audit_gate.py -r ../gpu-worker/requirements.lock.txt --ignore-file ../gpu-worker/.pip-audit-ignore --no-deps`（GPU 运行栈的依赖审计；只读锁文件，不装 CUDA 轮子）
+6. `cyclonedx-py requirements gpu-worker/requirements.lock.txt` 生成 SBOM
+7. 上传 `gpu-sbom` artifact
 
 三个 requirements 文件的分工，别装错：
 

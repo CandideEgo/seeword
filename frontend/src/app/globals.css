@@ -906,16 +906,5 @@
   }
 }
 
-/* D2 CoachMark pulse (border ring around the spotlight) */
-@keyframes coach-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 var(--brand-500, #ff6b4a);
-  }
-  50% {
-    box-shadow: 0 0 0 8px transparent;
-  }
-}
-.coach-pulse {
-  animation: coach-pulse 2s ease-in-out infinite;
-}
+/* D2 CoachMark pulse 已删除：CoachMark 组件本身已下线，`.coach-pulse` 与
+   `@keyframes coach-pulse` 在全仓零消费者（watch 页只剩 `data-coach` 标记）。 */

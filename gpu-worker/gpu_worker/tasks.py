@@ -18,7 +18,7 @@ import time
 from gpu_worker.alerts import send_alert
 from gpu_worker.celery_app import celery_app
 from gpu_worker.config import get_settings
-from gpu_worker.contracts import TASK_NAME
+from gpu_worker.contracts import CALLBACK_SECRET_HEADER, TASK_NAME
 from gpu_worker.logging import get_logger
 from gpu_worker.sources import VideoSource
 
@@ -30,7 +30,11 @@ __all__ = ["TASK_NAME", "transcribe_video_gpu"]
 
 
 def _post_transcription_callback(
-    video_id: str, status: str, segments: list[dict] | None = None, error: str | None = None
+    video_id: str,
+    status: str,
+    segments: list[dict] | None = None,
+    error: str | None = None,
+    audio_duration: float | None = None,
 ) -> bool:
     """POST transcription results to the cloud callback endpoint.
 
@@ -71,10 +75,14 @@ def _post_transcription_callback(
             else None
         ),
         "error": error,
-        # Phase 2: forward audio duration for hallucination detection
-        "audio_duration": segments[-1].get("end") if segments and status == "ok" else None,
+        # Phase 2: forward the REAL audio duration for hallucination detection.
+        # It used to be ``segments[-1]["end"]``, which is derived from the same
+        # subtitles the cloud compares it against — `last_end > duration * 1.5`
+        # then can never fire, so the duration check silently passed always.
+        # The value now comes from ffprobe in ``_sync_transcribe``.
+        "audio_duration": audio_duration if status == "ok" else None,
     }
-    headers = {"X-Callback-Secret": settings.transcription_callback_secret}
+    headers = {CALLBACK_SECRET_HEADER: settings.transcription_callback_secret}
     max_retries = settings.transcription_callback_max_retries
     timeout = settings.transcription_callback_timeout
     transient_4xx = {408, 425, 429}
@@ -140,6 +148,7 @@ def transcribe_video_gpu(self, video_id: str, source: str, platform: str, langua
     try:
         svc = TranscriptionService()
         segments = svc._sync_transcribe(source, VideoSource(platform))
+        audio_duration = getattr(svc, "last_audio_duration", None)
     except Exception as e:
         logger.exception("GPU transcription failed for video %s", video_id)
         if self.request.retries >= self.max_retries:
@@ -153,7 +162,9 @@ def transcribe_video_gpu(self, video_id: str, source: str, platform: str, langua
             raise
         raise self.retry(exc=e, countdown=60) from e
 
-    if not _post_transcription_callback(video_id, status="ok", segments=segments):
+    if not _post_transcription_callback(
+        video_id, status="ok", segments=segments, audio_duration=audio_duration
+    ):
         # The transcription itself succeeded; only delivery failed (e.g.
         # rate limit / network). Retrying re-runs the transcription, but that
         # is cheaper than leaving the video stuck in ``processing`` with a

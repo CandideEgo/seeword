@@ -17,11 +17,15 @@ from app.schemas.video import SubtitleResponse
 from app.services.video_cache import invalidate_video_detail_cache
 from app.services.video_playback import require_publishable
 
-_SNAPSHOT_VERSION = 1
-
 
 def subtitles_from_snapshot(snapshot: dict | None) -> list[SubtitleResponse]:
-    """Build SubtitleResponse list from a frozen published_snapshot."""
+    """Build SubtitleResponse list from a frozen published_snapshot.
+
+    The snapshot is written by ``video_review_service`` (which owns its
+    ``version`` field); this side only reads the subtitles array. There used to
+    be a second ``_SNAPSHOT_VERSION`` constant here that nobody read — two
+    copies of a version number that only one writer maintains.
+    """
     if not snapshot:
         return []
     raw = snapshot.get("subtitles") or []

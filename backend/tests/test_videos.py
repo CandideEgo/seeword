@@ -39,10 +39,10 @@ class TestGetVideo:
         assert resp.status_code == 404
 
 
-class TestVideoQuiz:
-    async def test_get_quiz_returns_empty_for_video_without_quiz(self, client: AsyncClient):
-        resp = await client.get("/api/v1/videos/nonexistent-id/quiz")
-        assert resp.status_code == 404
+# The old ``GET /videos/{id}/quiz`` route and this module's TestVideoQuiz class
+# are gone: the route was removed with the legacy per-video quiz feature. The
+# class that used to live here asserted a 404 for that path, which any
+# nonexistent URL satisfies — it could never fail, so it protected nothing.
 
 
 # ---------------------------------------------------------------------------

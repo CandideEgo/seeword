@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **所有错误响应都是统一 envelope** `{code, message, detail?}`：
 
 - 业务代码抛 `AppError(status_code, code, message, detail?)`，`code` 取 `backend/app/core/errors.py::ErrorCode`
-- 存量 `HTTPException`（约 110 处 `raise`）由全局 handler 兜底转 envelope，`code = HTTP_{status}`
+- 存量 `HTTPException`（约 90 处 `raise`）由全局 handler 兜底转 envelope，`code = HTTP_{status}`
 - 422 校验错误 → `code = VALIDATION_ERROR`，`detail` 是 pydantic errors 数组
 - `AIServiceError` → 502 + `AI_SERVICE_UNAVAILABLE`，绝不退化成 500 或静默假分值
 
@@ -94,7 +94,7 @@ SQLAlchemy 2.0 async。`backend/app/core/database.py` 里有两点值得知道�
 - engine 与 session maker 都 `@lru_cache` **懒建**，不在 import 时建。历史动因是让没有 `DATABASE_URL` 的 GPU worker 也能 import 这些模块；GPU 段已拆进独立组件 `gpu-worker/`（不再 import `app.*`），懒建继续服务脚本与测试。
 - FastAPI 路由用 `get_db()` 依赖；Celery 任务等非依赖场景用 `get_async_session_maker()`——后者同时是测试 monkeypatch 的缝。
 
-模型在 `backend/app/models/`，必须由 `app/models/__init__.py` 按依赖序 re-export（`create_app` 会先 import 它们，好让 SQLAlchemy 在任何 `create_all`／Alembic autogenerate 前把 `Base.metadata` 填全）。迁移在 `backend/migrations/versions/`：HEAD 上 94 个 revision（含 5 个 V2 迁移）。数量会漂，别把它当契约。
+模型在 `backend/app/models/`，必须由 `app/models/__init__.py` 按依赖序 re-export（`create_app` 会先 import 它们，好让 SQLAlchemy 在任何 `create_all`／Alembic autogenerate 前把 `Base.metadata` 填全）。迁移在 `backend/migrations/versions/`：HEAD 上 100 个 revision（含 5 个 V2 迁移，单 head）。数量会漂，别把它当契约。
 
 核心实体：`User` 拥有 `Video` / `Vocabulary` / `LearningRecord` / `UserFavorite` / `UserNote` / `Notification`；`Video` 拥有 `Subtitle`（按 `sentence_index` 排序，含 `text_en` / `text_zh` / 逐词时间戳 `words` / `word_levels`），并冗余 `like_count` / `favorite_count` / `view_count` / `score`，以及管线状态 `status` + `processing_step` + `step_started_at`。`ListeningSession` 保存听力练习的冻结题面、草稿答案与判分结果（见下）。
 
@@ -123,7 +123,7 @@ head 与 tail 在 `backend/app/tasks/video_processing.py`，**中间的 GPU 段�
 
 ### Celery
 
-`backend/app/tasks/celery_app.py` 定义 `celery_app` 与常量 `GPU_TRANSCRIBE_TASK`（值是**保留的旧任务名** `app.tasks.video_processing.transcribe_video_gpu`，task_routes 用它），三个队列：云端默认的 `celery`、远端 `transcription_gpu` 与教学 `teaching`（后两者随 V2 提交入库；teaching 队列默认没有 worker，V2 开关默认关闭，但 beat 的 `sweep-teaching-runs` 每 10 秒无条件排程，见「V2 后端重构标准」）。**只有 `GPU_TRANSCRIBE_TASK` 路由到 GPU 队列**，其余（管线首尾、本地化等）都在云端跑。GPU 侧的 Celery 应用与任务在 `gpu-worker/gpu_worker/celery_app.py` / `tasks.py`，只声明、只消费 `transcription_gpu`。beat 里挂着管线看门狗（含首页草稿生成超时巡检）、**管线派发补发（每 60 秒，`app.services.pipeline_dispatch` 的 outbox）**、失败下载重试、评分（小时/天）、内容榜单快照、自愿开启的词汇复习提醒、注销账号清理。**Pro/兑换码 beat 与周报空任务壳已在 2026-10-26 清理中删除**；2026-11 会员收费链路下线时，订单过期/对账与金数据同步两条 beat、以及 `reminder_tasks.send_pro_expiring_reminders` 任务体也一并删除（已入队的旧消息会以 unregistered task 结束，影响面可忽略）。
+`backend/app/tasks/celery_app.py` 定义 `celery_app` 与常量 `GPU_TRANSCRIBE_TASK`（值是**保留的旧任务名** `app.tasks.video_processing.transcribe_video_gpu`，task_routes 用它），三个队列：云端默认的 `celery`、远端 `transcription_gpu` 与教学 `teaching`（`transcription_gpu` 随 2026-07 的远端 GPU 转写改造加入，`teaching` 随 V2 提交入库；teaching 队列默认没有 worker，V2 开关默认关闭，但 beat 的 `sweep-teaching-runs` 每 10 秒无条件排程，见「V2 后端重构标准」）。**只有 `GPU_TRANSCRIBE_TASK` 路由到 GPU 队列**，其余（管线首尾、本地化等）都在云端跑。GPU 侧的 Celery 应用与任务在 `gpu-worker/gpu_worker/celery_app.py` / `tasks.py`，只声明、只消费 `transcription_gpu`。beat 里挂着管线看门狗（含首页草稿生成超时巡检）、**管线派发补发（每 60 秒，`app.services.pipeline_dispatch` 的 outbox）**、失败下载重试、评分（小时/天）、内容榜单快照、自愿开启的词汇复习提醒、注销账号清理。**Pro/兑换码 beat 与周报空任务壳已在 2026-10-26 清理中删除**；2026-11 会员收费链路下线时，订单过期/对账与金数据同步两条 beat、以及 `reminder_tasks.send_pro_expiring_reminders` 任务体也一并删除（已入队的旧消息会以 unregistered task 结束，影响面可忽略）。
 
 Windows 上这些以 NSSM 服务托管：云端 worker 用 `backend/scripts/run_celery_worker.ps1`（该脚本只起 worker；仓库没有 beat 的 NSSM 脚本，本地/生产 beat 需单独启动或由 prod compose 的 `celery-beat` 服务托管）；GPU worker 用 `gpu-worker/scripts/run_gpu_worker.ps1`，隧道用 `gpu-worker/scripts/gpu_worker_tunnel.ps1`（服务名见 [`gpu-worker/README.md`](gpu-worker/README.md)）。
 
@@ -164,7 +164,7 @@ Windows 上这些以 NSSM 服务托管：云端 worker 用 `backend/scripts/run_
 规范与阶段在 [`docs/slcs/`](docs/slcs/)（文件契约认 `README.md`，阶段认 `06-implementation-roadmap.md`），这里只记代码里的非显然处。
 
 - **课程不建在 `videos` 行上**：`lessons` / `lesson_revisions` / `lesson_operations` / `lesson_progress` / `lesson_activities` 自成一域，进度按 `(user_id, lesson_id)`，所以删视频不会级联删学习历史。课程事件先写 `lesson_activities` 再投影成 `LearningEvent`，不经过 `drop_unknown_video_ids`。
-- **三个开关默认全关**：`SLCS_LESSONS_ENABLED` / `SLCS_TUTOR_ENABLED` / `SLCS_VOCABULARY_ENABLED`（`backend/.env.example` 有注释）。用户侧入口关着或表不存在时一律 503；`/admin/lessons` 只走管理员鉴权，不看这组开关。开关必须在 compose 的 environment 白名单里，否则宿主 `.env` 写了也进不了容器（`scripts/production_preflight.py` 会拦）。
+- **三个开关默认全关**：`SLCS_LESSONS_ENABLED` / `SLCS_TUTOR_ENABLED` / `SLCS_VOCABULARY_ENABLED`（`backend/.env.example` 有注释）。用户侧入口关着或表不存在时一律 503；`/admin/lessons` **也走同一道门**（`_require_pilot` → `services/lessons.require_lessons_ready` → `slcs_lessons_enabled` + 建表检查，关着同样 503），区别只是它额外要求管理员身份。开关必须在 compose 的 environment 白名单里，否则宿主 `.env` 写了也进不了容器（`scripts/production_preflight.py` 会拦）。
 - **发布要外部签名收据**：`SLCS_LESSON_RECEIPT_ISSUER` + `SLCS_LESSON_RECEIPT_PUBLIC_KEYS`（Ed25519，JWT，audience `seeword-slcs-lesson-publication`）未配置时发布与「以新收据恢复发布」都返回 503。它与教学的 `CONTENT_RECEIPTS_*` 是两套配置，别混。**签发收据用 `scripts/sign_lesson_receipt.py`**（`keygen` / `claims` / `sign`）：私钥必须在仓库外，站点只拿公钥；`sign` 的 stdout 是可粘贴的 token。本仓库不保存任何私钥。
 - **撤回即时生效**：课程读取每次查库、`Cache-Control: no-store`，不走旧视频链路的 `_VIDEO_ACCESS_CACHE`；撤回清当前版指针，历史引用保留进度只显示「材料已不可用」。
 - **发行包是另一份交付物**：`backend/slcs/` 独立成包（不 import `app.*`，由 `backend/slcs_tests` 的 AST 断言守），`scripts/build_slcs_release.py` 从显式文件清单生成公开树。**改了 `backend/slcs` 就要重新发布 `CandideEgo/slcs`**，两边不会自动同步；发行树的测试要装 wheel 后跑，`backend/` 下直接 `pytest slcs_tests` 会 skip。

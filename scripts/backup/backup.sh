@@ -87,7 +87,9 @@ else
   log "WARNING: could not read alembic_version"
 fi
 
-TABLES=${BACKUP_TABLES:-users videos subtitles vocabulary learning_records learning_events user_learning_profiles orders user_favorites user_notes exam_papers exam_questions exam_sessions}
+# 已删表不列入：orders / jinshuju_payments / user_video_unlocks 在迁移
+# d4e5f6a7b8c9 中 drop，列进来只会每轮打印 `orders=missing`。
+TABLES=${BACKUP_TABLES:-users videos subtitles vocabulary learning_records learning_events user_learning_profiles user_favorites user_notes exam_papers exam_questions exam_sessions}
 : >"$BACKUP_DIR/row_counts.txt"
 for t in $TABLES; do
   if count=$(db_query "SELECT count(*) FROM $t" 2>/dev/null); then

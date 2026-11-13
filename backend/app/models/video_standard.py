@@ -3,8 +3,7 @@
 A "standard version" is the shared baseline for a ``source_url``: the first
 video to reach ``ready`` for that URL becomes its standard, and all subsequent
 submissions fork from it (copying subtitles + practice + metadata) instead of
-re-running the GPU pipeline. See docs/plans/PIPELINE-RESUME-DEDUP-AUDIT.md
-Phase 2 and ADR-0006.
+re-running the GPU pipeline. See ADR-0006.
 
 ``source_url`` is the PK → the DB enforces "one URL, one standard" and
 prevents concurrent finalize races from creating two standards. Replacing a

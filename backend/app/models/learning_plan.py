@@ -93,7 +93,10 @@ class UserLearningProfile(Base):
     today_goal_met: Mapped[bool] = mapped_column(Boolean, default=False)
     today_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
-    # Shadowing (sentence read-along) cumulative count
+    # 两条退役功能留下的死列，代码里已无任何读写：
+    #   total_shadowing_count   —— 跟读（shadowing）已下线（410 兼容壳）
+    #   last_plan_generated_at  —— 每日计划（ADR-0012）已在 d1e2f3a4b5c6 删除
+    # 保留只为避免一次纯删列的迁移；下次动这张表时一并 drop。
     total_shadowing_count: Mapped[int] = mapped_column(Integer, default=0)
 
     last_plan_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -25,6 +25,7 @@ from app.core.errors import (
     ServiceUnavailableError,
     UnprocessableEntityError,
 )
+from app.core.heartbeat import GPU_HEARTBEAT_KEY
 from app.core.logging import get_logger
 from app.core.redis import get_redis
 from app.models.subtitle import Subtitle
@@ -303,7 +304,7 @@ async def seed_video(
 # Admin-triggered processing
 # ---------------------------------------------------------------------------
 
-_WORKER_HEARTBEAT_KEY = "worker:gpu:heartbeat"
+_WORKER_HEARTBEAT_KEY = GPU_HEARTBEAT_KEY
 
 
 async def is_gpu_worker_online() -> bool:

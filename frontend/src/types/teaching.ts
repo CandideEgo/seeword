@@ -78,6 +78,20 @@ export interface TeachingSession {
   updated_at: string;
 }
 
+/**
+ * `GET /api/v1/teaching/sessions` — the "继续教学" list. Deliberately a
+ * different (smaller) shape than `TeachingSession`: the list endpoint does not
+ * load items/attempts/cards, so reading `session.items` off it is always
+ * undefined. See `SessionSummary` in backend/app/schemas/teaching.py.
+ */
+export interface TeachingSessionSummary {
+  id: string;
+  status: "active" | "completed" | "abandoned";
+  revision: number;
+  current_item_id: string | null;
+  updated_at: string;
+}
+
 export interface TeachingContent {
   id: string;
   question_key: string;

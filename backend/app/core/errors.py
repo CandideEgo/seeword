@@ -36,6 +36,12 @@ class ErrorCode:
     TEACHING_STATE_CONFLICT = "TEACHING_STATE_CONFLICT"
     TEACHING_CONTEXT_CHANGED = "TEACHING_CONTEXT_CHANGED"
     CONTENT_REVISION_MISMATCH = "CONTENT_REVISION_MISMATCH"
+    # Teaching content/visibility restrictions and run-event cursor problems.
+    # These were used as bare string literals in services; declaring them here
+    # keeps ErrorCode the single machine-readable list the frontend maps on.
+    CONTENT_RESTRICTED = "CONTENT_RESTRICTED"
+    EVENT_CURSOR_INVALID = "EVENT_CURSOR_INVALID"
+    EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT"
     EVENT_CURSOR_EXPIRED = "EVENT_CURSOR_EXPIRED"
     BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
     CONCURRENCY_LIMITED = "CONCURRENCY_LIMITED"

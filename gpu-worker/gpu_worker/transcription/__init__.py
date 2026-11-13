@@ -29,7 +29,7 @@ from .audio_extractor import (
     extract_streaming_audio,
     get_video_duration,
 )
-from .chunked_transcription import transcribe_in_chunks, transcribe_local_chunks
+from .chunked_transcription import transcribe_local_chunks
 from .exceptions import AudioExtractionError, TranscriptionError, UnsupportedPlatformError
 from .formatters import whisperx_segments_to_subtitles
 
@@ -41,6 +41,15 @@ class TranscriptionService:
 
     def __init__(self):
         self.settings = get_settings()
+        # Real audio length in seconds, measured by ffprobe during the last
+        # ``_sync_transcribe`` call (None until then / after a failure).
+        #
+        # Exposed as an attribute rather than folded into the return value so
+        # ``_sync_transcribe`` keeps returning the plain subtitle list that
+        # callers and test doubles already expect. The cloud's hallucination
+        # check needs a duration that is independent of the subtitles it checks;
+        # deriving it from the last subtitle made that check a tautology.
+        self.last_audio_duration: float | None = None
 
     async def transcribe(self, source: str, platform: VideoSource) -> list[dict]:
         """Transcribe a video into subtitles.
@@ -69,6 +78,8 @@ class TranscriptionService:
         temp_dir = Path(self.settings.transcription_temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
 
+        # Reset first: a failed run must not report the previous video's length.
+        self.last_audio_duration = None
         audio_path = None
         extra_cleanups: list[str] = []
         try:
@@ -77,8 +88,10 @@ class TranscriptionService:
             if not audio_path or not Path(audio_path).exists():
                 raise TranscriptionError("Failed to extract audio from video")
 
-            # Step 2: Get duration
+            # Step 2: Get duration (also reported to the cloud, see
+            # ``last_audio_duration``).
             duration = get_video_duration(audio_path)
+            self.last_audio_duration = duration
             logger.info("Audio duration", duration=f"{duration:.1f}s")
 
             # Step 3: Transcribe + align with WhisperX

@@ -226,6 +226,55 @@ class TestWatchdogStalePipeline:
             assert fetched.status == VideoStatus.error
             assert "classifying" in (fetched.error_message or "")
 
+    @pytest.mark.asyncio
+    async def test_admin_rows_override_env_step_budgets(self, db_session, monkeypatch):
+        """The 翻译步 / 下载步 budgets come from the admin settings row when it exists.
+
+        The admin panel exposes both knobs and says they control the watchdog,
+        so the row must win; this pins that wiring (an absent row still falls
+        back to the env defaults, which the tests above cover).
+        """
+        await _patch_async_session(monkeypatch)
+        from app.models.admin_setting import SETTINGS_ROW_ID, AdminSetting
+        from app.tasks.video_processing import _run_watchdog_pipeline
+
+        # translate_timeout_sec well below the stuck age; download stays lenient.
+        row = AdminSetting(
+            id=SETTINGS_ROW_ID,
+            translate_timeout_sec=60,
+            download_timeout_sec=86400,
+        )
+        db_session.add(row)
+        v_translate = Video(
+            title="stuck translate (admin budget)",
+            source_url="x",
+            status=VideoStatus.ready_subtitles,
+            processing_step="translating",
+            step_started_at=datetime.now(UTC) - timedelta(minutes=5),
+            processing_progress=70,
+        )
+        v_download = Video(
+            title="slow download (admin budget)",
+            source_url="y",
+            status=VideoStatus.ready_subtitles,
+            processing_step="downloading",
+            step_started_at=datetime.now(UTC) - timedelta(hours=1),
+            processing_progress=75,
+        )
+        db_session.add_all([v_translate, v_download])
+        await db_session.commit()
+        translate_id, download_id = v_translate.id, v_download.id
+
+        await _run_watchdog_pipeline()
+
+        async with TestSessionLocal() as db:
+            translate_row = (await db.execute(select(Video).where(Video.id == translate_id))).scalar_one()
+            download_row = (await db.execute(select(Video).where(Video.id == download_id))).scalar_one()
+            # 5 min > the admin's 60s translating budget → failed.
+            assert translate_row.status == VideoStatus.error
+            # 1h < the admin's 86400s downloading budget → still running.
+            assert download_row.status == VideoStatus.ready_subtitles
+
 
 class TestStepBudgets:
     """INV: every pipeline step declares its own watchdog budget."""

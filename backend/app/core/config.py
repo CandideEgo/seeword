@@ -134,11 +134,14 @@ class Settings(BaseSettings):
     content_receipt_public_keys: dict[str, str] = Field(default_factory=dict, repr=False)
     content_receipt_issuer: str = "seeword-content-gateway"
     content_receipt_max_age_seconds: int = Field(default=86400, ge=60, le=86400)
-    v2_daily_budget_usd: float = Field(default=1.0, gt=0, le=1.0)
-    v2_user_daily_budget_usd: float = Field(default=0.10, gt=0, le=0.10)
+    # Per-run budget handed to the gateway when a teaching run starts. The
+    # daily team/member budgets are NOT here: they belong to the gateway host and
+    # are constants in deploy/v2-gateway/bootstrap_gateway.py (TEAM_DAILY_USD /
+    # MEMBER_DAILY_USD), applied when the virtual key is provisioned.
     v2_run_budget_usd: float = Field(default=0.02, gt=0, le=0.02)
+    # 运行事件的保留期（小时）：teaching_runs.events 的游标过期与
+    # sweep_teaching_runs 的清理都读它，别在这两处再写死 24。
     teaching_run_retention_hours: int = 24
-    teaching_usage_retention_days: int = 7
 
     local_media_path: str = "./media"
 
@@ -146,10 +149,6 @@ class Settings(BaseSettings):
     # 容器 WORKDIR 是 /app，bind mount 把 ./backend/data 挂到 /app/data，所以
     # 相对路径在生产与本地都指到同一处，不需要新增任何 env / compose 项。
     exam_pdf_dir: str = "./data/exam_pdfs"
-
-    # Local video upload limits + temp dir (used by upload_service).
-    max_upload_file_size: int = 500 * 1024 * 1024  # 500 MB
-    upload_temp_dir: str = "./media/uploads"
 
     oss_endpoint: str = ""
     oss_bucket: str = ""

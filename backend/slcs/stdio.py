@@ -20,7 +20,11 @@ def serve(pack: Path, segment_ids: set[str]) -> None:
         raise PackValidationError("/segment_id", "select one or more segment IDs from the chosen pack")
 
     server = MCPServer("SLCS")
-    readonly = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
+    # Keyword names must be the pydantic FIELD names (snake_case). The model
+    # also accepts the camelCase wire aliases at runtime (populate_by_name), but
+    # mypy only sees the field names — camelCase is a `call-arg` type error, and
+    # `mypy app/` reaches this file through app/slcs/__main__ → slcs.cli.
+    readonly = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
 
     @server.tool(annotations=readonly)
     def resolve(headword: str) -> dict[str, object]:

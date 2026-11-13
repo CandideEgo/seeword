@@ -182,13 +182,15 @@ async def update_subtitle(
 
     await _validate_timing(db, video_id, subtitle)
 
-    if text_en_changed and not payload.preserve_word_levels:
-        # Re-derive word_levels from the new English text — same primitive the
-        # finalize pipeline and backfill script use. This overwrites any manual
-        # overrides on this line; UI should warn before editing text_en. Pass
-        # ``preserve_word_levels=True`` to keep existing overrides.
-        levels = annotate_text(subtitle.text_en)
-        subtitle.word_levels = levels or None
+    if text_en_changed:
+        subtitle.words = None
+        if not payload.preserve_word_levels:
+            # Re-derive word_levels from the new English text — same primitive the
+            # finalize pipeline and backfill script use. This overwrites any manual
+            # overrides on this line; UI should warn before editing text_en. Pass
+            # ``preserve_word_levels=True`` to keep existing overrides.
+            levels = annotate_text(subtitle.text_en)
+            subtitle.word_levels = levels or None
 
     after_snap = _snapshot(subtitle)
 
@@ -240,9 +242,11 @@ async def update_subtitles_batch(
             value = getattr(item, field)
             if value is not None:
                 setattr(sub, field, value)
-        if text_en_changed and not item.preserve_word_levels:
-            levels = annotate_text(sub.text_en)
-            sub.word_levels = levels or None
+        if text_en_changed:
+            sub.words = None
+            if not item.preserve_word_levels:
+                levels = annotate_text(sub.text_en)
+                sub.word_levels = levels or None
         pending.append((sub, before_snap))
 
     # Apply the whole batch before validating: validating inside the loop would

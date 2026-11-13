@@ -144,12 +144,19 @@ async def get_video_detail(
     current_user: User | None,
     *,
     skip_access_check: bool = False,
+    include_word_timings: bool = False,
 ) -> VideoDetailResponse:
     """Get video detail with subtitles. Creates a LearningRecord on first view.
 
     When *skip_access_check* is True the ``check_video_access`` gate is
     bypassed (used by the admin detail endpoint so admins can view UGC
     drafts they don't own).
+
+    *include_word_timings* adds each subtitle's word-level timestamps. Only the
+    admin subtitle editor needs them (precise split/merge); the public watch
+    page renders sentence text alone, and ``words`` is the single largest
+    per-subtitle field, so it stays off by default. A response built with them
+    is not cached — the shared ``video:detail:{id}`` entry is the lean shape.
 
     Every feature is free (2026-11): there is no membership/unlock gate. The
     login wall is the only remaining boundary — anonymous callers get the
@@ -190,7 +197,7 @@ async def get_video_detail(
     # can_watch 的响应才读写缓存。
     cache_key = f"video:detail:{video_id}"
     cacheable = can_watch
-    if cacheable:
+    if cacheable and not include_word_timings:
         cached = await cache_get(cache_key)
         if cached:
             detail = VideoDetailResponse.model_validate_json(cached)
@@ -233,6 +240,11 @@ async def get_video_detail(
                 grammar_note=s.grammar_note,
                 speaker=s.speaker,
                 word_levels=s.word_levels,
+                # Word timestamps are only for the admin subtitle editor's
+                # precise split/merge. Including them in the public watch
+                # payload would inflate the largest part of the response for
+                # every viewer, so it is opt-in per caller.
+                words=s.words if include_word_timings else None,
             )
             for s in subtitle_rows
         ]
@@ -294,7 +306,8 @@ async def get_video_detail(
     # Only cache when owner-only fields are None so the shared entry cannot
     # leak them to other viewers.
     if cacheable and video.is_official and detail.rejection_reason is None and detail.error_message is None:
-        await cache_set(cache_key, detail.model_dump_json(), ttl=300)
+        if not include_word_timings:
+            await cache_set(cache_key, detail.model_dump_json(), ttl=300)
 
     return detail
 

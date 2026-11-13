@@ -220,9 +220,17 @@ async def mark_all_as_read(
 
 # ── Notification preferences ──────────────────────────────────────────
 
-# Default preferences are defined once in app.schemas.notification
-# (DEFAULT_NOTIFICATION_PREFS) and shared with the response schema so the two
-# cannot drift.
+# Two default dicts, deliberately different, and they are NOT mirrors:
+#   * ``app.schemas.notification.DEFAULT_NOTIFICATION_PREFS`` — the API-facing
+#     key set (what NotificationPreferencesResponse exposes and validates).
+#     Imported below and used as the merge base for this router.
+#   * ``app.models.preferences.DEFAULT_NOTIFICATION_PREFS`` — the storage
+#     default written into the ``notification_preferences`` JSON column. It
+#     additionally carries internal keys the API never returns, notably
+#     ``vocabulary_reminder_time``, which ``reminder_tasks`` reads.
+# A key belongs in the storage dict when a task must see it with no user input;
+# it belongs in the schema dict when a client may set it. Adding a key to one
+# therefore does not imply adding it to the other.
 
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)

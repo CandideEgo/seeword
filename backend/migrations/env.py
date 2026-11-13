@@ -7,11 +7,13 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.database import Base
-from app.models.channel import Channel
-from app.models.learning import LearningRecord, Vocabulary
-from app.models.subtitle import Subtitle
-from app.models.user import User
-from app.models.video import Video
+
+# Load every model so Base.metadata is complete before Alembic reads it. The
+# per-model imports that used to sit here were a hand-kept subset of
+# app.models.__init__ (and had drifted from it); importing the package once is
+# both complete and honest — the name marks the import as intentional, which
+# ruff's F401 check requires.
+import app.models  # noqa: F401  (registers every table on Base.metadata)
 
 config = context.config
 

@@ -147,9 +147,12 @@ class Video(Base):
     quiz_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     processing_progress: Mapped[int] = mapped_column(Integer, default=0)  # 0-100 percentage
 
-    # Comment-analysis denormalised fields (written by comment_service.analyze).
-    # comment_count exists in the initial migration; comment_quality_score was
-    # referenced by code but missing from the schema — added here + a migration.
+    # Comment-analysis denormalised fields — **legacy, no writer left**. The
+    # comment feature was retired and `comment_service` no longer exists, so
+    # `comment_count` / `comment_quality_score` (and `quiz_data` above, from the
+    # retired per-video quiz) are only kept because dropping columns needs its
+    # own migration; nothing reads or writes them. Remove them in one migration
+    # together with their now-unused API fields.
     comment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     comment_quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 

@@ -1,7 +1,11 @@
 """Milestone and mastery snapshot models (Sprint 4 — E4 掌握度可视化 + 成就系统).
 
-UserMilestone — records a one-time achievement (e.g. mastered 100 words, 7-day streak).
+UserMilestone — historical achievement rows. The achievement feature is retired
+(``check_and_award`` awards nothing, ``/plan/milestones`` answers 410); the table
+is kept only so that history is not destroyed.
+
 MasterySnapshot — daily snapshot of mastery_by_level for trend visualization.
+Still live: ``/plan/mastery-trend`` reads it via milestone_service.
 """
 
 import uuid
@@ -25,6 +29,10 @@ def _utcnow() -> datetime:
 # UserMilestone
 # ---------------------------------------------------------------------------
 
+# Milestone type keys. The achievement system is retired (check_and_award never
+# awards; /plan/milestones answers 410), so nothing reads these constants — the
+# column still stores the old values on historical rows. Kept as documentation
+# of what that column can contain; delete together with the table if it ever goes.
 # Valid milestone types
 MILESTONE_VOCAB_50 = "vocab_50"
 MILESTONE_MASTERED_100 = "mastered_100_words"

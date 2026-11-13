@@ -35,8 +35,9 @@ _CHUNK = 64 * 1024
 
 # Only these extensions may ever be served from the media directory. Anything
 # else (html, svg, json, ...) is a 404: a client-chosen filename extension must
-# never become servable content on the trusted origin (stored-XSS defense —
-# see upload_service._CONTENT_TYPE_EXT for the upload-side allowlist).
+# never become servable content on the trusted origin (stored-XSS defense).
+# There is no upload-side counterpart any more — user submissions are gone
+# (INV-003); every file in this tree is produced by the pipeline or by ops.
 _SERVE_EXT_ALLOWLIST = {
     ".mp4",
     ".webm",
@@ -302,8 +303,11 @@ async def _video_media_allowed(video_id: str, viewer_id: str | None) -> bool:
 # video that passes the publish-state gate above. Anonymous viewers are still
 # refused except for ``is_demo`` videos, whose open access is a deliberate
 # carve-out for the (deferred) public landing page — the login wall sends
-# everyone else to /login. The Pro/unlock tables stay dormant for a future
-# paid tier — see docs/progress/FREE-TIER-ASSESSMENT-2026-09.md.
+# everyone else to /login. The paid membership chain is gone for good: the
+# orders / jinshuju_payments / user_video_unlocks tables and the users.plan*
+# columns were dropped in migration d4e5f6a7b8c9, and
+# tests/test_architecture_invariants.py::DROPPED_TABLES fails if any of them
+# reappears in the metadata. The login wall is the only remaining boundary.
 #
 # Draft/unpublished protection is NOT this gate's job: ``_video_media_allowed``
 # above still enforces owner/admin-only preview for those.

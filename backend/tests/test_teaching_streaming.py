@@ -83,9 +83,12 @@ def stream_model(monkeypatch, chunks, *, usage="reported", finish="stop", gate=N
 
 
 def enable_streaming(monkeypatch):
+    # A whole-object settings stub replaces get_settings() for every module that
+    # resolves it lazily (teaching_runs reads the run-retention hours at call
+    # time), so the stub has to carry every field those paths touch.
     monkeypatch.setattr(
         "app.core.config.get_settings",
-        lambda: SimpleNamespace(teaching_streaming_enabled=True),
+        lambda: SimpleNamespace(teaching_streaming_enabled=True, teaching_run_retention_hours=24),
     )
 
 

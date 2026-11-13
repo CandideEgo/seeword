@@ -25,12 +25,14 @@ individual sentences before ingest.
 USAGE / DATA SOURCE:
   This is the integration point for real 真题 data. The actual past-paper
   corpus (which GitHub repo / licensed dataset) is TBD — point this script at
-  a converted JSON file matching the schema above. A small example is at
-  backend/data/example_exam_sentences.json for smoke-testing.
+  a converted JSON file matching the schema above. A small tracked example
+  lives at ``backend/tests/fixtures/example_exam_sentences.json`` for
+  smoke-testing (``backend/data/`` is gitignored, so the example cannot live
+  there).
 
 Usage:
     cd backend
-    python scripts/ingest_exam_papers.py data/example_exam_sentences.json
+    python scripts/ingest_exam_papers.py tests/fixtures/example_exam_sentences.json
     python scripts/ingest_exam_papers.py data/papers/   # directory of .json
 """
 

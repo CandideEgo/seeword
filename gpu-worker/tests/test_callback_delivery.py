@@ -92,6 +92,26 @@ class TestCallbackDelivery:
         assert not _post_transcription_callback("vid-3", status="ok", segments=[])
         assert len(fake_httpx.calls) == 3
 
+    def test_payload_reports_measured_audio_duration(self, monkeypatch, fake_httpx):
+        """The cloud's duration sanity check needs the REAL audio length.
+
+        It compares the measured length against the subtitles; when the payload
+        carried ``segments[-1].end`` instead, `last_end > duration * 1.5` could
+        never fire and the check passed on every input.
+        """
+        _callback_settings(monkeypatch)
+        fake_httpx.responses = [_Resp(200)]
+        segments = [{"start": 0, "end": 1, "text": "Hi"}]
+
+        assert _post_transcription_callback("vid-4", status="ok", segments=segments, audio_duration=12.5)
+        assert fake_httpx.calls[0]["json"]["audio_duration"] == 12.5
+
+        # Without a measured duration the field stays null — never the last
+        # subtitle's end, which would re-introduce the tautology.
+        fake_httpx.responses = [_Resp(200)]
+        assert _post_transcription_callback("vid-5", status="ok", segments=segments)
+        assert fake_httpx.calls[1]["json"]["audio_duration"] is None
+
 
 class _RetryError(Exception):
     pass

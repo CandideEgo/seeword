@@ -127,6 +127,10 @@ export function NotificationPreferences() {
                     )}
                     role="switch"
                     aria-checked={enabled}
+                    // 按钮旁边那行 label 只是兄弟节点，不构成可访问名；
+                    // 屏幕阅读器只会念「开关，已选中」。用 aria-label 给出
+                    // 具体是哪一项（其余四个同类开关都有名字）。
+                    aria-label={type.label}
                   >
                     <span
                       className={cn(

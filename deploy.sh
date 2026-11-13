@@ -70,14 +70,14 @@ DB_PASSWORD=change-me-strong-random-password
 JWT_SECRET=change-me-openssl-rand-hex-32
 TRANSCRIPTION_CALLBACK_SECRET=change-me-random-hex-32
 OPENAI_API_KEY=sk-your-key-here
-REDIS_URL=redis://redis:6379/0
 ENV=production
 
-# 前端配置
-NEXT_PUBLIC_API_URL=http://your_server_ip
+# 前端公示信息（构建期常量；域名由 NEXT_PUBLIC_SITE_URL 决定，不是 API URL——
+# 浏览器与 API 同源，没有独立的 API 地址）
+NEXT_PUBLIC_SITE_URL=https://seeword.top
 
-# GPU Worker（如需要）
-WHISPER_MODEL=base
+# GPU 转录不在这台机器上：模型与 WHISPER_* 配置属于 gpu-worker/，
+# 见 gpu-worker/.env.gpu-worker.example，不要写进云端 .env。
 EOF
     chmod 600 .env
     echo "⚠️  请编辑 .env 文件，填入正确的配置信息"

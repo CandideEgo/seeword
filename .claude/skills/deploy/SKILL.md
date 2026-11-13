@@ -113,10 +113,13 @@ as production already produced a false "production data is empty" conclusion onc
    "
    ```
    Done when the output contains `Migrations OK.` and `alembic current` reports the same head as the
-   local tree. **`entrypoint.sh` never blocks startup on a migration failure** — it prints
-   `WARNING: migration step failed` and the container still comes up healthy, so a green `/health`
-   proves nothing here. If the warning appears, stop before step 7 and report; services are still
-   running the old code and the rollback point is intact.
+   local tree. In `migrate-only` mode a migration failure makes `entrypoint.sh` print
+   `[entrypoint] ERROR: alembic upgrade head failed (exit N).` and exit non-zero, so the command above
+   fails outright — treat any non-zero exit as a hard stop. (The *normal* startup path is the one that
+   swallows the failure: it prints `[entrypoint] WARNING: continuing startup so /health can report the
+   DB issue.` and the container still comes up green, so a green `/health` proves nothing there.) If a
+   failure appears, stop before step 7 and report; services are still running the old code and the
+   rollback point is intact.
 
 7. **Switch: recreate the four app containers and re-resolve nginx's upstreams.**
    ```bash
