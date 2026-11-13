@@ -225,15 +225,17 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 **修法三处**：`SelectMenu` 传 `modal={false}`（非对话框式下拉本来就不该冻结整页，遮罩层随之消失）；用例不再靠「按 Escape 关面板」这一步验证筛选，改成选一个确定存在的排序值来关面板——那条断言验的是关闭行为，与本用例要验的「筛选进 URL、进请求」无关，却让用例依赖库的按键时序；`chooseSelectMenu` 改成在**可见的** listbox 里找选项。
 
-第三处是修完前两处才暴露出来的下一个坑，而且**改了两轮才对**——记下来免得再走一次：
+第三处是修完前两处才暴露出来的下一个坑，而且**改了三轮**——记下来免得再走一次：
 
 1. 第一版 `getByRole("listbox").last()`：Base UI 用 `keepMounted` 保留关闭状态的弹出层，两个 SelectMenu 的 listbox 同时在 DOM 里，`.last()` 抓到的是难度面板（`visible: false`，高宽为 0），里面的选项永远等不到可见。CI 报在 `helpers.ts:44`。
 2. 第二版加 `filter({ visible: true })`：仍然超时。因为**点击之后那一刻还没有任何可见 listbox**，filter 解析成空集，`.click()` 等满 60s。
 3. 第三版先 `toHaveAttribute("aria-expanded", "true")` 再取可见的那个。依据是 ego-browser 的实测时间序列：点开后 +200ms 时 `aria-expanded` 仍是 `"false"`、`inerts=0`，到 +1200ms 才变 true 并铺出面板。**面板是异步挂载的**，点击返回不等于面板已就绪。
+4. 第四版才发现真正的病根在**用例**里：它在第 195 行先 `sort.click()` 打开了面板，第 200 行又调 `chooseSelectMenu`，而后者自带一次 `trigger.click()`——第二次点击把刚打开的面板关掉了。CI 日志把它写得很清楚：选项被找到了（`locator resolved` 到 `role=option`、`aria-selected=true`），但 `not visible`，因为面板正在关闭。改成打开后直接在可见 listbox 里点，不再走 `chooseSelectMenu`。
 
-两层各有各的理由，缺一不可：等 `expanded` 是因为异步挂载；按可见筛是因为关闭的那个 listbox 还留在 DOM 里。
+前三条都在猜「怎么等」，第四条是读日志读出来的。**教训：当 locator 已经 resolve 到元素、只是不可见时，问题在状态机而不在等待方式。**
 
-**为什么 CI 上必现、上一版却在本地看不出来**：本地的 `enabled` 判定与 CI 的机器速度不同，用例在「打开动画未完成」的窗口里按 Escape 的概率不同；而且本地跑这条要先过 `/history` 溢出那道坎，掩盖了后面的失败。
+**为什么 CI 上必现、上一轮却在本地看不出来**：本地的 `enabled` 判定与 CI 的机器速度不同；而且本地跑这条要先过 `/history` 溢出那道坎，掩盖了后面的失败。
+
 
 **`design-rollout:139` 是 fixture 缺口，不是回归。** 这个用例搜 `habit`，然后断言四个分组各有 `<h2>` 标题。CI 的库是「空库迁移 + `seed_e2e.py`」：种子字幕里没有 `habit`，视频标题里也没有；而「词汇」组要靠 ECDICT，`backend/data/ecdict.db` 被 `.gitignore` 忽略、CI 从不下载（`grep ecdict .github/workflows/` 为空）。四组计数全 0 ⇒ `totalHits === 0` ⇒ `allEmpty` 成立 ⇒ 页面渲染空态、**四个分组标题根本不渲染**（`search/page.tsx:165` 与 `:414`）。本机看不出来，是因为本机有 51 条视频和一份 ECDICT。
 
