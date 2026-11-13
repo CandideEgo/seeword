@@ -47,7 +47,7 @@ GPU 依赖集 `backend/requirements.txt` **已删除**，现在在 `gpu-worker/r
 
 ## 常用脚本（`backend/scripts/`）
 
-`seed_e2e.py`（e2e 播种，不跑的话观看页 spec 会整片 skip）、`create_admin.py`、`grant_teaching_access.py`（授予/撤销 `teaching_access_grants`，V2 教学的唯一写入口）、`seed_teaching_quiz.py`（本机走查用：播种 4 道合成题目并授权，复用 `tests/teaching_fixtures.py`）、`pip_audit_gate.py`（`--ignore-file`/`--no-deps` 供 GPU 锁复用）、`production_preflight.py`（生产配置预检，不连库）、`measure_baseline.py`（A12 可复现基线）、`inventory_orphan_media.py`（只读孤儿媒体盘点）、`download_ecdict.py`、`import_catalog.py`、`seed_official_videos.py`、`retranscribe_video.py`、`recover_video.py`，以及若干 `backfill_*.py` / `rebackfill_*.py`。
+`seed_e2e.py`（e2e 播种，不跑的话观看页 spec 会整片 skip）、`create_admin.py`、`grant_teaching_access.py`（授予/撤销 `teaching_access_grants`，V2 教学的唯一写入口）、`seed_teaching_quiz.py`（本机走查用：播种 4 道合成题目并授权，复用 `tests/teaching_fixtures.py`）、`pip_audit_gate.py`（`--ignore-file`/`--no-deps` 供 GPU 锁复用）、`production_preflight.py`（生产配置预检，不连库）、`sign_lesson_receipt.py`（SLCS 课程发布收据的签发方工具：`keygen`/`claims`/`sign`，私钥必须在仓库外，本文件不 import `app.*`）、`smoke_lesson_publication.py`（在真实库上跑完导入→审核→签收据→发布→撤回→恢复，把签发脚本当子进程调用）、`measure_baseline.py`（A12 可复现基线）、`inventory_orphan_media.py`（只读孤儿媒体盘点）、`download_ecdict.py`、`import_catalog.py`、`seed_official_videos.py`、`retranscribe_video.py`、`recover_video.py`，以及若干 `backfill_*.py` / `rebackfill_*.py`。
 
 **GPU 不再在本地跑转录**：`retranscribe_video.py` / `reprocess_official_videos.py` / `seed_local_video.py` 已改写为「重置状态 + 入队 `process_video`（走 head → GPU → tail）」，不再在本地调 WhisperX；`reprocess_official_videos.py` 的 JSON 导出上传流程已退役（`upload_reprocessed.py` 早已不存在）。`backfill_video_duration.py` 改用 `app.core.media_probe.get_video_duration`。
 

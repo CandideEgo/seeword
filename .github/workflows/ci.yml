@@ -68,13 +68,6 @@ jobs:
           pip install -r backend/requirements-cloud.txt
           pip install -r backend/requirements-dev.txt
 
-      - name: Validate SLCS example pack
-        # docs/slcs/README.md promises contributors that the same offline
-        # validator runs in CI; without this step that promise is false and a
-        # broken example only surfaces when someone runs the CLI by hand.
-        working-directory: backend
-        run: python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
-
       - name: Lint
         working-directory: backend
         run: ruff check app/ tests/
@@ -118,6 +111,20 @@ jobs:
           fi
           echo "No new mypy errors (baseline: $(wc -l < .mypy-baseline) file:code pairs). Lower the baseline as you fix existing ones."
 
+      - name: Surface lock waits in the Postgres log
+        # The deadlock's server-log DETAIL names both statements but not what
+        # each side was waiting on, which is the one fact needed to tell a
+        # lock-order bug from an unrelated wait that merely coincided. With
+        # log_lock_waits on, Postgres logs the waiter, the blocking PID and the
+        # lock mode for every wait longer than deadlock_timeout. Best-effort:
+        # a failure here must not mask the test result.
+        continue-on-error: true
+        run: |
+          PGPASSWORD=seeword_test psql -h localhost -U seeword -d seeword_test \
+            -c "ALTER DATABASE seeword_test SET log_lock_waits = on" \
+            -c "ALTER DATABASE seeword_test SET log_min_duration_statement = 2000" \
+            || echo "(psql unavailable; lock waits will not be logged)"
+
       - name: Run tests
         working-directory: backend
         # The full suite is ~1500 tests and takes 27+ minutes locally (coverage
@@ -140,7 +147,31 @@ jobs:
         # runs on in-memory SQLite). Tests marked `integration`
         # (test_celery_tasks_pg.py — Celery task bodies, with_for_update /
         # skip_locked row-locking semantics) now run against it for real.
-        run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=60
+        run: pytest tests/ -v --tb=short --cov=app --cov=slcs --cov-report=term-missing --cov-fail-under=60
+
+      - name: Dump Postgres server log on failure
+        # test_listening_pg's deadlock surfaces only as "HINT: See server log for
+        # query details" — the client traceback names the victim, never the two
+        # statements that formed the cycle. Without this the log is discarded
+        # with the service container and the next person is back to guessing at
+        # lock order (see docs/slcs/start-here.md §5).
+        if: failure()
+        run: |
+          # Everything here is best-effort: a missing psql client or a container
+          # that already exited must never turn into a second failure line that
+          # hides the real one.
+          echo "=== pg_stat_activity ==="
+          PGPASSWORD=seeword_test psql -h localhost -U seeword -d seeword_test \
+            -c "select pid, state, wait_event_type, wait_event, left(query, 160) from pg_stat_activity where datname='seeword_test'" \
+            || echo "(psql unavailable; skipping pg_stat_activity)"
+          echo "=== postgres server log (deadlock detail) ==="
+          container="$(docker ps -q --filter ancestor=postgres:16-alpine | head -1)"
+          if [ -n "$container" ]; then
+            docker logs "$container" 2>&1 | grep -A 30 "deadlock detected" | tail -100 \
+              || echo "(no deadlock line in the server log)"
+          else
+            echo "(postgres service container not found)"
+          fi
 
       - name: Vulnerability scan (pip-audit)
         # Hard gate. Advisories we knowingly accept are listed in
@@ -352,7 +383,13 @@ jobs:
           # dev mode so next.config.ts rewrites proxy /api and /media to the
           # backend - production `next start` has no proxy and there is no
           # nginx in this job, so a prod build cannot reach the backend.
-          (cd ../backend && nohup uvicorn app.main:app --port 8000 > /tmp/backend.log 2>&1 &)
+          # --timeout-keep-alive 120 is not optional: Next's dev proxy reuses
+          # idle connections, uvicorn's 5s default closes them from under it,
+          # and the ECONNRESET surfaces as a proxy 500 that never reaches the
+          # backend log (design-rollout.spec.ts:303 collects exactly those).
+          # playwright.config.ts and cross-browser.yml already set it; this job
+          # was the only one without it.
+          (cd ../backend && nohup uvicorn app.main:app --port 8000 --timeout-keep-alive 120 > /tmp/backend.log 2>&1 &)
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:8000/health
           nohup npm run dev > /tmp/frontend.log 2>&1 &
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:3000

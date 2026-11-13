@@ -51,6 +51,8 @@ CSV_SECTIONS = frozenset(
         "listening_sessions",
         "video_likes",
         "behavior_events",
+        "lesson_progress",
+        "lesson_activities",
     }
 )
 
@@ -202,6 +204,20 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
     data["learning_profile"] = row_to_dict(profile) if profile is not None else {}
 
     data.update(await _gather_teaching_data(db, user.id))
+    data.update(await _gather_lesson_data(db, user.id))
+    return data
+
+
+async def _gather_lesson_data(db: Any, user_id: str) -> dict[str, Any]:
+    from app.models.lesson import LessonActivity, LessonProgress
+    from app.services.lesson_learning import export_sections
+    from app.services.v2_schema import existing_tables
+
+    tables = await existing_tables(db)
+    data = await export_sections(db, user_id)
+    for model, order_by in ((LessonProgress, LessonProgress.updated_at), (LessonActivity, LessonActivity.created_at)):
+        key = model.__tablename__
+        data[key] = await _rows_for_user(db, model, user_id, order_by) if key in tables else []
     return data
 
 
@@ -391,6 +407,11 @@ EXPORT_ORDER = (
     "mastery_snapshots",
     "user_milestones",
     "behavior_events",
+    "lesson_progress",
+    "lesson_activities",
+    "lesson_vocabulary_sources",
+    "vocabulary_review_log",
+    "lesson_tutor_anchors",
 )
 
 

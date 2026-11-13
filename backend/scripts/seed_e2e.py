@@ -32,7 +32,10 @@ from app.models.exam_test import ExamPaper, ExamQuestion
 from app.models.subtitle import Subtitle
 from app.models.video import Video, VideoReviewStatus, VideoSource, VideoStatus
 
-TITLE = "E2E Demo Video (CI seed)"
+TITLE = "E2E Demo Video · a reading habit (CI seed)"
+# Databases seeded before 2026-11-12 carry this name; matched as a fallback so an
+# upgrade rewrites the row instead of inserting a second demo video.
+_LEGACY_TITLE = "E2E Demo Video (CI seed)"
 
 # Media files are gitignored; the seed writes them so the listening spec has a
 # real, seekable audio track and the home editorial card has a decodable cover.
@@ -136,12 +139,32 @@ _E2E_QUESTIONS = [
 
 # (start, end, en, zh) — four short bilingual sentences so the watch page has
 # something to render and subtitle navigation has room to move.
+#
+# `habit` appears in the last sentence on purpose: design-rollout.spec.ts:139
+# searches for that word and asserts the four group headings render. Without a
+# hit the search page shows its empty state instead, and the headings do not
+# exist at all — that is the page's designed behaviour, so the fixture is what
+# has to carry the word (the alternative, shipping ECDICT to CI, is an 850 MB
+# download for one assertion). Keep it: this is not decoration.
 _DEMO_SUBTITLES = [
     (0.0, 4.2, "Hello and welcome to today's lesson.", "大家好，欢迎来到今天的课程。"),
     (4.2, 8.5, "Today we are going to practice English together.", "今天我们将一起练习英语。"),
     (8.5, 12.0, "Remember to repeat each sentence out loud.", "记住要大声重复每个句子。"),
-    (12.0, 16.0, "This is the last sentence of the demo.", "这是演示的最后一句。"),
+    (
+        12.0,
+        16.0,
+        "This is the last sentence of the demo: reading daily is a good habit.",
+        "这是演示的最后一句：每天阅读是个好习惯。",
+    ),
 ]
+
+# The two group headings design-rollout.spec.ts:139 also asserts need one hit
+# each, and their sources are not the subtitle text: the video group matches
+# title/title_zh/topic_tags, the channel group matches name/description.
+# One word (`habit`) scores all four groups at once, which keeps the search
+# page from collapsing into its all-empty state. Both are spelled out here
+# because TITLE is defined before this block.
+_DEMO_CHANNEL_DESCRIPTION = "Seeded channel for the e2e library/persistence spec; daily reading habit."
 
 
 def _png_chunk(tag: bytes, data: bytes) -> bytes:
@@ -224,10 +247,11 @@ async def seed_exam_paper(db) -> None:
 
 async def seed_video(db) -> Video:
     """Idempotent: one official ready video so the watch e2e spec can run."""
-    video = await db.scalar(select(Video).where(Video.title == TITLE))
-    if video is not None:
-        print(f"seed_e2e: official ready video already present ({video.id})")
-    else:
+    # A database seeded before the title carried `habit` holds the old name.
+    # Match either, otherwise upgrading a long-lived local database would
+    # insert a second demo video and every watch spec would see two.
+    video = await db.scalar(select(Video).where(Video.title.in_([TITLE, _LEGACY_TITLE])))
+    if video is None:
         video = Video(
             title=TITLE,
             source_url="https://example.com/e2e-demo.mp4",
@@ -254,6 +278,16 @@ async def seed_video(db) -> Video:
                 )
             )
         print(f"seed_e2e: created official ready video {video.id} with {len(_DEMO_SUBTITLES)} subtitles")
+    else:
+        print(f"seed_e2e: official ready video already present ({video.id})")
+        # Same reason as the title: `habit` has to reach an already-seeded row
+        # so the search page renders its group headings instead of empty state.
+        if video.title != TITLE:
+            video.title = TITLE
+        for i, (_, _, en, zh) in enumerate(_DEMO_SUBTITLES):
+            row = await db.scalar(select(Subtitle).where(Subtitle.video_id == video.id, Subtitle.sentence_index == i))
+            if row is not None and row.text_en != en:
+                row.text_en, row.text_zh = en, zh
 
     # Placeholder media URL — the e2e suite asserts page behavior, not
     # playback; the file itself is not required (no file ⇒ playable guards skip).
@@ -271,12 +305,17 @@ async def seed_channel(db, video: Video) -> Channel:
         channel = Channel(
             name="E2E Channel",
             slug=_CHANNEL_SLUG,
-            description="Seeded channel for the e2e library/persistence spec.",
+            description=_DEMO_CHANNEL_DESCRIPTION,
             is_visible=True,
         )
         db.add(channel)
         await db.flush()
         print(f"seed_e2e: created channel {channel.id} ({channel.slug})")
+    elif channel.description != _DEMO_CHANNEL_DESCRIPTION:
+        # The search group heading assertion needs `habit` to reach the channel
+        # row too. A database seeded before that word was added keeps the old
+        # description, so rewrite it instead of only filling new rows.
+        channel.description = _DEMO_CHANNEL_DESCRIPTION
     video.channel_ref = channel.id
     # The watch page's channel block renders from the scraped channel_name
     # column (not the Channel row), so seed both halves of the link.

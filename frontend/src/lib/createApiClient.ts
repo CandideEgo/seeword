@@ -105,6 +105,8 @@ export class ApiClientError extends Error {
   readonly status: number;
   readonly code: string | null;
   readonly response: Response | null;
+  /** Structured API diagnostics, when supplied by the error envelope. */
+  detail: unknown;
 
   constructor(
     message: string,
@@ -391,9 +393,11 @@ export function createApiClient(options: CreateApiClientOptions) {
       if (!res.ok) {
         let detail = "请求失败";
         let code: string | null = null;
+        let structuredDetail: unknown;
         try {
           const data = await res.json();
           code = data.code ?? null;
+          structuredDetail = data.detail;
           // 统一 envelope: {code, message, detail?}。优先 message（后端全局
           // handler 已格式化），回退 detail（向后兼容 / 422 数组）。
           if (typeof data.message === "string" && data.message) {
@@ -427,6 +431,7 @@ export function createApiClient(options: CreateApiClientOptions) {
         lastError = new ErrorClass(detail, res.status, code, res) as InstanceType<
           typeof ErrorClass
         >;
+        lastError.detail = structuredDetail;
 
         // Retry on 5xx (server errors), not 4xx (client errors); idempotent
         // methods only, see `retryable`.

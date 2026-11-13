@@ -31,9 +31,14 @@ from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app import models
 from app.core.config import get_settings
 from app.core.database import Base
+
+# Import for the side effect, not for the name: registering every model on
+# ``Base.metadata`` is what makes ``compare_metadata`` able to see the tables.
+# Without it the comparison runs against empty metadata and reports every
+# existing table as drift (or, depending on the version, nothing at all).
+from app import models  # noqa: F401  isort: skip
 
 # Known debt: diff key -> why it is allowed for now. Every entry should either
 # disappear when its migration lands, or stay until a product decision is made.

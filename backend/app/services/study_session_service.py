@@ -40,7 +40,7 @@ from app.services.vocabulary_service import (
     MASTERY_NEW,
     QUALITY_CORRECT,
     QUALITY_WRONG,
-    apply_review,
+    apply_logged_review,
 )
 
 # 每日配额（设计方案 §3.2）：全局一个设置，范围 5~100，新词默认 10。
@@ -361,7 +361,7 @@ async def submit_answer(
 
     was_pending = item.status == ITEM_PENDING
 
-    apply_review(vocab, QUALITY_CORRECT if correct else QUALITY_WRONG)
+    await apply_logged_review(db, vocab, QUALITY_CORRECT if correct else QUALITY_WRONG, source="study")
 
     if correct:
         item.correct_streak = (item.correct_streak or 0) + 1

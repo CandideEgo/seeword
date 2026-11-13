@@ -6,19 +6,24 @@ and practice_service.submit_practice_results.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import commit_refresh
+from app.core.errors import AppError
 from app.core.exam_levels import max_level
 from app.models.learning import Vocabulary
+from app.models.lesson_learning import LessonVocabularySource, VocabularyReviewLog
 from app.models.preferences import UserPreferences
 from app.schemas.vocabulary import VocabularyResponse
 from app.services import learning_event_service
 from app.services.ai_service import get_ai_service
 from app.services.local_time import resolve_user_timezone
 from app.services.sr_service import calculate_review_interval
+from app.services.v2_schema import existing_tables, has_tables
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +77,20 @@ QUALITY_WRONG = 2
 # round can produce a wrong inside 24h. A same-day re-review of a word that
 # was wrong earlier today gets the same treatment — "错的还热乎，明天再见".
 WRONG_RECENT_WINDOW = timedelta(hours=24)
+S6_REVIEW_VERSION = "s6-v1"
+#: Per-session cache slot for "can the review log be written here" (see
+#: ``review_log_enabled``): the table probe is a catalog query, and a practice
+#: submission applies dozens of reviews in one session.
+_REVIEW_LOG_KEY = "slcs_review_log_enabled"
+_REVIEW_DATE_FIELDS = ("last_wrong_at", "last_reviewed_at", "next_review_at")
+_REVIEW_FIELDS = (
+    "review_count",
+    "wrong_count",
+    "correct_count",
+    "interval_days",
+    "mastery_level",
+    *_REVIEW_DATE_FIELDS,
+)
 
 
 async def _get_owned_word_for_update(db: AsyncSession, user_id: str, word_id: str) -> Vocabulary | None:
@@ -94,11 +113,53 @@ async def record_review(
     vocab = await _get_owned_word_for_update(db, user_id, word_id)
     if vocab is None:
         return None
-    interval, next_review = apply_review(vocab, quality)
+    interval, next_review = await apply_logged_review(db, vocab, quality, source="manual")
     await learning_event_service.record_event(
         db, user_id, learning_event_service.EVENT_REVIEWED_WORDS, source="vocabulary"
     )
     return vocab, interval, next_review
+
+
+async def record_idempotent_review(
+    db: AsyncSession, user_id: str, word_id: str, quality: int, operation_id: str
+) -> dict | None:
+    """Replay the operation's original result, even after a newer review."""
+    if not 0 <= quality <= 5:
+        raise ValueError("Review quality must be between 0 and 5")
+    if not await review_log_enabled(db):
+        raise AppError(503, "SERVICE_UNAVAILABLE", "版本化复习暂未开放")
+    if db.get_bind().dialect.name == "postgresql":
+        # The operation is user-wide. A row lock alone leaves a race when two
+        # requests reuse the same operation for different words.
+        lock_key = f"slcs-review:{user_id}:{operation_id}"
+        await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(lock_key, 0))))
+    vocab = await _get_owned_word_for_update(db, user_id, word_id)
+    if vocab is None:
+        return None
+    prior = await db.scalar(
+        select(VocabularyReviewLog).where(
+            VocabularyReviewLog.user_id == user_id, VocabularyReviewLog.operation_id == operation_id
+        )
+    )
+    if prior is not None:
+        if prior.vocabulary_id != word_id or prior.quality != quality or prior.source != "manual":
+            raise AppError(409, "IDEMPOTENCY_CONFLICT", "操作编号已用于不同的复习")
+        state = prior.after_state
+    else:
+        await apply_logged_review(db, vocab, quality, source="manual", operation_id=operation_id)
+        await learning_event_service.record_event(
+            db, user_id, learning_event_service.EVENT_REVIEWED_WORDS, source="vocabulary"
+        )
+        state = review_snapshot(vocab)
+    return {
+        "id": word_id,
+        "word": vocab.word,
+        "next_review_at": state["next_review_at"],
+        "interval_days": state["interval_days"],
+        "review_count": state["review_count"],
+        "wrong_count": state["wrong_count"],
+        "last_wrong_at": state["last_wrong_at"],
+    }
 
 
 async def mark_mastered(db: AsyncSession, user_id: str, word_id: str) -> Vocabulary | None:
@@ -216,6 +277,87 @@ def apply_review(vocab: Vocabulary, quality: int, now: datetime | None = None) -
     return interval_days, next_review_at
 
 
+def _review_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=UTC).isoformat() if value.tzinfo is None else value.astimezone(UTC).isoformat()
+
+
+def review_snapshot(vocab: Vocabulary) -> dict:
+    return {
+        field: _review_iso(getattr(vocab, field)) if field in _REVIEW_DATE_FIELDS else getattr(vocab, field)
+        for field in _REVIEW_FIELDS
+    }
+
+
+async def review_log_enabled(db: AsyncSession) -> bool:
+    """Whether the versioned review log can be written in this request.
+
+    The switch alone is not enough: a deployment can be flipped on before the
+    migration lands, and a table that is missing must not turn every ordinary
+    review into a 503. The answer is resolved once per session (a practice
+    submission loops over dozens of words) and cached on ``db.info``; sessions
+    are per request, so a freshly migrated database is seen by the next request.
+    """
+    if not get_settings().slcs_vocabulary_enabled:
+        return False
+    cached = db.info.get(_REVIEW_LOG_KEY)
+    if cached is None:
+        cached = await has_tables(db, (VocabularyReviewLog.__tablename__,))
+        db.info[_REVIEW_LOG_KEY] = cached
+    return bool(cached)
+
+
+async def apply_logged_review(
+    db: AsyncSession,
+    vocab: Vocabulary,
+    quality: int,
+    *,
+    source: str,
+    operation_id: str | None = None,
+    now: datetime | None = None,
+) -> tuple[int, datetime]:
+    """Apply the existing S6 schedule and, when enabled, log its inputs and output.
+
+    The schedule itself is always applied: the log is an addition to the same
+    transaction, never a precondition for reviewing a word.
+    """
+    reviewed_at = now or datetime.now(UTC)
+    if not await review_log_enabled(db):
+        return apply_review(vocab, quality, now=reviewed_at)
+    before = review_snapshot(vocab)
+    result = apply_review(vocab, quality, now=reviewed_at)
+    db.add(
+        VocabularyReviewLog(
+            user_id=vocab.user_id,
+            vocabulary_id=vocab.id,
+            word=vocab.word,
+            operation_id=operation_id or str(uuid4()),
+            quality=quality,
+            source=source,
+            schedule_version=S6_REVIEW_VERSION,
+            reviewed_at=reviewed_at,
+            before_state=before,
+            after_state=review_snapshot(vocab),
+        )
+    )
+    return result
+
+
+def replay_review(log: VocabularyReviewLog) -> dict:
+    """Recalculate a stored scheduling operation independently of the current word."""
+    if log.schedule_version != S6_REVIEW_VERSION:
+        raise ValueError(f"Unsupported review schedule version: {log.schedule_version}")
+    fields = log.before_state.copy()
+    for name in _REVIEW_DATE_FIELDS:
+        if fields[name] is not None:
+            fields[name] = datetime.fromisoformat(fields[name])
+    vocab = Vocabulary(**fields)
+    now = log.reviewed_at.replace(tzinfo=UTC) if log.reviewed_at.tzinfo is None else log.reviewed_at
+    apply_review(vocab, log.quality, now=now)
+    return review_snapshot(vocab)
+
+
 async def enrich_word(db: AsyncSession, vocabulary_id: str, user_id: str) -> Vocabulary | None:
     """Fetch a word from DB, call AI enrichment, persist results, return enriched word."""
     result = await db.execute(
@@ -316,11 +458,28 @@ async def attach_word_sources(db: AsyncSession, words: list[Vocabulary]) -> list
         ).all()
         starts = {sid: float(start) for sid, start in subtitle_rows}
 
+    settings = get_settings()
+    review_operations_enabled = False
+    lesson_word_ids: set[str] = set()
+    if settings.slcs_vocabulary_enabled:
+        tables = await existing_tables(db)
+        review_operations_enabled = VocabularyReviewLog.__tablename__ in tables
+        if settings.slcs_lessons_enabled and {LessonVocabularySource.__tablename__, "lesson_revisions"} <= tables:
+            lesson_word_ids = set(
+                await db.scalars(
+                    select(LessonVocabularySource.vocabulary_id)
+                    .where(LessonVocabularySource.vocabulary_id.in_([word.id for word in words]))
+                    .distinct()
+                )
+            )
+
     payloads: list[dict] = []
     for word in words:
         item = VocabularyResponse.model_validate(word).model_dump()
         item["video_title"] = titles.get(word.video_id or "")
         item["subtitle_start_time"] = starts.get(word.subtitle_id or "")
+        item["has_lesson_sources"] = word.id in lesson_word_ids
+        item["review_operations_enabled"] = review_operations_enabled
         payloads.append(item)
     return payloads
 

@@ -15,8 +15,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, NotFoundError
+from app.models.lesson_learning import LessonTutorAnchor
 from app.models.teaching import TeachingSession
 from app.models.v2_runtime import AgentRun, AgentRunEvent, AgentStep, TutorConversation
+from app.services import lesson_tutor
 from app.services.external_connection_service import utc
 from app.services.teaching import dialogue
 from app.services.teaching import service as core
@@ -111,10 +113,12 @@ async def _require_run_switches(db: AsyncSession, run: AgentRun, conversation: T
         await require_access(db, run.user_id, "teaching_dialogue_enabled")
         if conversation is not None and conversation.kind == "chat":
             await require_access(db, run.user_id, "teaching_conversations_enabled")
+        elif conversation is not None and conversation.kind == lesson_tutor.LESSON_CONVERSATION:
+            lesson_tutor.require_tutor()
 
 
 def _request_digest(conversation, session_id: str | None, message: str, expected_revision, response_mode: str) -> str:
-    if conversation is not None and conversation.kind == "chat":
+    if conversation is not None and conversation.kind in {"chat", lesson_tutor.LESSON_CONVERSATION}:
         # Chat receipt namespace: the task is part of the request, so reusing an
         # operation id for another task is a conflict, not a silent replay.
         request = {
@@ -237,6 +241,94 @@ async def start_conversation_turn(db: AsyncSession, principal, conversation_id: 
         expected_revision=body.expected_revision,
         response_mode="conversation",
     )
+
+
+async def start_lesson_turn(db: AsyncSession, principal, lesson_id: str, body) -> dict:
+    """Open or continue one revision-bound lesson conversation."""
+    if principal.actor != "user_ui":
+        raise AppError(403, "INSUFFICIENT_SCOPE", "只能由网页明确创建课程导师对话")
+    lesson_tutor.require_tutor()
+    await require_conversation_schema(db)
+    await require_access(db, principal.user_id, "teaching_runs_enabled")
+    await require_access(db, principal.user_id, "teaching_dialogue_enabled")
+    require_gateway()
+    if db.get_bind().dialect.name == "postgresql":
+        await db.execute(select(func.pg_advisory_xact_lock(192837461)))
+    # For first-turn retries, recover the conversation from the existing run
+    # receipt rather than creating an empty chat under a new ID.
+    prior = await db.scalar(
+        select(AgentRun).where(AgentRun.user_id == principal.user_id, AgentRun.operation_id == body.request_id)
+    )
+    if prior is not None and (
+        prior.conversation_id is None or body.conversation_id not in {None, prior.conversation_id}
+    ):
+        raise AppError(409, "IDEMPOTENCY_CONFLICT", "操作编号已用于不同请求")
+    if prior is not None:
+        # A retried first turn must return its original run even when the
+        # material was withdrawn (or the switches were closed) in between: the
+        # receipt is the answer to "what happened to my request", not a fresh
+        # permission check. ``_start_run`` re-checks the request digest.
+        prior_conversation_id = prior.conversation_id
+        assert prior_conversation_id is not None  # guaranteed by the check above
+        conversation = await dialogue.owned(db, principal, prior_conversation_id, lock=True)
+        return await _start_run(
+            db,
+            principal,
+            conversation=conversation,
+            session=None,
+            message=body.message,
+            operation_id=body.request_id,
+            expected_revision=None,
+            response_mode="conversation",
+        )
+    conversation_id = body.conversation_id
+    if conversation_id is not None:
+        conversation = await dialogue.owned(db, principal, conversation_id, lock=True)
+        if conversation.kind != lesson_tutor.LESSON_CONVERSATION:
+            raise NotFoundError("课程对话不存在")
+        if conversation.status != "active":
+            raise AppError(409, "TEACHING_STATE_CONFLICT", "课程对话已归档")
+        anchor, anchored_lesson_id = await lesson_tutor.get_anchor(db, conversation.id)
+        if (anchored_lesson_id, anchor.revision_id, anchor.segment_id, anchor.token_ids) != (
+            lesson_id,
+            body.revision_id,
+            body.segment_id,
+            body.token_ids,
+        ):
+            raise AppError(409, "TEACHING_CONTEXT_CHANGED", "课程对话的原句已固定，请打开新的对话")
+    else:
+        await lesson_tutor.require_anchor_schema(db)
+        conversation = TutorConversation(
+            user_id=principal.user_id, kind=lesson_tutor.LESSON_CONVERSATION, title="课程导师"
+        )
+        db.add(conversation)
+        await db.flush()
+        db.add(
+            LessonTutorAnchor(
+                conversation_id=conversation.id,
+                revision_id=body.revision_id,
+                segment_id=body.segment_id,
+                token_ids=body.token_ids,
+            )
+        )
+    await lesson_tutor.material_context(db, lesson_id, body.revision_id, body.segment_id, body.token_ids, lock=True)
+    return await _start_run(
+        db,
+        principal,
+        conversation=conversation,
+        session=None,
+        message=body.message,
+        operation_id=body.request_id,
+        expected_revision=None,
+        response_mode="conversation",
+    )
+
+
+async def _model_input(db: AsyncSession, principal, run: AgentRun, conversation: TutorConversation | None) -> dict:
+    if conversation is not None and conversation.kind == lesson_tutor.LESSON_CONVERSATION:
+        lesson = await lesson_tutor.model_context(db, conversation.id)
+        return await dialogue.model_input(db, principal, run, lesson=lesson)
+    return await dialogue.model_input(db, principal, run)
 
 
 async def create(db: AsyncSession, principal, session_id: str, body, *, response_mode="cards") -> dict:
@@ -430,7 +522,7 @@ async def execute(run_id: str) -> None:
                     # No chat means nothing can own the transcript; settle
                     # instead of failing the insert on a NOT NULL column.
                     raise AppError(409, "TEACHING_STATE_CONFLICT", "对话已不存在")
-                context = await dialogue.model_input(db, principal, run)
+                context = await _model_input(db, principal, run, conversation)
             elif session is None:
                 raise AppError(409, "TEACHING_STATE_CONFLICT", "讲解任务缺少教学会话")
             else:
@@ -438,7 +530,10 @@ async def execute(run_id: str) -> None:
             if context is None:
                 raise AppError(409, "TEACHING_STATE_CONFLICT", "讲解任务缺少上下文")
             dispatch_context: dict = context
-            general = run.response_mode == "conversation" and dispatch_context["learning_context"] is None
+            lesson = "lesson_context" in dispatch_context
+            general = (
+                run.response_mode == "conversation" and dispatch_context["learning_context"] is None and not lesson
+            )
             revealed = bool(state) and any(card["kind"] == "analysis" for card in (state or {}).get("cards", []))
             run.status = "running"
             run.lease_epoch += 1
@@ -451,7 +546,9 @@ async def execute(run_id: str) -> None:
             step = AgentStep(
                 run_id=run.id,
                 seq=1,
-                kind="policy" if run.response_mode == "conversation" and not general and not revealed else "model",
+                kind="policy"
+                if run.response_mode == "conversation" and not (general or revealed or lesson)
+                else "model",
                 status="dispatched",
                 lease_epoch=epoch,
                 logical_call_id=logical_call,
@@ -469,6 +566,7 @@ async def execute(run_id: str) -> None:
             "session_id": run.session_id,
             "general": general,
             "revealed": revealed,
+            "lesson": lesson,
         }
 
     intent, error, reply = None, None, None
@@ -491,12 +589,12 @@ async def execute(run_id: str) -> None:
             if checked.session_id is not None:
                 await _task_state(check_db, principal, checked, check_session)
             if checked.response_mode == "conversation":
-                return await dialogue.model_input(check_db, principal, checked)
+                return await _model_input(check_db, principal, checked, check_conversation)
             return (await get_learning_context(check_db, principal, check_session.id)).model_dump(mode="json")
 
     from app.core.config import get_settings
 
-    if (
+    if run_target["lesson"] or (
         run.response_mode == "conversation"
         and get_settings().teaching_streaming_enabled
         and (run_target["general"] or run_target["revealed"])
@@ -687,13 +785,14 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
                 if revision is None or not may_disclose(revision, principal, "model"):
                     raise AppError(409, "CONTENT_RESTRICTED", "材料当前不允许模型处理")
                 held["content_revision_id"] = revision_id
-            value = await dialogue.model_input(db, principal, checked)
-            held["general"] = value["learning_context"] is None
-            held["source_ids"] = (
-                [card["card_id"] for card in dialogue.sources(value["learning_context"])]
-                if value["learning_context"] is not None
-                else []
-            )
+            value = await _model_input(db, principal, checked, conversation)
+            lesson = value.get("lesson_context")
+            context = value["learning_context"]
+            held["general"] = lesson is None and context is None
+            if lesson is not None:
+                held["source_ids"] = [lesson["citation_id"]]
+            elif context is not None:
+                held["source_ids"] = [card["card_id"] for card in dialogue.sources(context)]
             return value
 
     async def publish(text: str) -> None:
@@ -709,6 +808,8 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
             if current.status != "running" or current.lease_epoch != epoch or current.cancel_requested_at:
                 raise _StreamStoppedError("cancelled")
             await _require_run_switches(db, current, conversation)
+            if conversation is not None and conversation.kind == lesson_tutor.LESSON_CONVERSATION:
+                await lesson_tutor.model_context(db, conversation.id)
             if session is not None:
                 if session.revision != current.bound_session_revision:
                     raise _StreamStoppedError("rights")
@@ -716,7 +817,7 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
                 if revision is None or not may_disclose(revision, principal, "model"):
                     raise _StreamStoppedError("rights")
             if message_id is None:
-                context = await dialogue.model_input(db, principal, current)
+                context = await _model_input(db, principal, current, conversation)
                 row = await dialogue.append_streaming(
                     db, current, context["learning_context"], requires_reveal=session is not None
                 )
@@ -785,6 +886,8 @@ async def _stream_turn(maker, principal, run_id: str, epoch: int, deadline, mess
                 # the final block and this commit.
                 try:
                     await _require_run_switches(db, current, conversation)
+                    if conversation is not None and conversation.kind == lesson_tutor.LESSON_CONVERSATION:
+                        await lesson_tutor.model_context(db, conversation.id)
                 except AppError as exc:
                     error_code = exc.code
                 if session is not None and error_code is None:

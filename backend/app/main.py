@@ -32,6 +32,8 @@ from app.api.v1 import (
     internal,
     learning,
     learning_plan,
+    lesson_learning,
+    lessons,
     media,
     notes,
     notifications,
@@ -367,6 +369,7 @@ def create_app() -> FastAPI:
     app.include_router(discovery.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(admin_teaching_content.router, prefix="/api/v1")
+    app.include_router(lessons.admin_router, prefix="/api/v1")
     # 管理员首页编辑内容（草稿/生成/发布/布局）；鉴权在路由内用 get_admin_user。
     app.include_router(admin_home_content.router, prefix="/api/v1")
     app.include_router(catalog.router, prefix="/api/v1")
@@ -376,6 +379,8 @@ def create_app() -> FastAPI:
     app.include_router(notes.router, prefix="/api/v1")
     app.include_router(learning.router, prefix="/api/v1")
     app.include_router(learning_plan.router, prefix="/api/v1")
+    app.include_router(lessons.router, prefix="/api/v1")
+    app.include_router(lesson_learning.router, prefix="/api/v1")
     app.include_router(shadowing.router, prefix="/api/v1")
     app.include_router(behavior.router, prefix="/api/v1")
     from app.api.v1 import listening

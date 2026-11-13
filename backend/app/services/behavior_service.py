@@ -51,10 +51,6 @@ COMPLETE_DEDUP_TTL_SECONDS = 6 * 60 * 60
 # dropped rather than letting one event move a user's total by an hour.
 MAX_WATCH_TIME_DELTA_S = 120
 
-# Redis key lives slightly longer than a day so the claim cannot lapse and let a
-# second `watched_video` event through inside the same day.
-WATCH_DAY_CLAIM_TTL_SECONDS = 26 * 60 * 60
-
 
 async def _insert_event(db: AsyncSession, event: dict, user_id: str | None) -> bool:
     """Append the raw event; return False when its ``event_id`` was already stored.
@@ -162,25 +158,16 @@ async def _claim_watch_day(db: AsyncSession, user_id: str, video_id: str, sessio
     re-watched videos was invisible on both. One row per day is enough to place
     them on the timeline; per-event rows would be 6 writes a minute per viewer.
 
-    The claim is Redis-backed (``SET NX``) rather than a SQL existence check,
-    because this runs on every 10-second watch_time event. Keys are bucketed by
-    **UTC date** on purpose: a user in UTC+8 may get a second claim just after
-    08:00 local, but every consumer groups by distinct date, so a duplicate
-    cannot inflate a day count. When Redis is down the claim fails open and a
-    duplicate row may appear — harmless for the same reason.
+    The claim itself lives in ``learning_event_service.claim_watch_day`` so the
+    course path shares one dedupe with playback. When Redis is down the claim
+    fails open and a duplicate row may appear — harmless, because every consumer
+    groups by distinct date.
     """
-    key = f"behavior:watchday:{user_id}:{datetime.now(UTC).date().isoformat()}"
+    from app.services.learning_event_service import EVENT_WATCHED_VIDEO, claim_watch_day, emit_event
+
+    if not await claim_watch_day(db, user_id):
+        return
     try:
-        from app.core.redis import get_redis
-
-        if await get_redis().set(key, "1", nx=True, ex=WATCH_DAY_CLAIM_TTL_SECONDS) is None:
-            return
-    except Exception:  # pragma: no cover - Redis outage
-        pass
-
-    try:
-        from app.services.learning_event_service import EVENT_WATCHED_VIDEO, emit_event
-
         await emit_event(db, user_id, EVENT_WATCHED_VIDEO, 1, video_id=video_id, flow_id=session_id, source="video")
     except Exception:  # pragma: no cover - event emission must not break playback
         pass

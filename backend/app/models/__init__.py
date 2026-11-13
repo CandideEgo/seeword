@@ -13,6 +13,8 @@ from app.models.feedback import Feedback
 from app.models.home_content import HomeContentDraft, HomeContentRevision, HomePageConfig
 from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
+from app.models.lesson import Lesson, LessonActivity, LessonOperation, LessonProgress, LessonRevision
+from app.models.lesson_learning import LessonTutorAnchor, LessonVocabularySource, VocabularyReviewLog
 from app.models.listening import ListeningSession
 from app.models.media_cleanup import MediaCleanupTask
 from app.models.milestone import MasterySnapshot, UserMilestone

@@ -89,14 +89,23 @@ async def owned_session(db: AsyncSession, session_id: str, user_id: str, *, lock
     return session
 
 
+async def _lock_account(db: AsyncSession, user_id: str) -> None:
+    """Serialize per-account listening writes; first lock in every path.
+
+    PostgreSQL compiles ``key_share=True`` to ``FOR NO KEY UPDATE``: the
+    account's primary key is not being changed, so a concurrent FK check on
+    another table may still take its ``KEY SHARE``. Callers must take this
+    before any session-row lock — ``start()`` and ``submit()`` reach the same
+    two rows, and only a shared order keeps them from closing a wait cycle.
+    """
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update(key_share=True))
+
+
 async def start(db: AsyncSession, user: User, video_id: str, count: int, restart: bool):
     if not 1 <= count <= MAX_QUESTIONS:
         raise UnprocessableEntityError(f"每次练习题数须为 1 至 {MAX_QUESTIONS}")
     video = await playable_video(db, video_id, user)
-    # Serialize same-account starts without blocking FK key-share locks taken
-    # by a concurrent submission's learning event. PostgreSQL compiles this to
-    # FOR NO KEY UPDATE: the account's primary key is not being changed.
-    await db.execute(select(User.id).where(User.id == user.id).with_for_update(key_share=True))
+    await _lock_account(db, user.id)
     pending = (
         (
             await db.execute(
@@ -232,7 +241,20 @@ async def submit(db: AsyncSession, session_id: str, user_id: str) -> ListeningSe
 
     Lock/reload belongs here so every adapter follows the same state machine.
     A retry returns the committed result; the caller owns commit or rollback.
+
+    **Account lock first, session row second — same order as ``start()``.**
+    That order is not cosmetic: ``record_event`` inserts a ``learning_events``
+    row whose ``user_id`` foreign key makes Postgres check the ``users`` row,
+    so this transaction touches both the session row and the account row. With
+    the opposite order (session lock first, account row only reached later via
+    the FK) a concurrent ``start()`` — which takes the account lock first and
+    then wants the session row — closes a wait cycle. CI captured exactly that
+    cycle in pg_locks: submit held `tuple users` AccessShareLock and waited on
+    start's transaction, while start held `tuple listening_sessions`
+    AccessExclusiveLock and waited on submit's. Taking the account lock up front
+    removes the crossing without weakening either guard.
     """
+    await _lock_account(db, user_id)
     session = await owned_session(db, session_id, user_id, lock=True)
     if session.submitted_at:
         return session  # A retry cannot double-count learning activity.

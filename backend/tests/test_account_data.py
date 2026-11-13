@@ -213,6 +213,11 @@ async def test_export_contains_every_section_and_no_other_user(media_tmp):
         "mastery_snapshots",
         "user_milestones",
         "behavior_events",
+        "lesson_progress",
+        "lesson_activities",
+        "lesson_vocabulary_sources",
+        "vocabulary_review_log",
+        "lesson_tutor_anchors",
     }
     for section in expected_sections:
         assert f"{section}.json" in names, section

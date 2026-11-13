@@ -24,6 +24,7 @@ import { PageTransition } from "@/components/common/PageTransition";
 import { VocabularyToday } from "@/components/vocabulary/VocabularyToday";
 import { VocabOverview } from "@/components/vocabulary/VocabOverview";
 import { VocabWordAction, VocabWordCard } from "@/components/vocabulary/VocabWordCard";
+import { LessonWordSources } from "@/components/vocabulary/LessonWordSources";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVocabSets } from "@/hooks/useVocabSets";
 import { relativeTime } from "@/lib/utils";
@@ -482,6 +483,9 @@ export default function VocabularyPage() {
                         contextSentence={w.context_sentence}
                         sentenceHref={vocabularySource(w, "vocabulary")?.href}
                         sentenceLabel={vocabularySource(w, "vocabulary")?.label}
+                        extraSources={
+                          w.has_lesson_sources ? <LessonWordSources wordId={w.id} /> : null
+                        }
                         badge={masteryBadge(w.mastery_level)}
                         onSpeak={() => speak(w.word, { rate: 1 })}
                         actions={

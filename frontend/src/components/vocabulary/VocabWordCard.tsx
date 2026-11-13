@@ -28,6 +28,7 @@ export function VocabWordCard({
   sentenceHref,
   sentenceLabel = "回到对应句子 →",
   contextSentence,
+  extraSources,
   actions,
 }: {
   word: string;
@@ -40,9 +41,10 @@ export function VocabWordCard({
   sentenceHref?: string | null;
   sentenceLabel?: string;
   contextSentence?: string | null;
+  extraSources?: ReactNode;
   actions?: ReactNode;
 }) {
-  const hasFooter = Boolean(sentenceHref) || Boolean(actions);
+  const hasFooter = Boolean(sentenceHref || actions || extraSources);
 
   return (
     <Card variant="outline" padding={4} className="flex flex-col">
@@ -87,6 +89,7 @@ export function VocabWordCard({
                 {sentenceLabel}
               </Link>
             )}
+            {extraSources}
           </div>
           {actions && <div className="flex items-center gap-3 flex-shrink-0">{actions}</div>}
         </div>

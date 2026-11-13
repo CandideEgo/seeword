@@ -79,6 +79,12 @@ class ErrorCode:
     HOME_CONTENT_TIMEOUT = "HOME_CONTENT_TIMEOUT"
     HOME_CONTENT_CONFLICT = "HOME_CONTENT_CONFLICT"
 
+    # SLCS 课程试点（docs/slcs/06-implementation-roadmap.md）。
+    # 撤回是 410 而不是 404：学习者手里的旧深链指向的正文仍然存在，只是不再
+    # 可披露，前端据此显示「已撤回」而不是「课程不存在」。
+    LESSON_WITHDRAWN = "LESSON_WITHDRAWN"
+    LESSON_USE_NOT_ALLOWED = "LESSON_USE_NOT_ALLOWED"
+
     # 兜底
     INTERNAL_ERROR = "INTERNAL_ERROR"
 

@@ -31,7 +31,7 @@ from app.models.learning import Vocabulary
 from app.models.subtitle import Subtitle
 from app.services import ecdict
 from app.services.sr_service import calculate_next_review
-from app.services.vocabulary_service import MASTERY_LEARNING, MASTERY_REVIEWING, apply_review
+from app.services.vocabulary_service import MASTERY_LEARNING, MASTERY_REVIEWING, apply_logged_review
 
 logger = logging.getLogger(__name__)
 
@@ -543,7 +543,7 @@ async def submit_practice_results(
       2. quality = 5 if correct, 2 if wrong.
       3. Review-line words (``mastery_level`` learning/reviewing — the due
          words the drill's merged loop submits here, S5) go through
-         ``vocabulary_service.apply_review``: error-count banded scheduling
+         ``vocabulary_service.apply_logged_review``: error-count banded scheduling
          plus ``wrong_count`` / ``last_wrong_at`` bookkeeping (DEC-057).
       4. Everything else — auto-added and still-``new`` words from the
          video-scoped drill — keeps the frozen SM-2 update below.
@@ -603,8 +603,8 @@ async def submit_practice_results(
 
         if vocab.mastery_level in (MASTERY_LEARNING, MASTERY_REVIEWING):
             # 到期复习词：错误次数分档（DEC-057）。wrong_count / last_wrong_at
-            # 由 apply_review 统一落库；caller owns the commit（循环尾统一 commit）。
-            apply_review(vocab, quality, now=now)
+            # 由复习服务统一落库；caller owns the commit（循环尾统一 commit）。
+            await apply_logged_review(db, vocab, quality, source="practice", now=now)
             updated += 1
             continue
 

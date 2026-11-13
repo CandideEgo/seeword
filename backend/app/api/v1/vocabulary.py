@@ -514,6 +514,7 @@ async def review_word(
     request: Request,
     word_id: str,
     quality: int = Query(..., ge=0, le=5, description="Self-assessment 0-5"),
+    operation_id: str | None = Query(None, min_length=1, max_length=100, pattern=r"^\S+$"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -524,6 +525,13 @@ async def review_word(
     clean ladder (3→7→16→35) or the error ladder (2→5→12→25, capped at 7 days
     once ``wrong_count >= 3``). ``ease_factor`` is no longer part of the math.
     """
+    if operation_id is not None:
+        result = await vocabulary_service.record_idempotent_review(db, current_user.id, word_id, quality, operation_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Word not found")
+        await db.commit()
+        return result
+
     review = await vocabulary_service.record_review(db, current_user.id, word_id, quality)
     if review is None:
         raise HTTPException(status_code=404, detail="Word not found")
