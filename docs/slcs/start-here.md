@@ -94,7 +94,7 @@ PYTHONUTF8=1 .venv/Scripts/python.exe scripts/smoke_lesson_publication.py --data
 
 ## 五、CI 现在是什么颜色，为什么
 
-五条腿是绿的：`consistency`（ubuntu + windows）、`frontend`、`production-config`、`gpu-worker`，以及 `backend`（2026-11-13 凌晨 **pass 24m48s**，加锁顺序修复生效）。`e2e` 仍有 `home-feed:163` 一处，修在 `chooseSelectMenu` 的 listbox 取法上，等下一轮确认。
+**2026-11-13 凌晨：六条腿全绿**（`backend` 24m30s、`e2e` 29m58s、`frontend`、`gpu-worker`、`production-config`、`consistency` ubuntu + windows）。前面那两条长期红的都已结案，原因与证据见本章末尾。
 
 **不是这个分支引入的。** 证据：
 
@@ -196,16 +196,16 @@ pid 793 (start, 正在执行 SELECT ... FOR UPDATE)
 
 **下一步（已做）**：等待边只回答「等谁的 transactionid」，transactionid 级等待在锁被完整看完之前是有歧义的——外键的 `FOR KEY SHARE`、行的 `FOR NO KEY UPDATE`、乃至表锁都会落到同一个 xid 上。`240da713` 把快照扩成「被阻塞进程与阻塞者的全部 `pg_locks` 行 + `state`/`wait_event` + 当前语句」，正是这份输出解出了上面那个环。
 
-### `e2e` 那几条：两条是确定性的，两条是抖动
+### `e2e` 那几条：三条确定性失败都已修
 
-没有一条与课程有关。但要分清性质——**四条里只有两条是真抖动**，另外两条每轮必红，原因是固定的：
+没有一条与课程有关。**2026-11-13 凌晨 e2e 整条已通过（29m58s）**，下面四条是那一轮之前的历史记录：
 
 | 用例                                | 失败在哪                                | 性质                                              |
 | ----------------------------------- | --------------------------------------- | ------------------------------------------------- |
 | `design-rollout.spec.ts:139`        | 找不到「视频 / 字幕 / 词汇 / 频道」标题 | **确定性**：CI 的搜索数据是空的 —— 已修           |
 | `design-rollout.spec.ts:303`        | 记下 `500 /api/v1/…`（每轮端点不同）    | **确定性**：CI 起后端少了 keep-alive 参数 —— 已修 |
-| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动（未修）                            |
-| `home-feed.spec.ts:163`             | 点 `#feed-level` 时被全屏遮罩挡住点击    | **确定性**：`SelectMenu` 模态遮罩的 Escape 竞态 —— 已修 |
+| `watch-immersive.mobile.spec.ts:74` | 按 `r` 重听后，播放器 6 秒内未暂停      | 播放器时序抖动，仍会偶发 flaky（未修）            |
+| `home-feed.spec.ts:163`             | 点 `#feed-level` 时被全屏遮罩挡住点击    | **确定性**：`SelectMenu` 模态遮罩 + 用例重复点触发器 —— 已修 |
 
 **`home-feed:163` 不是抖动，是用户能撞上的真 bug。** 上一版把它记成「请求时序抖动」，那是因为只看到了「20 秒内没等到 `level=B2` 的请求」。看 CI 的完整报错才知道点击根本没发生：
 
