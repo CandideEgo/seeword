@@ -1,0 +1,1813 @@
+{
+  "checked_at": "2026-11-13T13:31:57.544061+00:00",
+  "rows": [
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "fastapi==0.141.1",
+      "name": "fastapi",
+      "backend_observed_version": "0.141.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "starlette==1.6.0",
+      "name": "starlette",
+      "backend_observed_version": "1.10.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "uvicorn[standard]==0.29.0",
+      "name": "uvicorn",
+      "backend_observed_version": "0.54.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "gunicorn==22.0.0",
+      "name": "gunicorn",
+      "backend_observed_version": "22.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "sqlalchemy[asyncio]==2.0.30",
+      "name": "sqlalchemy",
+      "backend_observed_version": "2.0.30",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "asyncpg==0.29.0",
+      "name": "asyncpg",
+      "backend_observed_version": "0.29.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "alembic==1.13.1",
+      "name": "alembic",
+      "backend_observed_version": "1.13.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "pydantic==2.13.5",
+      "name": "pydantic",
+      "backend_observed_version": "2.13.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "pydantic-settings==2.15.0",
+      "name": "pydantic-settings",
+      "backend_observed_version": "2.15.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "PyJWT>=2.8.0",
+      "name": "pyjwt",
+      "backend_observed_version": "2.15.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "cryptography==50.0.2",
+      "name": "cryptography",
+      "backend_observed_version": "50.0.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "bcrypt>=4.0.0",
+      "name": "bcrypt",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "python-multipart>=0.0.18",
+      "name": "python-multipart",
+      "backend_observed_version": "0.0.33",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "celery[redis]==5.4.0",
+      "name": "celery",
+      "backend_observed_version": "5.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "redis==5.0.0",
+      "name": "redis",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "httpx==0.27.0",
+      "name": "httpx",
+      "backend_observed_version": "0.27.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "openai==1.30.0",
+      "name": "openai",
+      "backend_observed_version": "1.30.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "tenacity>=8.2.0",
+      "name": "tenacity",
+      "backend_observed_version": "9.2.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "slowapi==0.1.9",
+      "name": "slowapi",
+      "backend_observed_version": "0.1.9",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "alibabacloud_dypnsapi20170525>=1.0.0",
+      "name": "alibabacloud-dypnsapi20170525",
+      "backend_observed_version": "2.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "yt-dlp>=2025.0.0",
+      "name": "yt-dlp",
+      "backend_observed_version": "2026.10.26",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "structlog==24.2.0",
+      "name": "structlog",
+      "backend_observed_version": "24.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "sentry-sdk[fastapi]==2.8.0",
+      "name": "sentry-sdk",
+      "backend_observed_version": "2.8.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "prometheus-fastapi-instrumentator>=8.0.2",
+      "name": "prometheus-fastapi-instrumentator",
+      "backend_observed_version": "8.1.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-cloud.txt",
+      "requirement": "oss2>=2.18.0",
+      "name": "oss2",
+      "backend_observed_version": "2.19.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pytest==8.2.0",
+      "name": "pytest",
+      "backend_observed_version": "8.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pytest-asyncio==0.23.7",
+      "name": "pytest-asyncio",
+      "backend_observed_version": "0.23.7",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pytest-cov==5.0.0",
+      "name": "pytest-cov",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pytest-timeout==2.4.0",
+      "name": "pytest-timeout",
+      "backend_observed_version": "2.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "aiosqlite==0.20.0",
+      "name": "aiosqlite",
+      "backend_observed_version": "0.20.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "ruff==0.15.18",
+      "name": "ruff",
+      "backend_observed_version": "0.15.18",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "mypy>=1.10,<2.4",
+      "name": "mypy",
+      "backend_observed_version": "2.3.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pip-audit>=0.8",
+      "name": "pip-audit",
+      "backend_observed_version": "2.10.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "bandit>=1.7",
+      "name": "bandit",
+      "backend_observed_version": "1.9.4",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "pre-commit>=3.7",
+      "name": "pre-commit",
+      "backend_observed_version": "4.7.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/requirements-dev.txt",
+      "requirement": "playwright>=1.44.0",
+      "name": "playwright",
+      "backend_observed_version": "1.64.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "annotated-types==0.8.0",
+      "name": "annotated-types",
+      "backend_observed_version": "0.8.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "anyio==4.16.0",
+      "name": "anyio",
+      "backend_observed_version": "4.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "attrs==26.1.0",
+      "name": "attrs",
+      "backend_observed_version": "26.1.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "cffi==2.1.1",
+      "name": "cffi",
+      "backend_observed_version": "2.1.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "click==8.5.1",
+      "name": "click",
+      "backend_observed_version": "8.5.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "colorama==0.4.6; sys_platform == \"win32\"",
+      "name": "colorama",
+      "backend_observed_version": "0.4.6",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "cryptography==50.0.2",
+      "name": "cryptography",
+      "backend_observed_version": "50.0.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "h11==0.16.0",
+      "name": "h11",
+      "backend_observed_version": "0.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "httpcore2==2.16.0",
+      "name": "httpcore2",
+      "backend_observed_version": "2.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "httpx2==2.16.0",
+      "name": "httpx2",
+      "backend_observed_version": "2.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "idna==3.20",
+      "name": "idna",
+      "backend_observed_version": "3.20",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "jsonschema==4.26.0",
+      "name": "jsonschema",
+      "backend_observed_version": "4.26.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "jsonschema-specifications==2025.9.1",
+      "name": "jsonschema-specifications",
+      "backend_observed_version": "2025.9.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "mcp==2.0.0",
+      "name": "mcp",
+      "backend_observed_version": "2.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "mcp-types==2.0.0",
+      "name": "mcp-types",
+      "backend_observed_version": "2.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "opentelemetry-api==1.45.2",
+      "name": "opentelemetry-api",
+      "backend_observed_version": "1.45.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "pycparser==3.12",
+      "name": "pycparser",
+      "backend_observed_version": "3.12",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "pydantic==2.13.5",
+      "name": "pydantic",
+      "backend_observed_version": "2.13.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "pydantic-core==2.46.5",
+      "name": "pydantic-core",
+      "backend_observed_version": "2.46.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "PyJWT==2.15.1",
+      "name": "pyjwt",
+      "backend_observed_version": "2.15.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "python-multipart==0.0.33",
+      "name": "python-multipart",
+      "backend_observed_version": "0.0.33",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "pywin32==312; sys_platform == \"win32\"",
+      "name": "pywin32",
+      "backend_observed_version": "312",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "referencing==0.37.0",
+      "name": "referencing",
+      "backend_observed_version": "0.37.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "rpds-py==2026.9.1",
+      "name": "rpds-py",
+      "backend_observed_version": "2026.9.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "sse-starlette==3.7.0",
+      "name": "sse-starlette",
+      "backend_observed_version": "3.7.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "starlette==1.10.0",
+      "name": "starlette",
+      "backend_observed_version": "1.10.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "truststore==0.10.5",
+      "name": "truststore",
+      "backend_observed_version": "0.10.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "typing-extensions==4.16.0",
+      "name": "typing-extensions",
+      "backend_observed_version": "4.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "typing-inspection==0.4.5",
+      "name": "typing-inspection",
+      "backend_observed_version": "0.4.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/requirements-mcp.lock",
+      "requirement": "uvicorn==0.54.0",
+      "name": "uvicorn",
+      "backend_observed_version": "0.54.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "celery[redis]==5.5.3",
+      "name": "celery",
+      "backend_observed_version": "5.4.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "redis==5.0.0",
+      "name": "redis",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "httpx==0.27.0",
+      "name": "httpx",
+      "backend_observed_version": "0.27.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "pydantic-settings==2.15.0",
+      "name": "pydantic-settings",
+      "backend_observed_version": "2.15.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "structlog==24.2.0",
+      "name": "structlog",
+      "backend_observed_version": "24.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "faster-whisper>=1.0.0",
+      "name": "faster-whisper",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "whisperx>=3.8.0",
+      "name": "whisperx",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "yt-dlp>=2025.0.0",
+      "name": "yt-dlp",
+      "backend_observed_version": "2026.10.26",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.txt",
+      "requirement": "deepmultilingualpunctuation==1.0.1",
+      "name": "deepmultilingualpunctuation",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-dev.txt",
+      "requirement": "pytest==8.2.0",
+      "name": "pytest",
+      "backend_observed_version": "8.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-dev.txt",
+      "requirement": "pytest-timeout==2.4.0",
+      "name": "pytest-timeout",
+      "backend_observed_version": "2.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-dev.txt",
+      "requirement": "pytest-asyncio==0.23.7",
+      "name": "pytest-asyncio",
+      "backend_observed_version": "0.23.7",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-dev.txt",
+      "requirement": "ruff==0.15.18",
+      "name": "ruff",
+      "backend_observed_version": "0.15.18",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "celery[redis]==5.5.3",
+      "name": "celery",
+      "backend_observed_version": "5.4.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "redis==5.0.0",
+      "name": "redis",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "httpx==0.27.0",
+      "name": "httpx",
+      "backend_observed_version": "0.27.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "pydantic-settings==2.15.0",
+      "name": "pydantic-settings",
+      "backend_observed_version": "2.15.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "structlog==24.2.0",
+      "name": "structlog",
+      "backend_observed_version": "24.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "pytest==8.2.0",
+      "name": "pytest",
+      "backend_observed_version": "8.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "pytest-timeout==2.4.0",
+      "name": "pytest-timeout",
+      "backend_observed_version": "2.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements-ci.txt",
+      "requirement": "ruff==0.15.18",
+      "name": "ruff",
+      "backend_observed_version": "0.15.18",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "aiohappyeyeballs==2.7.1",
+      "name": "aiohappyeyeballs",
+      "backend_observed_version": "2.7.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "aiohttp==3.14.5",
+      "name": "aiohttp",
+      "backend_observed_version": "3.14.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "aiosignal==1.4.0",
+      "name": "aiosignal",
+      "backend_observed_version": "1.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "alembic==1.20.1",
+      "name": "alembic",
+      "backend_observed_version": "1.13.1",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "amqp==5.4.1",
+      "name": "amqp",
+      "backend_observed_version": "5.4.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "annotated-types==0.8.0",
+      "name": "annotated-types",
+      "backend_observed_version": "0.8.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "anyio==4.15.1",
+      "name": "anyio",
+      "backend_observed_version": "4.16.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "asteroid-filterbanks==0.4.0",
+      "name": "asteroid-filterbanks",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "attrs==26.1.0",
+      "name": "attrs",
+      "backend_observed_version": "26.1.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "av==19.0.2",
+      "name": "av",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "billiard==4.3.1",
+      "name": "billiard",
+      "backend_observed_version": "4.3.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "celery==5.5.3",
+      "name": "celery",
+      "backend_observed_version": "5.4.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "certifi==2026.10.23",
+      "name": "certifi",
+      "backend_observed_version": "2026.10.23",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "charset-normalizer==3.5.2",
+      "name": "charset-normalizer",
+      "backend_observed_version": "3.5.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "click==8.5.0",
+      "name": "click",
+      "backend_observed_version": "8.5.1",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "click-didyoumean==0.3.1",
+      "name": "click-didyoumean",
+      "backend_observed_version": "0.3.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "click-plugins==1.1.1.2",
+      "name": "click-plugins",
+      "backend_observed_version": "1.1.1.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "click-repl==0.4.1",
+      "name": "click-repl",
+      "backend_observed_version": "0.4.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "cloudpickle==3.1.2",
+      "name": "cloudpickle",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "colorama==0.4.6",
+      "name": "colorama",
+      "backend_observed_version": "0.4.6",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "colorlog==6.12.0",
+      "name": "colorlog",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "contourpy==1.4.0",
+      "name": "contourpy",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "ctranslate2==4.8.4",
+      "name": "ctranslate2",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "cycler==0.12.1",
+      "name": "cycler",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "deepmultilingualpunctuation==1.0.1",
+      "name": "deepmultilingualpunctuation",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "defusedxml==0.7.1",
+      "name": "defusedxml",
+      "backend_observed_version": "0.7.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "einops==0.8.2",
+      "name": "einops",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "faster-whisper==1.2.1",
+      "name": "faster-whisper",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "filelock==4.2.6",
+      "name": "filelock",
+      "backend_observed_version": "4.2.4",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "flatbuffers==25.12.19",
+      "name": "flatbuffers",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "fonttools==4.68.0",
+      "name": "fonttools",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "frozenlist==1.8.0",
+      "name": "frozenlist",
+      "backend_observed_version": "1.8.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "fsspec==2026.9.0",
+      "name": "fsspec",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "googleapis-common-protos==1.76.0",
+      "name": "googleapis-common-protos",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "grpcio==1.85.1",
+      "name": "grpcio",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "h11==0.16.0",
+      "name": "h11",
+      "backend_observed_version": "0.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "httpcore==1.0.9",
+      "name": "httpcore",
+      "backend_observed_version": "1.0.9",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "httpx==0.27.0",
+      "name": "httpx",
+      "backend_observed_version": "0.27.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "huggingface_hub==0.36.2",
+      "name": "huggingface-hub",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "idna==3.20",
+      "name": "idna",
+      "backend_observed_version": "3.20",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "Jinja2==3.1.6",
+      "name": "jinja2",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "joblib==1.6.0",
+      "name": "joblib",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "julius==0.2.8",
+      "name": "julius",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "kiwisolver==1.5.1",
+      "name": "kiwisolver",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "kombu==5.5.4",
+      "name": "kombu",
+      "backend_observed_version": "5.6.2",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "lightning==2.6.6",
+      "name": "lightning",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "lightning-utilities==0.15.3",
+      "name": "lightning-utilities",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "Mako==1.4.3",
+      "name": "mako",
+      "backend_observed_version": "1.4.3",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "markdown-it-py==4.2.0",
+      "name": "markdown-it-py",
+      "backend_observed_version": "4.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "MarkupSafe==3.0.4",
+      "name": "markupsafe",
+      "backend_observed_version": "3.0.4",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "matplotlib==3.11.2",
+      "name": "matplotlib",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "mdurl==0.1.2",
+      "name": "mdurl",
+      "backend_observed_version": "0.1.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "mpmath==1.3.0",
+      "name": "mpmath",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "multidict==7.2.1",
+      "name": "multidict",
+      "backend_observed_version": "7.2.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "narwhals==2.28.0",
+      "name": "narwhals",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "networkx==3.7",
+      "name": "networkx",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "nltk==3.10.4",
+      "name": "nltk",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "numpy==2.5.4",
+      "name": "numpy",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "omegaconf==2.4.0",
+      "name": "omegaconf",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "onnxruntime==1.31.1",
+      "name": "onnxruntime",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-api==1.45.2",
+      "name": "opentelemetry-api",
+      "backend_observed_version": "1.45.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-http-transport==0.66b2",
+      "name": "opentelemetry-exporter-http-transport",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-otlp==1.45.2",
+      "name": "opentelemetry-exporter-otlp",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-otlp-common==0.66b2",
+      "name": "opentelemetry-exporter-otlp-common",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-otlp-proto-common==1.45.2",
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-otlp-proto-grpc==1.45.2",
+      "name": "opentelemetry-exporter-otlp-proto-grpc",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-exporter-otlp-proto-http==1.45.2",
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-proto==1.45.2",
+      "name": "opentelemetry-proto",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-sdk==1.45.2",
+      "name": "opentelemetry-sdk",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "opentelemetry-semantic-conventions==0.66b2",
+      "name": "opentelemetry-semantic-conventions",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "optuna==5.0.0",
+      "name": "optuna",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "packaging==26.3",
+      "name": "packaging",
+      "backend_observed_version": "26.3",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pandas==3.1.0",
+      "name": "pandas",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pillow==13.0.0",
+      "name": "pillow",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "primePy==1.3",
+      "name": "primepy",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "prompt_toolkit==3.0.53",
+      "name": "prompt-toolkit",
+      "backend_observed_version": "3.0.53",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "propcache==0.5.4",
+      "name": "propcache",
+      "backend_observed_version": "0.5.4",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "protobuf==7.36.2",
+      "name": "protobuf",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannote-audio==4.0.7",
+      "name": "pyannote-audio",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannote-core==6.1.0",
+      "name": "pyannote-core",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannote-database==6.1.1",
+      "name": "pyannote-database",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannote-metrics==4.2.0",
+      "name": "pyannote-metrics",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannote-pipeline==4.1.0",
+      "name": "pyannote-pipeline",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyannoteai-sdk==0.4.0",
+      "name": "pyannoteai-sdk",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pydantic==2.14.2",
+      "name": "pydantic",
+      "backend_observed_version": "2.13.5",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pydantic-settings==2.15.0",
+      "name": "pydantic-settings",
+      "backend_observed_version": "2.15.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pydantic_core==2.50.2",
+      "name": "pydantic-core",
+      "backend_observed_version": "2.46.5",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "Pygments==2.21.0",
+      "name": "pygments",
+      "backend_observed_version": "2.21.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pyparsing==3.3.3",
+      "name": "pyparsing",
+      "backend_observed_version": "3.3.3",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "python-dateutil==3.0.0",
+      "name": "python-dateutil",
+      "backend_observed_version": "3.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "python-dotenv==1.2.4",
+      "name": "python-dotenv",
+      "backend_observed_version": "1.2.4",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pytorch-lightning==2.6.6",
+      "name": "pytorch-lightning",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "pytorch-metric-learning==2.9.0",
+      "name": "pytorch-metric-learning",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "PyYAML==6.0.3",
+      "name": "pyyaml",
+      "backend_observed_version": "6.0.3",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "redis==5.0.0",
+      "name": "redis",
+      "backend_observed_version": "5.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "regex==2026.9.29",
+      "name": "regex",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "requests==2.34.2",
+      "name": "requests",
+      "backend_observed_version": "2.34.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "rich==15.0.0",
+      "name": "rich",
+      "backend_observed_version": "15.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "safetensors==0.8.0",
+      "name": "safetensors",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "scikit-learn==1.9.1",
+      "name": "scikit-learn",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "scipy==1.18.1",
+      "name": "scipy",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "setuptools==84.2.1",
+      "name": "setuptools",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "six==1.17.0",
+      "name": "six",
+      "backend_observed_version": "1.17.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "sniffio==1.3.1",
+      "name": "sniffio",
+      "backend_observed_version": "1.3.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "sortedcontainers==2.4.0",
+      "name": "sortedcontainers",
+      "backend_observed_version": "2.4.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "SQLAlchemy==2.1.6",
+      "name": "sqlalchemy",
+      "backend_observed_version": "2.0.30",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "structlog==24.2.0",
+      "name": "structlog",
+      "backend_observed_version": "24.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "sympy==1.14.0",
+      "name": "sympy",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "threadpoolctl==3.7.0",
+      "name": "threadpoolctl",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "tokenizers==0.22.2",
+      "name": "tokenizers",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torch==2.8.0",
+      "name": "torch",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torch-audiomentations==0.12.0",
+      "name": "torch-audiomentations",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torch_pitch_shift==1.2.5",
+      "name": "torch-pitch-shift",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torchaudio==2.8.0",
+      "name": "torchaudio",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torchcodec==0.7.0",
+      "name": "torchcodec",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torchmetrics==1.9.0",
+      "name": "torchmetrics",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "torchvision==0.23.0",
+      "name": "torchvision",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "tqdm==4.70.1",
+      "name": "tqdm",
+      "backend_observed_version": "4.70.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "transformers==4.57.6",
+      "name": "transformers",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "typing-inspection==0.4.4",
+      "name": "typing-inspection",
+      "backend_observed_version": "0.4.5",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "typing_extensions==4.16.0",
+      "name": "typing-extensions",
+      "backend_observed_version": "4.16.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "tzdata==2026.6",
+      "name": "tzdata",
+      "backend_observed_version": "2026.6",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "urllib3==2.8.0",
+      "name": "urllib3",
+      "backend_observed_version": "2.8.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "vine==5.1.0",
+      "name": "vine",
+      "backend_observed_version": "5.1.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "wcwidth==0.9.4",
+      "name": "wcwidth",
+      "backend_observed_version": "0.9.4",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "whisperx==3.8.6",
+      "name": "whisperx",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "yarl==1.25.1",
+      "name": "yarl",
+      "backend_observed_version": "1.25.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "gpu-worker/requirements.lock.txt",
+      "requirement": "yt-dlp==2026.10.26",
+      "name": "yt-dlp",
+      "backend_observed_version": "2026.10.26",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "fastapi==0.141.1",
+      "name": "fastapi",
+      "backend_observed_version": "0.141.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "starlette==1.6.0",
+      "name": "starlette",
+      "backend_observed_version": "1.10.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "pydantic==2.13.5",
+      "name": "pydantic",
+      "backend_observed_version": "2.13.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "httpx==0.27.0",
+      "name": "httpx",
+      "backend_observed_version": "0.27.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "uvicorn==0.29.0",
+      "name": "uvicorn",
+      "backend_observed_version": "0.54.0",
+      "backend_version_satisfies": false,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "PyJWT==2.15.1",
+      "name": "pyjwt",
+      "backend_observed_version": "2.15.1",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "requirement": "cryptography==50.0.2",
+      "name": "cryptography",
+      "backend_observed_version": "50.0.2",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "deploy/v2-gateway/adapter/requirements.txt",
+      "requirement": "pytest>=8,<9",
+      "name": "pytest",
+      "backend_observed_version": "8.2.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/pyproject.toml",
+      "requirement": "pydantic==2.13.5",
+      "name": "pydantic",
+      "backend_observed_version": "2.13.5",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/pyproject.toml",
+      "requirement": "setuptools>=77",
+      "name": "setuptools",
+      "backend_observed_version": null,
+      "backend_version_satisfies": null,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    },
+    {
+      "source": "backend/slcs/pyproject.toml",
+      "requirement": "mcp==2.0.0",
+      "name": "mcp",
+      "backend_observed_version": "2.0.0",
+      "backend_version_satisfies": true,
+      "interpretation": "Only local backend comparison; not a statement about separate target installations"
+    }
+  ]
+}

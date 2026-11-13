@@ -122,6 +122,11 @@ tmp_audio*
 test_whisperx_llm.py
 whisper-sentence-segmentation-*.md
 
+# 第三方源码/发行物下载物（Astryx 源码、PyPI 元数据与 wheel 等）：只作合规核对的本机引用副本，
+# 体积上百 MB 且非产品源码。证据与哈希入库（docs/open-learning、docs/evidence/open-learning），
+# 下载物本身不入库。
+.references/
+
 # Local agent / workflow artifacts
 .gsd/
 .claude/worktrees/

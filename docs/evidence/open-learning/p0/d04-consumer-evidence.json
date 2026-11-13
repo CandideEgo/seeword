@@ -1,0 +1,118 @@
+{
+  "checked_at": "2026-11-13T13:34:17.829705+00:00",
+  "source_files": [
+    {
+      "path": "frontend/package.json",
+      "exists": true,
+      "bytes": 1578,
+      "sha256": "b4c09e7b81d762e99d49a700f26ab57c4e651033c0b9fa5454f450af4592d28d"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "exists": true,
+      "bytes": 165625,
+      "sha256": "207534f7a9949a2fab319241e47d8f03bc444c1155e0502b378faa98fe76bce5"
+    },
+    {
+      "path": "frontend/next.config.js",
+      "exists": true,
+      "bytes": 4106,
+      "sha256": "0f6a841e5b8257f09b6ff67b4880278586d160ab66b19c4a903430484ce7ba0c"
+    },
+    {
+      "path": "frontend/Dockerfile.prod",
+      "exists": true,
+      "bytes": 1170,
+      "sha256": "22bbfc027b8b9172e02d11f1873923c3ebe6a9f8d22f581187999c7081c88614"
+    },
+    {
+      "path": "frontend/postcss.config.js",
+      "exists": true,
+      "bytes": 72,
+      "sha256": "8fa4b01f6633f478ec8ea70633058c85858e2298649cf0aee711362e5bce7b7a"
+    },
+    {
+      "path": "frontend/src/components/common/PageTransition.tsx",
+      "exists": true,
+      "bytes": 604,
+      "sha256": "31d3496cccc0c8b815fb7d7ca62f9ad260719b3727f9cfd9a9fdea48c007b1fc"
+    },
+    {
+      "path": "frontend/src/components/common/EmptyState.tsx",
+      "exists": true,
+      "bytes": 1235,
+      "sha256": "b8bd4c53825c3e2b0d2616a30e497de028c4e50b5d597d0e1b4b7cdcd7850d3e"
+    },
+    {
+      "path": "backend/Dockerfile.cloud",
+      "exists": true,
+      "bytes": 2579,
+      "sha256": "0ef4ea181d2f84e656832035957a228d22c36399c33dd54baf606378d476ea52"
+    },
+    {
+      "path": "gpu-worker/gpu_worker/config.py",
+      "exists": true,
+      "bytes": 3007,
+      "sha256": "e819f083c6ac6bacdb4de06039a0776f5c05059a812476a615dde536d4d12614"
+    },
+    {
+      "path": "gpu-worker/gpu_worker/transcription/whisper_model.py",
+      "exists": true,
+      "bytes": 22747,
+      "sha256": "ebfd0bc2016c1cf3eab5f57c0f0a36578aa941b3f54a2311e2019000530976d0"
+    },
+    {
+      "path": "gpu-worker/gpu_worker/transcription/punctuation.py",
+      "exists": true,
+      "bytes": 8914,
+      "sha256": "a9983d5d811fc8817c2c54abd87b3059bab204ee2104cece83b89135590adbaa"
+    },
+    {
+      "path": "deploy/v2-gateway/image-lock.json",
+      "exists": true,
+      "bytes": 862,
+      "sha256": "2746d7c066f3504a482fbdd1dd757af579c3a92ad26495931c8f1fc4c0d794d5"
+    },
+    {
+      "path": "deploy/v2-gateway/adapter/Dockerfile",
+      "exists": true,
+      "bytes": 541,
+      "sha256": "4507d3fe13b793593c8e741d0519c9e0c9be024c0ebc026d30c7410056aa49d1"
+    },
+    {
+      "path": "docker-compose.prod.yml",
+      "exists": true,
+      "bytes": 30074,
+      "sha256": "4e07c4a04754a9ebbe4fb5fbb06d139741d53b0f6384723f0195f1f37ac90612"
+    }
+  ],
+  "local_build_files": [
+    {
+      "path": "frontend/.next/standalone/node_modules/sharp/package.json",
+      "exists": true,
+      "bytes": 8115,
+      "sha256": "ad4a2535d72eb638053a38867b1abf43c328cd1c1dbae5cf4172d498365a8b97"
+    },
+    {
+      "path": "frontend/.next/standalone/node_modules/sharp/LICENSE",
+      "exists": false
+    },
+    {
+      "path": "frontend/.next/standalone/node_modules/@img/sharp-win32-x64/package.json",
+      "exists": true,
+      "bytes": 888,
+      "sha256": "697b3d89590e3b988b51764bd22dfd6f4a1b35cd4eb12c664eca7987e8ee6115"
+    },
+    {
+      "path": "frontend/.next/standalone/node_modules/@img/sharp-win32-x64/LICENSE",
+      "exists": false
+    }
+  ],
+  "local_build_license_file_count": 0,
+  "local_build_license_paths": [],
+  "limitations": [
+    "Existing Windows .next artifact only, not a new build or Linux production image.",
+    "An absent per-package license is not proof no notice exists elsewhere; release must verify a complete third-party notice/source process.",
+    "No production, database, secrets or GPU host was inspected."
+  ]
+}

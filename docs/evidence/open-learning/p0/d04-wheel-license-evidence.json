@@ -1,0 +1,277 @@
+{
+  "checked_at": "2026-11-13T13:29:21.348086+00:00",
+  "limitations": [
+    "Windows wheel inspection does not establish actual GPU installation, CUDA binaries, model weights or all transitive compliance.",
+    "No package code was installed, executed or imported."
+  ],
+  "results": [
+    {
+      "name": "av",
+      "version": "19.0.2",
+      "filename": "av-19.0.2-cp312-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/32/5a/743a83666ded197df8b9957e2800bef9a39d52b23be2ca211bbd14b5fb22/av-19.0.2-cp312-abi3-win_amd64.whl",
+      "expected_sha256": "3ce5a1d7b916d13c16ac58f1756f0fee4af2d53f02bc1403e18550b50d375a22",
+      "license_documents": [
+        {
+          "member": "av-19.0.2.dist-info/licenses/LICENSE.txt",
+          "path": ".references/d04-wheels-20261113-w546i93n/av-19.0.2/license-000.txt",
+          "sha256": "f32ebcb6007dcc05eea369b3820e6391b0a7ef1ed763f30f1aca15dfdbacbe96",
+          "bytes": 1528,
+          "preview": "Copyright retained by original committers. All rights reserved.\r\n\r\nRedistribution and use in source and binary forms, with or without\r\nmodification, are permitted provided that the following conditions are met:\r\n    * Redistributions of source code must retain the above copyright\r\n      notice, this"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "3ce5a1d7b916d13c16ac58f1756f0fee4af2d53f02bc1403e18550b50d375a22",
+      "bytes": 28150949
+    },
+    {
+      "name": "deepmultilingualpunctuation",
+      "version": "1.0.1",
+      "filename": "deepmultilingualpunctuation-1.0.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/dc/a7/505f531c23aa2c381b597c9e59a62c20d9e6294f32ad7d06e4eaa2f3d438/deepmultilingualpunctuation-1.0.1-py3-none-any.whl",
+      "expected_sha256": "f346378adbecdcef84c63a61467f755d75385559d0260f60bef4315b5fb3a54f",
+      "license_documents": [
+        {
+          "member": "deepmultilingualpunctuation-1.0.1.dist-info/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/deepmultilingualpunctuation-1.0.1/license-000.txt",
+          "sha256": "759be92b3472a985e3e38b9b2db423bd31f3614487b6da8463ba2b47933290a3",
+          "bytes": 1067,
+          "preview": "MIT License\n\nCopyright (c) 2022 Oliver Guhr\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, m"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "f346378adbecdcef84c63a61467f755d75385559d0260f60bef4315b5fb3a54f",
+      "bytes": 5366
+    },
+    {
+      "name": "faster-whisper",
+      "version": "1.2.1",
+      "filename": "faster_whisper-1.2.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/05/99/49ee85903dee060d9f08297b4a342e5e0bcfca2f027a07b4ee0a38ab13f9/faster_whisper-1.2.1-py3-none-any.whl",
+      "expected_sha256": "79a66ad50688c0b794dd501dc340a736992a6342f7f95e5811be60b5224a26a7",
+      "license_documents": [
+        {
+          "member": "faster_whisper-1.2.1.dist-info/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/faster-whisper-1.2.1/license-000.txt",
+          "sha256": "af6798135e729f8aa6c853936d037dfdea449734d26b8ea6a89805fca758c0d5",
+          "bytes": 1064,
+          "preview": "MIT License\n\nCopyright (c) 2023 SYSTRAN\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "79a66ad50688c0b794dd501dc340a736992a6342f7f95e5811be60b5224a26a7",
+      "bytes": 1118909
+    },
+    {
+      "name": "pyannote-audio",
+      "version": "4.0.7",
+      "filename": "pyannote_audio-4.0.7-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/66/a3/1d03ed6c7669f7b94ce4a7ebe3b21f5c3b6331999a5680837e371e0a0537/pyannote_audio-4.0.7-py3-none-any.whl",
+      "expected_sha256": "852ea15c4d85bc34773e618267603ffca6a521669a74d33742692cc67fc700d6",
+      "license_documents": [
+        {
+          "member": "pyannote/audio/models/embedding/wespeaker/LICENSE.WeSpeaker",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-audio-4.0.7/license-000.txt",
+          "sha256": "aefc801980b3da4f6a50ad3445c8f886bb6d776909525339a552717154ef202a",
+          "bytes": 1309,
+          "preview": "Copyright (c) 2021 Shuai Wang (wsstriving@gmail.com)\n2022 Zhengyang Chen (chenzhengyang117@gmail.com)\n2023 Bing Han (hanbing97@sjtu.edu.cn)\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the L"
+        },
+        {
+          "member": "pyannote_audio-4.0.7.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-audio-4.0.7/license-001.txt",
+          "sha256": "a3b53644a76e70e289b25271b119c0a1aadaaf0db7a16225fb494fdc0e36c32a",
+          "bytes": 1061,
+          "preview": "MIT License\n\nCopyright (c) 2020 CNRS\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, p"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "852ea15c4d85bc34773e618267603ffca6a521669a74d33742692cc67fc700d6",
+      "bytes": 894598
+    },
+    {
+      "name": "pyannote-core",
+      "version": "6.1.0",
+      "filename": "pyannote_core-6.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/5a/67/ef9071e7d2c0e37161f6f566160afad8e14ccd14e47daa32a922a8934dbb/pyannote_core-6.1.0-py3-none-any.whl",
+      "expected_sha256": "44208a48a43d540b6a40c0ab07c1cb38c8deacfa3308de2608eb7dffa0e8cb88",
+      "license_documents": [
+        {
+          "member": "pyannote_core-6.1.0.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-core-6.1.0/license-000.txt",
+          "sha256": "c1509124e929c7764871add4622d7d13ec44b3795a741f9b9206cba41a1a411c",
+          "bytes": 1119,
+          "preview": "The MIT License (MIT)\n\nCopyright (c) 2014 CNRS\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "44208a48a43d540b6a40c0ab07c1cb38c8deacfa3308de2608eb7dffa0e8cb88",
+      "bytes": 57123
+    },
+    {
+      "name": "pyannote-database",
+      "version": "6.1.1",
+      "filename": "pyannote_database-6.1.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/04/bf/6a6f5abaa4d9f803f34c9883ef5e316624eac6be0eaa87720216be9bba12/pyannote_database-6.1.1-py3-none-any.whl",
+      "expected_sha256": "36460c70ce9f50ff25c9ea365bc83ad625bb6b2494deccf6bd3fc750686ae684",
+      "license_documents": [
+        {
+          "member": "pyannote_database-6.1.1.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-database-6.1.1/license-000.txt",
+          "sha256": "c6e4a9657fb261c467f40acdd2cc3f4aea9ac6ac8ae14ca0d31aae4107276a13",
+          "bytes": 1071,
+          "preview": "The MIT License (MIT)\n\nCopyright (c) 2016 CNRS\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "36460c70ce9f50ff25c9ea365bc83ad625bb6b2494deccf6bd3fc750686ae684",
+      "bytes": 53735
+    },
+    {
+      "name": "pyannote-metrics",
+      "version": "4.2.0",
+      "filename": "pyannote_metrics-4.2.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/8d/30/0df61660a9c724f7bbfeaebf4b88d292ffc72c146990f403e5d3cc81364e/pyannote_metrics-4.2.0-py3-none-any.whl",
+      "expected_sha256": "4e933ed1d05e3ce76d5657e34f51c9a12362d148bf56decd4ea5051eed4f23db",
+      "license_documents": [
+        {
+          "member": "pyannote_metrics-4.2.0.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-metrics-4.2.0/license-000.txt",
+          "sha256": "657c7e17d7360a3e885dc0b4d05a54bc7233222648ea4f6d347a0e516c4e9bdd",
+          "bytes": 1111,
+          "preview": "The MIT License (MIT)\n\nCopyright (c) 2014 CNRS (Hervé BREDIN - http://herve.niderb.fr)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without li"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "4e933ed1d05e3ce76d5657e34f51c9a12362d148bf56decd4ea5051eed4f23db",
+      "bytes": 52115
+    },
+    {
+      "name": "pyannote-pipeline",
+      "version": "4.1.0",
+      "filename": "pyannote_pipeline-4.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a2/41/86644f9e0beee6e39758ca192283eb24adcd890231855d641e6a97b19366/pyannote_pipeline-4.1.0-py3-none-any.whl",
+      "expected_sha256": "0f0b303a5b7cea638ce2266f14a2ea539b8bb5441e336539f878cf8d8fb78dd6",
+      "license_documents": [
+        {
+          "member": "pyannote_pipeline-4.1.0.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannote-pipeline-4.1.0/license-000.txt",
+          "sha256": "a97ab58b8d241fadda4dd023ff7b25d801391b25631cc92a3513c58b45711ab8",
+          "bytes": 1119,
+          "preview": "The MIT License (MIT)\n\nCopyright (c) 2018 CNRS\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "0f0b303a5b7cea638ce2266f14a2ea539b8bb5441e336539f878cf8d8fb78dd6",
+      "bytes": 23899
+    },
+    {
+      "name": "pyannoteai-sdk",
+      "version": "0.4.0",
+      "filename": "pyannoteai_sdk-0.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/f9/8d/16e62133ff748931e923c2d29a150a710c85283f533a4148adc42addb6a8/pyannoteai_sdk-0.4.0-py3-none-any.whl",
+      "expected_sha256": "36a0175978e0427f27843d690eb4d1e8ec839009ea540516d6dfcdce749cd883",
+      "license_documents": [
+        {
+          "member": "pyannoteai_sdk-0.4.0.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/pyannoteai-sdk-0.4.0/license-000.txt",
+          "sha256": "3d442be935725319727e27b4b04e41deeedd1185b1740998c9f0ba3b51754f4d",
+          "bytes": 1067,
+          "preview": "MIT License\n\nCopyright (c) 2025 pyannoteAI\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, me"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "36a0175978e0427f27843d690eb4d1e8ec839009ea540516d6dfcdce749cd883",
+      "bytes": 8886
+    },
+    {
+      "name": "torchcodec",
+      "version": "0.7.0",
+      "filename": "torchcodec-0.7.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/9b/e7/a2fa7ed9c81d7d683d37ca7204007b421c0537132364a9cfd8d577f19a96/torchcodec-0.7.0-cp312-cp312-win_amd64.whl",
+      "expected_sha256": "ac942831bff02e6041d8718b71c6f63e4e37c05dd95e72863725c9dbef0d4a7b",
+      "license_documents": [
+        {
+          "member": "torchcodec-0.7.0.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/torchcodec-0.7.0/license-000.txt",
+          "sha256": "af2f7ef2b384a3e15ed6ced586e1a8316701c7bd828cc6ae4164f0dba8e5ac8f",
+          "bytes": 1502,
+          "preview": "BSD 3-Clause License\r\n\r\nCopyright 2024 Meta\r\n\r\nRedistribution and use in source and binary forms, with or without modification,\r\nare permitted provided that the following conditions are met:\r\n\r\n1. Redistributions of source code must retain the above copyright notice,this list\r\nof conditions and the "
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "ac942831bff02e6041d8718b71c6f63e4e37c05dd95e72863725c9dbef0d4a7b",
+      "bytes": 1565029
+    },
+    {
+      "name": "whisperx",
+      "version": "3.8.6",
+      "filename": "whisperx-3.8.6-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/00/53/d533db85704e64b1709db695fba2dd3b747cb7e979a18bd18dfbf1e44b91/whisperx-3.8.6-py3-none-any.whl",
+      "expected_sha256": "cb6d4fcd3fb6c42305cb8b222a33a0b78f6b657e9db3b714345fe43dc0a69c1f",
+      "license_documents": [
+        {
+          "member": "whisperx-3.8.6.dist-info/licenses/LICENSE",
+          "path": ".references/d04-wheels-20261113-w546i93n/whisperx-3.8.6/license-000.txt",
+          "sha256": "cddc25bce26226b4a04ed12839d9006b7a4403da9020ef6428ef7282a6567441",
+          "bytes": 1297,
+          "preview": "BSD 2-Clause License\n\nCopyright (c) 2024, Max Bain\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and"
+        }
+      ],
+      "scope": "License files inspected only; wheel never installed or imported",
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "cb6d4fcd3fb6c42305cb8b222a33a0b78f6b657e9db3b714345fe43dc0a69c1f",
+      "bytes": 16486941
+    },
+    {
+      "name": "starlette",
+      "version": "1.6.0",
+      "filename": "starlette-1.6.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/c8/cb/6a6a47d5b464bd08695d254f3da6e7986cc70c9fa5d778eda57538edfe56/starlette-1.6.0-py3-none-any.whl",
+      "expected_sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+      "scope": "Exact declared cloud/gateway version; license-only inspection",
+      "license_documents": [
+        {
+          "member": "starlette-1.6.0.dist-info/licenses/LICENSE.md",
+          "path": ".references/d04-cloud-wheels-93e1_4h7/starlette/license-000.txt",
+          "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf",
+          "bytes": 1518,
+          "preview": "Copyright © 2018, [Encode OSS Ltd](https://www.encode.io/).\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, t"
+        }
+      ],
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+      "bytes": 75969
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.29.0",
+      "filename": "uvicorn-0.29.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/73/f5/cbb16fcbe277c1e0b8b3ddd188f2df0e0947f545c49119b589643632d156/uvicorn-0.29.0-py3-none-any.whl",
+      "expected_sha256": "2c2aac7ff4f4365c206fd773a39bf4ebd1047c238f8b8268ad996829323473de",
+      "scope": "Exact declared cloud/gateway version; license-only inspection",
+      "license_documents": [
+        {
+          "member": "uvicorn-0.29.0.dist-info/licenses/LICENSE.md",
+          "path": ".references/d04-cloud-wheels-93e1_4h7/uvicorn/license-000.txt",
+          "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371",
+          "bytes": 1526,
+          "preview": "Copyright © 2017-present, [Encode OSS Ltd](https://www.encode.io/).\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright n"
+        }
+      ],
+      "status": "retrieved_sha256_verified",
+      "actual_sha256": "2c2aac7ff4f4365c206fd773a39bf4ebd1047c238f8b8268ad996829323473de",
+      "bytes": 60813
+    }
+  ],
+  "cloud_addendum_checked_at": "2026-11-13T13:35:22.162362+00:00"
+}
