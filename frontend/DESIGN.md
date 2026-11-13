@@ -75,6 +75,14 @@
 - `VideoCard`：视频封面卡，英文标题优先、中文名次行，右下角时长，底部互动计数。
 - `Image`：默认 `fill`，父级必须 `relative` 且给定尺寸；远程图源要加 `next.config.js` 的 `remotePatterns`。
 
+### Astryx 首批接入
+
+- 官方发布包通过预编译 CSS 与 Tailwind 共存；入口在 `src/app/globals.css`，不引入 Astryx 的 Tailwind token bridge。
+- `components/common/AstryxProvider` 复用现有主题状态，由词汇模块布局挂接。主题映射只放在 `user-ui.css` 的局部主题作用域，不给后台套用户端主题。
+- `vocabulary/page.tsx` 的跨页视图入口使用官方 `Button` 与 Next Link，掌握程度和复习范围使用 `SegmentedControl`，搜索使用 `TextInput`，分页使用 `Button`。数据接口与学习流程不变；其它页面与共享基础组件尚未迁移。
+- 与 Astryx 同名的既有颜色工具类在 `globals.css` 的 `@theme inline` 中保留 SeeWord 语义；不要把这些声明移回普通 `@theme`，也不要在用户端样式中直接读取 Astryx 的同名状态色。
+- 接入回归在 `e2e/astryx-vocabulary.spec.ts`，使用真实 API 验证筛选、搜索、分页、导航键盘行为与路由主题清理；系统主题和站内偏好相反时，原生 UI 也必须跟随站内偏好。
+
 ## 6. 状态与文案
 
 - 空状态要说清「为什么空 + 下一步怎么做」，一个页面最多一个主 CTA；

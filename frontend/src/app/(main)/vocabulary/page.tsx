@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -9,8 +9,9 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDailySession } from "@/hooks/useDailySession";
 import { BookOpen, Search, ChevronLeft, ChevronRight, Layers } from "lucide-react";
-import { TabPills } from "@/components/ui/TabPills";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@astryxdesign/core/Button";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/common/SkeletonCard";
 import { type BadgeTone } from "@/components/common/Badge";
@@ -42,6 +43,11 @@ interface VocabStatsResponse {
 }
 
 const PAGE_SIZE = 24;
+
+/** Same-page view links preserve the existing replace/no-scroll behavior. */
+function InPlaceLink(props: ComponentProps<typeof Link>) {
+  return <Link {...props} replace scroll={false} />;
+}
 
 /**
  * 掌握度徽标。`new` 是「新词」而不是「待复习」：待复习另有到期口径
@@ -160,17 +166,6 @@ export default function VocabularyPage() {
   }, [searchParams, router]);
   const libraryTab = searchParams.get("sub") === "words" ? "words" : "sets";
 
-  /** tab 切换落 URL（replace，不刷历史栈）；today 是默认态，不占 query。 */
-  function syncTabQuery(nextTop: "today" | "library", nextSub: "sets" | "words") {
-    if (nextTop === "library" && nextSub === "sets") {
-      router.push("/vocabulary/sets");
-      return;
-    }
-    router.replace(
-      nextTop === "library" ? `/vocabulary?tab=library&sub=${nextSub}` : "/vocabulary",
-      { scroll: false }
-    );
-  }
   const setsView = useVocabSets(isAuthenticated && !isLoading);
   const daily = useDailySession(isAuthenticated && !isLoading);
   // 配额保存后就地生效，不必重拉整个今日队列（重拉会让 Hero 闪一下加载态）
@@ -330,19 +325,22 @@ export default function VocabularyPage() {
           />
         )}
 
-        <div className="mt-4">
-          <TabPills
-            tabs={[
-              { key: "today", label: "复习" },
-              { key: "library", label: "词库" },
-            ]}
-            activeKey={topTab}
-            onChange={(tab) => syncTabQuery(tab, libraryTab)}
-            variant="ghost"
-            activeStyle="dark"
-            size="sm"
+        <nav aria-label="词汇视图" className="mt-4 flex gap-1">
+          <Button
+            label="复习"
+            href="/vocabulary"
+            as={InPlaceLink}
+            variant={topTab === "today" ? "primary" : "secondary"}
+            aria-current={topTab === "today" ? "true" : undefined}
           />
-        </div>
+          <Button
+            label="词库"
+            href={libraryTab === "words" ? "/vocabulary?tab=library&sub=words" : "/vocabulary/sets"}
+            as={libraryTab === "words" ? InPlaceLink : Link}
+            variant={topTab === "library" ? "primary" : "secondary"}
+            aria-current={topTab === "library" ? "true" : undefined}
+          />
+        </nav>
 
         {topTab === "today" ? (
           <VocabularyToday
@@ -362,19 +360,22 @@ export default function VocabularyPage() {
         ) : (
           <>
             {/* 词库二级切换：视频集合 | 全部单词 */}
-            <div className="flex justify-end mb-5">
-              <TabPills
-                tabs={[
-                  { key: "sets", label: "视频集合" },
-                  { key: "words", label: "全部单词" },
-                ]}
-                activeKey={libraryTab}
-                onChange={(sub) => syncTabQuery("library", sub)}
-                variant="ghost"
-                activeStyle="dark"
-                size="sm"
+            <nav aria-label="词库内容" className="flex justify-end gap-1 mb-5">
+              <Button
+                label="视频集合"
+                href="/vocabulary/sets"
+                as={Link}
+                variant={libraryTab === "sets" ? "primary" : "secondary"}
+                aria-current={libraryTab === "sets" ? "true" : undefined}
               />
-            </div>
+              <Button
+                label="全部单词"
+                href="/vocabulary?tab=library&sub=words"
+                as={InPlaceLink}
+                variant={libraryTab === "words" ? "primary" : "secondary"}
+                aria-current={libraryTab === "words" ? "true" : undefined}
+              />
+            </nav>
 
             {libraryTab === "sets" ? (
               <VocabSetsPanel
@@ -389,49 +390,39 @@ export default function VocabularyPage() {
                 <div className="filter-bar mb-5">
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex gap-1.5 overflow-x-auto items-center scrollbar-none">
-                      <TabPills
-                        tabs={[
-                          { key: "all", label: "全部" },
-                          { key: "new", label: "新词" },
-                          { key: "learning", label: "学习中" },
-                          { key: "mastered", label: "已掌握" },
-                        ]}
-                        activeKey={masteryFilter}
+                      <SegmentedControl
+                        label="掌握程度"
+                        value={masteryFilter}
                         onChange={setMasteryFilter}
-                        variant="ghost"
-                        activeStyle="dark"
-                        size="sm"
-                      />
+                      >
+                        <SegmentedControlItem value="all" label="全部" />
+                        <SegmentedControlItem value="new" label="新词" />
+                        <SegmentedControlItem value="learning" label="学习中" />
+                        <SegmentedControlItem value="mastered" label="已掌握" />
+                      </SegmentedControl>
                     </div>
                     <div className="hidden md:block w-px h-5 bg-hairline flex-shrink-0" />
                     <div className="flex gap-1.5 overflow-x-auto items-center scrollbar-none">
-                      <TabPills
-                        tabs={[
-                          { key: "all", label: "不限" },
-                          { key: "due", label: "待复习" },
-                        ]}
-                        activeKey={dueOnly ? "due" : "all"}
+                      <SegmentedControl
+                        label="复习范围"
+                        value={dueOnly ? "due" : "all"}
                         onChange={(key) => setDueOnly(key === "due")}
-                        variant="ghost"
-                        activeStyle="brand"
-                        size="sm"
-                      />
+                      >
+                        <SegmentedControlItem value="all" label="不限" />
+                        <SegmentedControlItem value="due" label="待复习" />
+                      </SegmentedControl>
                     </div>
                     {/* Search */}
-                    <div className="relative w-full md:w-56 md:ml-auto">
-                      <Search
-                        size={14}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                      />
-                      <input
-                        type="text"
+                    <div className="w-full md:w-56 md:ml-auto">
+                      <TextInput
+                        type="search"
+                        label="搜索单词"
+                        isLabelHidden
+                        startIcon={<Search size={16} />}
                         placeholder="搜索单词…"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 rounded-md bg-surface-card border border-transparent
-                      text-copy text-ink placeholder:text-muted
-                      focus:bg-canvas focus:border-ink focus:outline-none focus:ring-2 focus:ring-brand-500/20
-                      transition-colors duration-150"
+                        onChange={setSearchQuery}
+                        width="100%"
                       />
                     </div>
                   </div>
@@ -527,28 +518,24 @@ export default function VocabularyPage() {
 
                 {/* Pager — 服务端分页，筛选口径与 total 一致 */}
                 {!list.error && !showEmpty && totalPages > 1 && (
-                  <div className="mt-8 flex items-center justify-center gap-4">
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                     <Button
-                      variant="outline"
-                      size="sm"
+                      label="上一页"
+                      variant="secondary"
+                      icon={<ChevronLeft size={16} />}
                       onClick={() => list.setPage((p) => Math.max(1, p - 1))}
-                      disabled={list.page <= 1 || list.loading}
-                    >
-                      <ChevronLeft size={14} />
-                      上一页
-                    </Button>
-                    <span className="text-copy text-muted tabular-nums">
+                      isDisabled={list.page <= 1 || list.loading}
+                    />
+                    <span className="text-copy text-muted tabular-nums" aria-live="polite">
                       第 {list.page} / {totalPages} 页 · 共 {list.total} 词
                     </span>
                     <Button
-                      variant="outline"
-                      size="sm"
+                      label="下一页"
+                      variant="secondary"
+                      endContent={<ChevronRight size={16} />}
                       onClick={() => list.setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={list.page >= totalPages || list.loading}
-                    >
-                      下一页
-                      <ChevronRight size={14} />
-                    </Button>
+                      isDisabled={list.page >= totalPages || list.loading}
+                    />
                   </div>
                 )}
               </>

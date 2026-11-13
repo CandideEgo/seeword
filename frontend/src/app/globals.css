@@ -1,5 +1,30 @@
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
+
+/* Keep existing utility meanings independent of Astryx's same-named tokens. */
+@theme inline {
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-on-dark: var(--seeword-on-dark);
+  --color-border: var(--hairline);
+  --color-accent: var(--surface-soft);
+}
+
+/* The app owns native UI mode, including outside the Astryx route. */
+:root {
+  color-scheme: light;
+  --seeword-on-dark: #fafafa;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
 
 /* 类式暗色变体：dark:* 响应 html.dark（供功能性多色 chip 等例外场景使用；
    核心语义色一律走 var 翻转，不用 dark: 变体） */
@@ -58,11 +83,8 @@
   --color-muted-soft: var(--muted-soft);
 
   /* --- Semantic (theme-aware) --- */
-  --color-success: var(--success);
   --color-success-soft: var(--success-soft);
-  --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
-  --color-error: var(--error);
 
   /* --- Semantic text（文字专用加深档）---
      与上面三个主色分开：主色是给填充/图标/圆点的，用作 12–16px 文字时对比度
@@ -84,7 +106,6 @@
   /* --- On-colors (static) ---
      on-primary: 品牌按钮上的文字；on-dark*: 暗表面上的文字 */
   --color-on-primary: #ffffff;
-  --color-on-dark: #fafafa;
   --color-on-dark-soft: #a1a1aa;
 
   /* --- Borders (theme-aware) --- */
@@ -106,7 +127,6 @@
 
   /* --- Chrome (runtime theme vars) --- */
   --color-background: var(--background);
-  --color-border: var(--hairline);
   --color-surface: var(--surface-soft);
   --color-sidebar-bg: var(--sidebar-bg);
   --color-topbar-bg: var(--topbar-bg);
@@ -127,7 +147,6 @@
   --color-primary-foreground: var(--color-on-primary);
   --color-secondary: var(--surface-card);
   --color-secondary-foreground: var(--ink);
-  --color-accent: var(--surface-soft);
   --color-accent-foreground: var(--ink);
   --color-muted-foreground: var(--muted-c);
   --color-destructive: var(--error);
@@ -237,8 +256,6 @@
    ============================================================ */
 @layer base {
   :root {
-    color-scheme: light;
-
     /* Surfaces */
     --canvas: #ffffff;
     --surface-soft: #fafafa;
@@ -301,8 +318,6 @@
   }
 
   .dark {
-    color-scheme: dark;
-
     /* Surfaces — 与 surface-dark 三件套同源的 zinc 深色阶 */
     --canvas: #0a0a0a;
     --surface-soft: #111112;

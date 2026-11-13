@@ -134,6 +134,39 @@
   --shadow-soft: none;
 }
 
+/* Astryx only borrows SeeWord's visual tokens inside its actual route wrapper.
+   Never target html[data-astryx-theme]: Theme mirrors that attribute globally. */
+.user-ui [data-astryx-theme="neutral"] {
+  --font-family-body: var(--font-sans);
+  --font-family-heading: var(--font-display);
+  --color-accent: var(--color-action-primary);
+  --color-accent-muted: var(--brand-50);
+  --color-on-accent: var(--color-on-primary);
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--muted-c);
+  --color-text-accent: var(--brand-700);
+  --color-icon-primary: var(--ink);
+  --color-icon-secondary: var(--muted-c);
+  --color-icon-accent: var(--brand-700);
+  --color-background-surface: var(--canvas);
+  --color-background-body: var(--canvas);
+  --color-background-card: var(--surface-card);
+  --color-background-muted: var(--surface-soft);
+  --color-neutral: var(--surface-soft);
+  --color-border: var(--hairline);
+  --color-border-emphasized: var(--hairline-strong);
+  --radius-inner: var(--radius-sm);
+  --radius-element: var(--radius-md);
+  --radius-container: var(--radius-lg);
+  --size-element-sm: 2.5rem;
+  --size-element-md: 2.75rem;
+  --size-element-lg: 3rem;
+  --text-body-size: var(--text-copy);
+  --text-body-leading: var(--text-copy--line-height);
+  --text-label-size: var(--text-copy);
+  --text-label-leading: var(--text-copy--line-height);
+}
+
 .user-ui ::selection {
   background: var(--brand-50);
   color: var(--ink);
@@ -347,7 +380,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--color-surface-dark);
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
   opacity: 0.88;
 }
 .user-ui .home-story-copy {
@@ -948,7 +981,7 @@
   z-index: 2;
   padding: 0.1rem 0.35rem;
   border-radius: var(--radius-sm);
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
   background: var(--color-surface-dark);
   font-size: 0.6875rem;
 }
@@ -1624,10 +1657,10 @@
 }
 .user-ui :is(button, a)[data-variant="secondaryDark"],
 .user-ui :is(button, a)[data-variant="ghostDark"] {
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
 }
 .user-ui :is(button, a)[data-variant="destructive"] {
-  color: var(--color-error);
+  color: var(--error);
 }
 /* disabled 态颜色放进 components 层：让页面上的 `disabled:text-*` 工具类能覆盖它
    （unlayered CSS 的优先级高于 Tailwind utilities，不放进层里就只能靠 `!` 绕过）。 */
@@ -1967,7 +2000,7 @@
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-surface-dark) 74%, transparent);
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
   font-size: 0.6875rem;
   line-height: 1.3;
   letter-spacing: 0.01em;
@@ -1996,10 +2029,10 @@
   height: 3rem;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--color-on-dark) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--seeword-on-dark) 38%, transparent);
   border-radius: 50%;
   background: color-mix(in srgb, var(--color-surface-dark) 70%, transparent);
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
   transition: transform 150ms ease;
 }
 .user-ui .home-editorial-cover-play:hover:not(:disabled) {
@@ -2809,9 +2842,9 @@
   height: 3.25rem;
   margin: auto;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--color-on-dark) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--seeword-on-dark) 45%, transparent);
   border-radius: 50%;
-  color: var(--color-on-dark);
+  color: var(--seeword-on-dark);
   background: color-mix(in srgb, var(--color-surface-dark) 55%, transparent);
   backdrop-filter: blur(8px);
   transition: transform 150ms ease;

@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "astryx-acceptance-frontend",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:BACKEND_PROXY_ORIGIN='http://127.0.0.1:8002'; npm.cmd --prefix frontend run dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "astryx-acceptance-api",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:PYTHONUTF8='1'; $env:ENV='testing'; $env:JWT_SECRET='astryx-local-acceptance-key-20261113'; $env:DATABASE_URL='postgresql+asyncpg://astryx:astryx-local-only@127.0.0.1:15435/astryx'; $env:REDIS_URL='redis://127.0.0.1:16385/0'; $env:SMS_DEV_FAKE_ENABLED='true'; & 'backend/.venv/Scripts/python.exe' -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8002 --timeout-keep-alive 120"
+      ],
+      "port": 8002
+    }
+  ]
+}

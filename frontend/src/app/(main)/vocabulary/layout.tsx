@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AstryxProvider } from "@/components/common/AstryxProvider";
 
 export const metadata: Metadata = {
   title: "我的词汇 — SeeWord",
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <AstryxProvider>{children}</AstryxProvider>;
 }
