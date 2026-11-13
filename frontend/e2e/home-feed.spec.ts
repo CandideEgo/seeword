@@ -188,16 +188,18 @@ test.describe("首页下滑流 · 筛选", () => {
       .poll(() => feedRequests.some((url) => url.includes("category=news")), { timeout: 20000 })
       .toBe(true);
 
-    // 打开排序面板，确认「推荐」这一项不在里面（按 Escape 关闭面板那一步
-    // 已经删掉：Base UI 的 Select 在打开动画未完成时按 Escape 会吞掉这次按键，
-    // 面板留在打开态，随后的点击就落在它上面。那条断言验的是「关闭行为」，
-    // 与本用例要验的「筛选进 URL、进请求」无关，却让用例依赖库的按键时序）。
+    // 打开排序面板，确认里面没有「推荐」这一档，再把「最新」选中关掉面板。
+    // 这里不经过 chooseSelectMenu：它自带一次触发器点击，而面板在上一步已经
+    // 打开，再点一次会把面板关掉，等待就在「打开→关闭」之间打转。
     await sort.click();
-    await expect(
-      page.getByRole("listbox").getByRole("option", { name: "推荐", exact: true })
-    ).toHaveCount(0);
-    // 选一个确定存在的排序值来关掉面板，而不是靠按键关。
-    await chooseSelectMenu(page, sort, "最新");
+    // 先等面板真的挂上（可见的 listbox 出现）。否则下面的 toHaveCount(0)
+    // 会在「还没渲染」时也通过，等于什么都没验。
+    const openListbox = page.getByRole("listbox").filter({ visible: true }).last();
+    await expect(openListbox.getByRole("option", { name: "最新", exact: true })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(openListbox.getByRole("option", { name: "推荐", exact: true })).toHaveCount(0);
+    await openListbox.getByRole("option", { name: "最新", exact: true }).click();
     await expect(sort).toContainText("最新");
 
     await chooseSelectMenu(page, level, /^B2 · /);
