@@ -200,3 +200,117 @@ async def test_auxiliary_submit_web_restore_replay_and_revocation(db_session, mo
                 client, issued["token"], "get_learning_context", {"session_id": state["id"]}, protocol=protocol
             )
             assert denied_context.status_code == 401
+
+
+@pytest.mark.parametrize("protocol", ["2025-11-25", "2026-07-28"])
+async def test_learning_tools_shared_grants_model_uses_and_confirmed_execution(db_session, monkeypatch, protocol):
+    from sqlalchemy import func, select
+
+    from app.core.config import get_settings
+    from app.models.lesson_learning import VocabularyReviewLog
+    from app.schemas.delegated_learning import ResourceLimits
+    from app.services import delegated_learning
+    from tests.open_learning_fixtures import add_revision, fixed_reference
+
+    user, _state, _legacy = await setup(db_session, monkeypatch)
+    monkeypatch.setattr(get_settings(), "slcs_lessons_enabled", True)
+    monkeypatch.setattr(get_settings(), "slcs_vocabulary_enabled", True)
+    monkeypatch.setattr("app.services.ecdict.lookup", lambda _word: None)
+    revision = await add_revision(db_session)
+    restricted = await add_revision(db_session, "site-only-model", "Not for models", model=False)
+    issued = await connections.create(
+        db_session,
+        user.id,
+        "Learning SDK",
+        [
+            "materials:read",
+            "learning:vocabulary:write",
+            "review:read",
+            "review:write",
+        ],
+        ResourceLimits(lesson_ids=[revision.lesson_id, restricted.lesson_id]),
+    )
+    await db_session.commit()
+    application = await connections.create(
+        db_session,
+        user.id,
+        "Application-only SDK check",
+        ["materials:read", "teaching:read", "learning:profile:read"],
+        ResourceLimits(lesson_ids=[revision.lesson_id]),
+        audience="application",
+    )
+    await db_session.commit()
+    app = server.create_mcp_app()
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            blocked_audience = result(await call(client, application["token"], "search_materials", protocol=protocol))
+            assert blocked_audience["isError"] is True and "INSUFFICIENT_SCOPE" in str(blocked_audience)
+            blocked_profile = result(
+                await call(client, application["token"], "get_learning_profile", protocol=protocol)
+            )
+            assert blocked_profile["isError"] is True and "INSUFFICIENT_SCOPE" in str(blocked_profile)
+            materials = result(await call(client, issued["token"], "search_materials", protocol=protocol))
+            assert materials["total"] == 1 and materials["items"][0]["lesson_id"] == revision.lesson_id
+            denied = result(
+                await call(
+                    client,
+                    issued["token"],
+                    "get_context",
+                    {"reference": fixed_reference(restricted)},
+                    protocol=protocol,
+                )
+            )
+            assert denied["isError"] is True and "LESSON_USE_NOT_ALLOWED" in str(denied)
+            saved = result(
+                await call(
+                    client,
+                    issued["token"],
+                    "save_vocabulary",
+                    {
+                        "operation_id": "save",
+                        "reference": fixed_reference(revision),
+                    },
+                    protocol=protocol,
+                )
+            )
+            pending = result(
+                await call(
+                    client,
+                    issued["token"],
+                    "prepare_learning_intent",
+                    {
+                        "parameters": {
+                            "operation_id": "review",
+                            "action": "review",
+                            "word_id": saved["word_id"],
+                            "quality": 5,
+                        }
+                    },
+                    protocol=protocol,
+                )
+            )
+            denied = result(
+                await call(
+                    client, issued["token"], "execute_learning_intent", {"intent_id": pending["id"]}, protocol=protocol
+                )
+            )
+            assert denied["isError"] is True and "CONFIRMATION_REQUIRED" in str(denied)
+            await delegated_learning.confirm_intent(db_session, user.id, pending["id"])
+            await db_session.commit()
+            first = result(
+                await call(
+                    client, issued["token"], "execute_learning_intent", {"intent_id": pending["id"]}, protocol=protocol
+                )
+            )
+            replay = result(
+                await call(
+                    client,
+                    issued["token"],
+                    "execute_learning_intent",
+                    {"intent_id": pending["id"]},
+                    request_id=3,
+                    protocol=protocol,
+                )
+            )
+            assert first == replay and first["review_count"] == 1
+            assert await db_session.scalar(select(func.count()).select_from(VocabularyReviewLog)) == 1

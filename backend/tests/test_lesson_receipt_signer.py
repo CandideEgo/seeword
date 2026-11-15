@@ -202,7 +202,12 @@ def _seed_sqlite(tmp_path, rows: list[dict], *, current_revision_id: str | None,
 
 
 def _pending_row(status: str = "candidate") -> dict:
-    return {**_row(), "status": status, "review": json.dumps({"review_sha256": "a" * 64})}
+    review = {"review_sha256": "a" * 64}
+    if status == "withdrawn":
+        review.update(
+            required_withdrawal_id="withdraw-latest", withdrawal_id="withdraw-latest", review_operation_id="review-new"
+        )
+    return {**_row(), "status": status, "review": json.dumps(review)}
 
 
 def test_the_current_revision_needs_no_receipt(tmp_path):
@@ -233,6 +238,31 @@ def test_every_publish_path_that_needs_a_receipt_can_be_signed(tmp_path, status)
 
     loaded = asyncio.run(signer.read_revision(url, row["lesson_id"], row["id"]))
     assert loaded["review_sha256"] == "a" * 64
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {},  # Legacy withdrawal; no new review.
+        {"required_withdrawal_id": "withdraw-new"},
+        {
+            "required_withdrawal_id": "withdraw-new",
+            "withdrawal_id": "withdraw-old",
+            "review_operation_id": "review-old",
+        },
+        {"required_withdrawal_id": "withdraw-new", "withdrawal_id": "withdraw-new"},
+    ],
+)
+def test_signer_refuses_withdrawn_without_current_cycle_review(tmp_path, metadata):
+    import asyncio
+
+    row = _pending_row("withdrawn")
+    row["review"] = json.dumps({"review_sha256": "a" * 64, **metadata})
+    url = _seed_sqlite(tmp_path, [row], current_revision_id=None, name="stale-review.db")
+    with pytest.raises(signer.SignerError, match="重新完成用途审核"):
+        asyncio.run(signer.read_revision(url, row["lesson_id"], row["id"]))
+    with pytest.raises(signer.SignerError):
+        signer.build_claims(row)
 
 
 def test_omitting_the_revision_id_refuses_when_several_are_publishable(tmp_path):

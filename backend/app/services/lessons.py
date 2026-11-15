@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -15,9 +16,21 @@ from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.models.lesson import Lesson, LessonOperation, LessonRevision
 from app.schemas.lesson import LessonUse, PublishLesson, ReviewLesson, WithdrawLesson
-from app.services.lesson_receipts import verify_lesson_receipt
+from app.schemas.lesson_catalog import MAX_ANCHOR_ID_LENGTH, MAX_ANCHOR_TOKENS
+from app.services.lesson_diff import diff_lesson_packs
+from app.services.lesson_receipts import requires_withdrawal_review, verify_lesson_receipt
 from app.services.v2_schema import has_tables
-from slcs import FINGERPRINT_VERSION, PackValidationError, fingerprint, load_pack, load_video_material
+from slcs import (
+    FINGERPRINT_VERSION,
+    LearningPack,
+    PackValidationError,
+    VideoLearningMaterial,
+    VocabularyEntry,
+    VocabularyOccurrence,
+    fingerprint,
+    load_pack,
+    load_video_material,
+)
 from slcs.material import stable_hash
 
 MAX_PACK_BYTES = 4 * 1024 * 1024
@@ -63,8 +76,28 @@ def may_display_revision(revision: LessonRevision) -> bool:
     return revision.status == "published" and _use_allowed(revision, "site_display")
 
 
-def material_for_revision(revision: LessonRevision):
-    return load_video_material(json.dumps(revision.pack, ensure_ascii=False).encode("utf-8"))
+def validate_site_anchor_limits(pack: LearningPack | VideoLearningMaterial) -> None:
+    """Site storage/API limits, not additions to the portable SLCS v0.1 format.
+
+    Enforce the consumer's existing bounds at import, not while constructing a
+    successful search response. Legacy over-limit packs fail explicitly too.
+    """
+    for index, segment in enumerate(pack.segments):
+        if len(segment.id) > MAX_ANCHOR_ID_LENGTH:
+            raise _pack_error(f"/segments/{index}/id", "站内段 ID 最长为 100 个字符")
+        for token_index, token in enumerate(segment.tokens):
+            if len(token.id) > MAX_ANCHOR_ID_LENGTH:
+                raise _pack_error(f"/segments/{index}/tokens/{token_index}/id", "站内词 ID 最长为 100 个字符")
+    vocabulary: Sequence[VocabularyEntry | VocabularyOccurrence] = pack.vocabulary
+    for index, entry in enumerate(vocabulary):
+        if len(entry.token_ids) > MAX_ANCHOR_TOKENS:
+            raise _pack_error(f"/vocabulary/{index}/token_ids", "站内词汇锚点最多包含 128 个词")
+
+
+def material_for_revision(revision: LessonRevision) -> VideoLearningMaterial:
+    material = load_video_material(json.dumps(revision.pack, ensure_ascii=False).encode("utf-8"))
+    validate_site_anchor_limits(material)
+    return material
 
 
 async def get_visible_revision(
@@ -126,7 +159,7 @@ def public_detail(revision: LessonRevision) -> dict:
 def _permissions(revision: LessonRevision, settings) -> dict:
     return {
         "model_processing": _use_allowed(revision, "model_processing"),
-        "tutor_enabled": settings.slcs_tutor_enabled and settings.teaching_streaming_enabled,
+        "tutor_enabled": settings.llm_enabled and settings.slcs_tutor_enabled and settings.teaching_streaming_enabled,
         "vocabulary_enabled": settings.slcs_vocabulary_enabled,
     }
 
@@ -159,6 +192,7 @@ def _admin_summary(revision: LessonRevision) -> dict:
         **_summary(revision),
         **_fingerprint_fields(revision),
         "status": revision.status,
+        "requires_review": revision.review is None or requires_withdrawal_review(revision.status, revision.review),
         "review": {**revision.review, "reviewer_id": revision.reviewer_id} if revision.review else None,
     }
 
@@ -199,6 +233,17 @@ async def _revision(db: AsyncSession, lesson_id: str, revision_id: str) -> Lesso
 
 async def admin_detail(db: AsyncSession, lesson_id: str, revision_id: str) -> dict:
     return _admin_detail(await _revision(db, lesson_id, revision_id))
+
+
+async def admin_diff(db: AsyncSession, lesson_id: str, revision_id: str, baseline_revision_id: str) -> dict:
+    revision = await _revision(db, lesson_id, revision_id)
+    baseline = await _revision(db, lesson_id, baseline_revision_id)
+    return {
+        "lesson_id": lesson_id,
+        "revision_id": revision.id,
+        "baseline_revision_id": baseline.id,
+        **diff_lesson_packs(baseline.pack, revision.pack),
+    }
 
 
 async def list_operations(db: AsyncSession, lesson_id: str, revision_id: str, *, offset: int, limit: int) -> list[dict]:
@@ -259,6 +304,7 @@ async def import_lesson(db: AsyncSession, actor_id: str, operation_id: str, payl
         pack = load_pack(payload)
     except PackValidationError as exc:
         raise _pack_error(exc.path, exc.message) from None
+    validate_site_anchor_limits(pack)
     if len(pack.lesson_id) > 100:
         raise _pack_error("/lesson_id", "站内课程 ID 最长为 100 个字符")
     if "\x00" in pack.title:
@@ -319,10 +365,32 @@ async def review_lesson(db: AsyncSession, actor_id: str, lesson_id: str, revisio
     operation, _, revision = await _claim_revision(db, actor_id, lesson_id, revision_id, "review", body)
     if revision is None:
         return await _replay(db, operation)
-    if revision.status != "candidate":
-        raise _conflict("仅候选修订可更新审核")
+    if revision.status not in {"candidate", "withdrawn"}:
+        raise _conflict("仅候选或已撤回修订可更新审核")
+    withdrawal_id = None
+    if revision.status == "withdrawn":
+        withdrawal_id = (revision.review or {}).get("required_withdrawal_id")
+        if not withdrawal_id:
+            # Legacy withdrawals have no marker. Bootstrap it from their audit
+            # trail once; subsequent cycles store the exact ID under the lock,
+            # rather than inferring event order from wall-clock timestamps.
+            withdrawal_id = await db.scalar(
+                select(LessonOperation.id)
+                .where(LessonOperation.revision_id == revision.id, LessonOperation.action == "withdraw")
+                .order_by(LessonOperation.created_at.desc(), LessonOperation.id.desc())
+                .limit(1)
+            )
+        if not withdrawal_id:
+            raise _conflict("找不到撤回操作记录，不能重新审核恢复")
     review = body.model_dump(exclude={"operation_id"})
-    review["reviewed_at"] = datetime.now(UTC).isoformat()
+    review.update(
+        reviewed_at=datetime.now(UTC).isoformat(),
+        review_operation_id=operation.id,
+        withdrawal_id=withdrawal_id,
+        required_withdrawal_id=withdrawal_id,
+    )
+    # Operation identity makes two separate approvals distinct even at the same
+    # instant with identical evidence. An idempotent retry still replays first.
     review["review_sha256"] = stable_hash({**review, "reviewer_id": actor_id, "revision_id": revision.id})
     revision.review, revision.reviewer_id = review, actor_id
     operation.result = review
@@ -339,6 +407,8 @@ async def publish_lesson(
         raise _conflict("该修订已是当前版")
     if lesson.current_revision_id != body.expected_current_revision_id:
         raise _conflict("课程当前版已变化，请重新读取")
+    if requires_withdrawal_review(revision.status, revision.review):
+        raise AppError(422, ErrorCode.VALIDATION_ERROR, "恢复前需要针对最近撤回重新完成用途审核")
     if revision.review is None or not _use_allowed(revision, "site_display"):
         raise AppError(422, ErrorCode.VALIDATION_ERROR, "发布前需要完成站内展示用途审核")
     claims = {
@@ -359,8 +429,8 @@ async def publish_lesson(
         raise AppError(409, ErrorCode.IDEMPOTENCY_CONFLICT, "发布收据已使用") from None
     previous_status = revision.status
     lesson.current_revision_id = revision.id
-    # Publishing a withdrawn revision is the explicit restore path: the review
-    # and its evidence are unchanged, only a fresh signed receipt is required.
+    # The receipt hash now attests to the post-withdrawal review as well as the
+    # immutable content. Superseded published revisions retain their original CAS.
     revision.status = "published"
     operation.result = {
         **claims,
@@ -380,6 +450,9 @@ async def withdraw_lesson(
     if revision.status != "published":
         raise _conflict("仅已发布修订可撤回")
     revision.status = "withdrawn"
+    # Preserve the previous approval for inspection, but invalidate it for this
+    # withdrawal cycle without mutating the immutable pack or its fingerprint.
+    revision.review = {**(revision.review or {}), "required_withdrawal_id": operation.id}
     if lesson.current_revision_id == revision.id:
         lesson.current_revision_id = None
     operation.result = {"reason": body.reason, "status": "withdrawn"}

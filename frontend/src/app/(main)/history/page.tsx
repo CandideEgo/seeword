@@ -7,6 +7,7 @@ import { ArrowRight, Calendar, Check, GraduationCap, Play } from "lucide-react";
 import { api } from "@/lib/api";
 import { Image } from "@/components/ui/Image";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { LessonHistory } from "@/components/lessons/LessonHistory";
 import { TabPills } from "@/components/ui/TabPills";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
@@ -376,6 +377,12 @@ export default function HistoryPage() {
             </div>
           </Card>
         </div>
+
+        {isAuthenticated && !isLoading && (
+          <div className="mt-6">
+            <LessonHistory />
+          </div>
+        )}
 
         <div className="mt-6">
           <TabPills

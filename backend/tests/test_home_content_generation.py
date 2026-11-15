@@ -1,6 +1,6 @@
 """T2：AI 草稿生成 —— prompt/预算/解析/来源校验的单测。
 
-约束（见 docs/home-editorial-content-implementation-2026-10.md §4「生成状态机」）：
+约束（见 backend/app/schemas/home_content.py「生成状态机」）：
 
 - **不消耗真实 AI 额度**：所有 AI 调用都被 stub（``monkeypatch`` 掉
   ``get_ai_service`` 或任务模块里的 ``generate_draft``）。

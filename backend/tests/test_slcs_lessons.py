@@ -20,7 +20,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 from app.core.errors import AppError
 from app.models.learning_plan import LearningEvent
-from app.models.lesson import Lesson, LessonActivity, LessonProgress, LessonRevision
+from app.models.lesson import Lesson, LessonActivity, LessonOperation, LessonProgress, LessonRevision
 from app.models.user import RoleType, User
 from app.schemas.lesson import PublishLesson, RecordLessonActivity, ReviewLesson, SaveLessonProgress, WithdrawLesson
 from app.services import lesson_progress, lessons
@@ -114,6 +114,9 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
             {
                 "operation_id": operation_id,
                 "source_commit": "a" * 40,
+                "verification_method": "synthetic fixture comparison, not real listening evidence",
+                "limitations": "test attestation only",
+                "human_minutes": None,
                 "uses": {
                     "site_display": {"approved": True, "evidence": "synthetic test attestation"},
                     "model_processing": {"approved": False, "evidence": "not requested"},
@@ -154,6 +157,9 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
 
     original = await review(original, "review-1")
     signed = _receipt(key, original)
+    unused_before_withdrawal = _receipt(key, original)
+    assert original["review"]["human_minutes"] is None
+    assert "verification_method" not in original["pack"]
     with pytest.raises(AppError) as invalid_signature:
         await publish(original, "publish-1", _receipt(Ed25519PrivateKey.generate(), original))
     assert invalid_signature.value.status_code == 422
@@ -210,6 +216,22 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
             await publish(candidates[1], "publish-3", _receipt(key, candidates[1]), original_id)
         assert stale.value.status_code == 409
 
+    # Ordinary rollback is the original CAS publication path, not a restoration
+    # and not a new review. A stale CAS must not consume the operation or receipt.
+    rollback_token = _receipt(key, original)
+    with pytest.raises(AppError) as stale_rollback:
+        await publish(original, "rollback", rollback_token, None)
+    assert stale_rollback.value.status_code == 409
+    reused_jti = jwt.decode(signed, options={"verify_signature": False})["jti"]
+    with pytest.raises(AppError) as used_receipt:
+        await publish(original, "rollback", _receipt(key, original, jti=reused_jti), winner["revision_id"])
+    assert used_receipt.value.status_code == 409
+    assert used_receipt.value.code == "IDEMPOTENCY_CONFLICT"
+    rollback = await publish(original, "rollback", rollback_token, winner["revision_id"])
+    assert rollback["review"] == original["review"]
+    assert not rollback["requires_review"]
+    await publish(winner, "return-to-winner", _receipt(key, winner), original_id)
+
     async with sessions.begin() as db:
         assert (await lessons.get_visible_revision(db, lesson_id, original_id)).id == original_id
         assert (await lessons.get_visible_revision(db, lesson_id)).id == winner["revision_id"]
@@ -220,9 +242,10 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
             original_id,
             WithdrawLesson(operation_id="withdraw-1", reason="test withdrawal"),
         )
-        # The maintainer still sees what was published; only public routes stop
-        # serving it. Restoring needs the content and the unchanged review.
+        # Admin access preserves the immutable pack, but the old approval no
+        # longer authorizes publication in this withdrawal cycle.
         assert withdrawn_detail["status"] == "withdrawn"
+        assert withdrawn_detail["requires_review"] is True
         assert withdrawn_detail["pack"]["lesson_id"] == lesson_id
     async with sessions() as db:
         with pytest.raises(AppError) as withdrawn:
@@ -247,23 +270,80 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
             winner["revision_id"],
             WithdrawLesson(operation_id="withdraw-2", reason="test withdrawal"),
         )
-    # Restore must be an explicit publish of the withdrawn revision, with a fresh
-    # receipt, and the returned state must be usable again.
-    restored = await publish(original, "publish-restore", _receipt(key, original))
+    # Neither an unused pre-withdrawal receipt nor minting a new JWT against the
+    # old review is a fresh approval. Failures roll back operation/receipt claims.
+    async with sessions() as db:
+        operations_before = await db.scalar(select(func.count()).select_from(LessonOperation))
+    for invalid in (signed, unused_before_withdrawal, _receipt(key, original)):
+        with pytest.raises(AppError) as stale_approval:
+            await publish(original, "publish-restore", invalid)
+        assert stale_approval.value.status_code == 422
+    replayed_review = await review(original, "review-1")
+    assert replayed_review["replayed"] and replayed_review["requires_review"]
+    assert replayed_review["review"]["review_sha256"] == original["review"]["review_sha256"]
+    # Replaying a successful old publish also cannot bring the material back.
+    assert (await publish(original, "publish-1", signed))["status"] == "withdrawn"
+    async with sessions() as db:
+        assert (await db.get(Lesson, lesson_id)).current_revision_id is None
+        assert await db.scalar(select(func.count()).select_from(LessonOperation)) == operations_before
+
+    fixed_time = datetime.now(UTC)
+
+    class SameTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_time
+
+    monkeypatch.setattr(lessons, "datetime", SameTime)
+    reapproved = await review(original, "review-restore")
+    assert not reapproved["requires_review"]
+    assert reapproved["review"]["withdrawal_id"] == withdrawn_detail["review"]["required_withdrawal_id"]
+    assert reapproved["review"]["review_operation_id"] != original["review"]["review_operation_id"]
+    assert reapproved["review"]["review_sha256"] != original["review"]["review_sha256"]
+    assert reapproved["pack"] == original["pack"]
+    stale_restore_authorization = _receipt(key, reapproved)
+    # A new review operation invalidates the previous review's unused receipt,
+    # even with identical evidence. Identical operation retries remain stable.
+    latest = await review(original, "review-restore-again")
+    assert latest["review"]["review_sha256"] != reapproved["review"]["review_sha256"]
+    assert (await review(original, "review-restore-again"))["review"] == latest["review"]
+    for invalid in (unused_before_withdrawal, stale_restore_authorization):
+        with pytest.raises(AppError) as old_hash:
+            await publish(original, "publish-restore", invalid)
+        assert old_hash.value.status_code == 422
+    unused_restore = _receipt(key, latest)
+    restored = await publish(latest, "publish-restore", _receipt(key, latest))
     assert restored["status"] == "published"
     assert restored["pack"]["lesson_id"] == lesson_id
     with pytest.raises(AppError) as already_current:
-        await publish(original, "publish-restore-2", _receipt(key, original))
+        await publish(latest, "publish-restore-2", _receipt(key, latest))
     assert already_current.value.status_code == 409
     async with sessions() as db:
         assert (await lessons.get_visible_revision(db, lesson_id)).id == original_id
+        progress = await lesson_progress.read_progress(db, learner_id, lesson_id)
+        assert progress["position_ms"] == 650 and progress["watch_seconds"] == 12.0
     async with sessions.begin() as db:
-        await lessons.withdraw_lesson(
+        withdrawn_again = await lessons.withdraw_lesson(
             db,
             actor_id,
             lesson_id,
             original_id,
             WithdrawLesson(operation_id="withdraw-3", reason="test withdrawal"),
+        )
+    assert withdrawn_again["requires_review"]
+    assert withdrawn_again["review"]["required_withdrawal_id"] != latest["review"]["withdrawal_id"]
+    with pytest.raises(AppError) as prior_cycle:
+        await publish(latest, "restore-second-cycle", unused_restore)
+    assert prior_cycle.value.status_code == 422
+    second_cycle = await review(latest, "review-second-cycle")
+    assert second_cycle["review"]["withdrawal_id"] == withdrawn_again["review"]["required_withdrawal_id"]
+    with pytest.raises(AppError) as prior_cycle_after_review:
+        await publish(second_cycle, "restore-second-cycle", unused_restore)
+    assert prior_cycle_after_review.value.status_code == 422
+    await publish(second_cycle, "restore-second-cycle", _receipt(key, second_cycle))
+    async with sessions.begin() as db:
+        await lessons.withdraw_lesson(
+            db, actor_id, lesson_id, original_id, WithdrawLesson(operation_id="withdraw-final", reason="finish test")
         )
     async with sessions.begin() as db:
         assert (await db.get(Lesson, lesson_id)).current_revision_id is None
@@ -280,3 +360,79 @@ async def test_signed_publication_is_idempotent_and_withdrawal_retains_progress(
                 )
                 == 0
             )
+
+
+@pytest.mark.parametrize("with_withdrawal_audit", [True, False])
+async def test_legacy_withdrawal_needs_auditable_new_review(lesson_db, with_withdrawal_audit):
+    sessions, _ = lesson_db
+    document = json.loads(REFERENCE.read_bytes())
+    lesson_id = document["lesson_id"] = f"legacy-{uuid.uuid4().hex}"
+    body = ReviewLesson(
+        operation_id="legacy-new-review",
+        source_commit="a" * 40,
+        uses={
+            use: {"approved": use == "site_display", "evidence": "synthetic legacy test"}
+            for use in ("site_display", "model_processing", "external_redistribution")
+        },
+    )
+    async with sessions.begin() as db:
+        admin = User(role=RoleType.admin)
+        db.add(admin)
+        await db.flush()
+        actor_id = admin.id
+        imported = await lessons.import_lesson(db, actor_id, "legacy-import", json.dumps(document).encode())
+        revision_id = imported["revision_id"]
+        revision = await db.get(LessonRevision, revision_id)
+        revision.status = "withdrawn"
+        # Pre-P1 review JSON has neither withdrawal marker nor review operation.
+        revision.review = {**body.model_dump(exclude={"operation_id"}), "review_sha256": "b" * 64}
+        if with_withdrawal_audit:
+            older = LessonOperation(
+                actor_id=actor_id,
+                operation_id="legacy-withdraw-older",
+                action="withdraw",
+                request_hash="c" * 64,
+                revision_id=revision_id,
+                created_at=datetime.now(UTC) - timedelta(days=1),
+            )
+            latest = LessonOperation(
+                actor_id=actor_id,
+                operation_id="legacy-withdraw-latest",
+                action="withdraw",
+                request_hash="d" * 64,
+                revision_id=revision_id,
+            )
+            db.add_all([older, latest])
+            await db.flush()
+            latest_withdrawal_id = latest.id
+    async with sessions() as db:
+        assert (await lessons.admin_detail(db, lesson_id, revision_id))["requires_review"]
+    with pytest.raises(AppError) as old_approval:
+        async with sessions.begin() as db:
+            await lessons.publish_lesson(
+                db,
+                actor_id,
+                lesson_id,
+                revision_id,
+                PublishLesson(operation_id="legacy-restore", expected_current_revision_id=None, receipt="old-receipt"),
+            )
+    assert old_approval.value.status_code == 422
+
+    async def review():
+        async with sessions.begin() as db:
+            return await lessons.review_lesson(db, actor_id, lesson_id, revision_id, body)
+
+    if with_withdrawal_audit:
+        approved = await review()
+        assert not approved["requires_review"]
+        assert approved["review"]["withdrawal_id"] == latest_withdrawal_id
+        assert approved["review"]["required_withdrawal_id"] == latest_withdrawal_id
+        assert approved["review"]["review_operation_id"]
+        assert approved["review"]["review_sha256"] != "b" * 64
+    else:
+        with pytest.raises(AppError) as unauditable:
+            await review()
+        assert unauditable.value.status_code == 409
+        async with sessions() as db:
+            assert (await lessons.admin_detail(db, lesson_id, revision_id))["requires_review"]
+            assert await db.scalar(select(func.count()).select_from(LessonOperation)) == 1

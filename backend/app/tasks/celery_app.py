@@ -101,7 +101,10 @@ celery_app.conf.update(
             "task": "app.tasks.reminder_tasks.send_hourly_reminders",
             "schedule": crontab(minute=0),  # every hour on the hour
         },
-        # P1-7 注销：每日清理已到期（30 天冷静期结束）的账号。
+        "cleanup-learning-intents": {
+            "task": "app.tasks.delegated_learning_tasks.cleanup_learning_intents",
+            "schedule": crontab(minute=17, hour=18),
+        },
         "purge-deleted-accounts": {
             "task": "app.tasks.account_tasks.purge_deleted_accounts",
             "schedule": crontab(minute=30, hour=18),
@@ -122,6 +125,7 @@ celery_app.conf.update(
 import app.core.logging
 import app.models
 import app.tasks.account_tasks
+import app.tasks.delegated_learning_tasks
 import app.tasks.health_tasks
 import app.tasks.home_content_tasks
 import app.tasks.notification_tasks

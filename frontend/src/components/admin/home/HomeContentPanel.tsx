@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 视频详情「首页内容」面板（docs/home-editorial-content-implementation-2026-10.md §7.1）。
+ * 视频详情「首页内容」面板（backend/app/schemas/home_content.py）。
  *
  * 负责：状态行（未制作/草稿/已发布/来源已变更 + 生成任务）、生成草稿（覆盖前确认）、
  * 保存（expected_revision，409 提示刷新）、预览（管理员 preview 接口）、

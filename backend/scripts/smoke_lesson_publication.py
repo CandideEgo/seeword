@@ -5,8 +5,8 @@ actual database that has been migrated to head, then walks the operator's path
 end to end —
 
     import -> review -> sign a receipt with the CLI -> publish -> learner reads
-    -> withdraw -> learner sees 410 with progress intact -> restore with a fresh
-    receipt -> learner reads again
+    -> withdraw -> learner sees 410 with progress intact -> re-review -> restore
+    with a fresh receipt -> learner reads again
 
 Why this exists next to ``tests/test_slcs_lessons.py``: that suite uses monkeypatched
 keys and an in-process signer. This one calls ``scripts/sign_lesson_receipt.py`` as a
@@ -156,6 +156,27 @@ async def main() -> int:
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://smoke", timeout=60) as c:
+
+        async def review_revision(revision: str, operation: str):
+            response = await c.post(
+                f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision}/review",
+                headers=admin_headers,
+                json={
+                    "operation_id": operation,
+                    "source_commit": "0" * 40,
+                    "verification_method": "合成 HTTP 演练；不是实际听校或权利核验",
+                    "limitations": "仅验证发布工程链路，不代表人工验收或真实材料获准",
+                    "human_minutes": None,
+                    "uses": {
+                        "site_display": {"approved": True, "evidence": "合成演练用途断言，不是实际权利结论"},
+                        "model_processing": {"approved": True, "evidence": "合成演练，不调用模型"},
+                        "external_redistribution": {"approved": False, "evidence": "本演练不允许再分发"},
+                    },
+                },
+            )
+            check("审核 200", response.status_code == 200, f"status={response.status_code} {response.text[:200]}")
+            return response
+
         print("\n[1] 导入候选修订")
         r = await c.post(
             "/api/v1/admin/lessons/import",
@@ -203,20 +224,9 @@ async def main() -> int:
         )
 
         print("\n[4] 维护者审核（站内展示 + 模型处理）")
-        r = await c.post(
-            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/review",
-            headers=admin_headers,
-            json={
-                "operation_id": f"review-{suffix}",
-                "source_commit": "0" * 40,
-                "uses": {
-                    "site_display": {"approved": True, "evidence": "CC BY-SA 4.0，署名与出处随包"},
-                    "model_processing": {"approved": True, "evidence": "同一许可，仅站内导师"},
-                    "external_redistribution": {"approved": False, "evidence": "未获准再分发"},
-                },
-            },
-        )
-        check("审核 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
+        r = await review_revision(revision_id, f"review-{suffix}")
+        if r.status_code != 200:
+            return 1
         review_hash = r.json()["review"]["review_sha256"]
 
         print("\n[5] 用签发方 CLI 生成收据（子进程，走真实 CLI）")
@@ -238,6 +248,16 @@ async def main() -> int:
             signed.stderr.splitlines()[4] if len(signed.stderr.splitlines()) > 4 else "",
         )
 
+        unused_before_withdrawal = _signer(
+            "sign",
+            "--lesson-id",
+            lesson_id,
+            "--revision-id",
+            revision_id,
+            database_url=args.database_url,
+            key=key,
+        )
+        check("预留未用的撤回前收据", unused_before_withdrawal.returncode == 0)
         print("\n[6] 发布")
         r = await c.post(
             f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
@@ -287,7 +307,35 @@ async def main() -> int:
         r = await c.get("/api/v1/lessons", headers=learner_headers)
         check("目录已隐藏", lesson_id not in {item["lesson_id"] for item in r.json()["lessons"]})
 
-        print("\n[12] 用新收据恢复发布")
+        print("\n[12] 撤回后旧审核与未用收据均不能恢复；先重新审核")
+        stale_signer = _signer(
+            "sign",
+            "--lesson-id",
+            lesson_id,
+            "--revision-id",
+            revision_id,
+            database_url=args.database_url,
+            key=key,
+        )
+        check("签发方拒绝未重新审核的撤回修订", stale_signer.returncode == 1)
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"restore-{suffix}",
+                "expected_current_revision_id": None,
+                "receipt": unused_before_withdrawal.stdout.strip(),
+            },
+        )
+        check("未用的撤回前收据被拒 422", r.status_code == 422, f"status={r.status_code}")
+        renewed = await review_revision(revision_id, f"review-restore-{suffix}")
+        if renewed.status_code != 200:
+            return 1
+        check("重新审核改变哈希", renewed.json()["review"]["review_sha256"] != review_hash)
+        check(
+            "重新审核绑定最近撤回",
+            renewed.json()["review"]["withdrawal_id"] == renewed.json()["review"]["required_withdrawal_id"],
+        )
         restored = _signer(
             "sign",
             "--lesson-id",
@@ -298,6 +346,16 @@ async def main() -> int:
             key=key,
         )
         check("再次签发 exit 0", restored.returncode == 0, restored.stderr.strip()[-200:])
+        unused_restore = _signer(
+            "sign",
+            "--lesson-id",
+            lesson_id,
+            "--revision-id",
+            revision_id,
+            database_url=args.database_url,
+            key=key,
+        )
+        check("预留本轮未用恢复收据", unused_restore.returncode == 0)
         r = await c.post(
             f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
             headers=admin_headers,
@@ -309,10 +367,9 @@ async def main() -> int:
         )
         check("恢复 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
 
-        print("\n[12b] 已用过的收据不能再发布（唯一约束，不是「已是当前版」）")
-        # Withdraw first: otherwise every publish attempt short-circuits on
-        # "already the current revision" *before* the receipt is verified, and a
-        # check here would pass no matter what the replay guard did.
+        print("\n[12b] 再次撤回后上一轮恢复授权失效")
+        # A second withdrawal invalidates even an unused receipt for the previous
+        # approval. Receipt-ID uniqueness itself is covered by the service tests.
         r = await c.post(
             f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/withdraw",
             headers=admin_headers,
@@ -325,14 +382,27 @@ async def main() -> int:
             json={
                 "operation_id": f"replay-{suffix}",
                 "expected_current_revision_id": None,
-                "receipt": restored.stdout.strip(),
+                "receipt": unused_restore.stdout.strip(),
             },
         )
         check(
-            "重放同一收据被拒 409 IDEMPOTENCY_CONFLICT",
-            r.status_code == 409 and r.json().get("code") == "IDEMPOTENCY_CONFLICT",
+            "上一轮恢复收据被拒 422",
+            r.status_code == 422 and r.json().get("code") == "VALIDATION_ERROR",
             f"status={r.status_code} {r.text[:200]}",
         )
+        renewed_again = await review_revision(revision_id, f"review-restore-again-{suffix}")
+        if renewed_again.status_code != 200:
+            return 1
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"stale-cycle-{suffix}",
+                "expected_current_revision_id": None,
+                "receipt": unused_restore.stdout.strip(),
+            },
+        )
+        check("新一轮审核后仍拒绝上一轮收据", r.status_code == 422, f"status={r.status_code}")
         # Put it back so the later steps still see a published revision.
         r = await c.post(
             f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
@@ -368,6 +438,9 @@ async def main() -> int:
             headers=admin_headers,
             json={"operation_id": f"withdraw2-{suffix}", "reason": "演练：超长有效期收据"},
         )
+        long_review = await review_revision(revision_id, f"review-long-{suffix}")
+        if long_review.status_code != 200:
+            return 1
         long_lived = _signer(
             "sign",
             "--lesson-id",
@@ -400,6 +473,9 @@ async def main() -> int:
             database_url=args.database_url,
             key=key,
         )
+        check("签发当前审核收据", good.returncode == 0, good.stderr.strip()[-200:])
+        if good.returncode != 0:
+            return 1
         header, payload, signature = good.stdout.strip().split(".")
         claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
         claims["receipt"]["fingerprint"] = "0" * 64
@@ -414,6 +490,19 @@ async def main() -> int:
             },
         )
         check("篡改被拒 422", r.status_code == 422, f"status={r.status_code} {r.text[:160]}")
+
+        # Restore this reviewed revision before superseding it. Otherwise the
+        # final action would test restoration, not ordinary published rollback.
+        r = await c.post(
+            f"/api/v1/admin/lessons/{lesson_id}/revisions/{revision_id}/publish",
+            headers=admin_headers,
+            json={
+                "operation_id": f"restore-before-rollback-{suffix}",
+                "expected_current_revision_id": None,
+                "receipt": good.stdout.strip(),
+            },
+        )
+        check("回退前恢复第一版", r.status_code == 200, f"status={r.status_code}")
 
         print("\n[16] 回退到被取代的旧修订（这是第三条要收据的发布路径）")
         # Publish a second, different revision so the first one becomes a
@@ -431,22 +520,11 @@ async def main() -> int:
         check("第二版导入 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
         second_id = r.json()["revision_id"]
         check("第二版是新修订", second_id != revision_id, f"{second_id} vs {revision_id}")
-        await c.post(
-            f"/api/v1/admin/lessons/{lesson_id}/revisions/{second_id}/review",
-            headers=admin_headers,
-            json={
-                "operation_id": f"review2-{suffix}",
-                "source_commit": "0" * 40,
-                "uses": {
-                    "site_display": {"approved": True, "evidence": "同第一版"},
-                    "model_processing": {"approved": True, "evidence": "同第一版"},
-                    "external_redistribution": {"approved": False, "evidence": "未获准再分发"},
-                },
-            },
-        )
-        # Steps [14] left the lesson withdrawn, so its current revision is None.
-        # Read it back rather than assuming: this is exactly the value the
-        # compare-and-swap in publish_lesson checks.
+        second_review = await review_revision(second_id, f"review2-{suffix}")
+        if second_review.status_code != 200:
+            return 1
+        # Read the actual pointer rather than assuming: this is exactly the value
+        # the compare-and-swap in publish_lesson checks.
         r = await c.get("/api/v1/admin/lessons", headers=admin_headers)
         current = next(item["current_revision_id"] for item in r.json()["lessons"] if item["lesson_id"] == lesson_id)
         print(f"  课程当前版：{current}")
@@ -470,8 +548,8 @@ async def main() -> int:
         )
         check("第二版发布 200", r.status_code == 200, f"status={r.status_code} {r.text[:200]}")
 
-        # ``revision_id`` is now published-but-superseded. Omitting
-        # --revision-id must find it (it is not the current revision).
+        # ``revision_id`` is now published-but-superseded. Sign that exact
+        # revision explicitly, without silently choosing a different candidate.
         rollback_receipt = _signer(
             "sign",
             "--lesson-id",

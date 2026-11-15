@@ -1,6 +1,0 @@
-已接受的安全公告：15 条（CVE-2026-80047, PYSEC-2025-193, PYSEC-2025-194, PYSEC-2025-195, PYSEC-2025-203, PYSEC-2025-204, PYSEC-2025-206, PYSEC-2025-217, PYSEC-2026-139, PYSEC-2026-2286, PYSEC-2026-2288, PYSEC-2026-2289, PYSEC-2026-2290, PYSEC-2026-3740, PYSEC-2026-3929）
-开始扫描：requirements-cloud.txt
-::error::pip-audit 无法完成（exit 1）
-
-ERROR:pip_audit._cli:Failed to upgrade `pip`: ['C:\\Users\\Fuwei\\speaking\\docs\\comprehensive-audit-2026-10-29\\evidence\\pip-temp\\tmpx550eiuj\\Scripts\\python.exe', '-m', 'pip', 'install', '--upgrade', 'pip', 'wheel', 'setuptools']
-

@@ -62,7 +62,7 @@ class ErrorCode:
     # 非 AI 的下游依赖不可用（GPU worker 掉线、引擎未配置等）
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
 
-    # 首页编辑内容（docs/home-editorial-content-implementation-2026-10.md §4）。
+    # 首页编辑内容（backend/app/schemas/home_content.py）。
     # 这些码同时用于两种出口：HTTP envelope（AppError）与生成任务状态里的
     # ``generation_error_code``（AI 失败时 HTTP 仍是 202/200，失败靠状态呈现）。
     HOME_CONTENT_REVISION_CONFLICT = "HOME_CONTENT_REVISION_CONFLICT"
@@ -85,7 +85,7 @@ class ErrorCode:
     HOME_CONTENT_TIMEOUT = "HOME_CONTENT_TIMEOUT"
     HOME_CONTENT_CONFLICT = "HOME_CONTENT_CONFLICT"
 
-    # SLCS 课程试点（docs/slcs/06-implementation-roadmap.md）。
+    # SLCS 课程试点（docs/project-audit/architecture.md）。
     # 撤回是 410 而不是 404：学习者手里的旧深链指向的正文仍然存在，只是不再
     # 可披露，前端据此显示「已撤回」而不是「课程不存在」。
     LESSON_WITHDRAWN = "LESSON_WITHDRAWN"

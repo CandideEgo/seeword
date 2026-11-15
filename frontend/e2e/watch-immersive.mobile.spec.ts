@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { mediaState, openWatch, setupWatch, VIDEO_ID } from "./watch-baseline.fixture";
 
 async function evidence(page: Page, info: TestInfo, name: string) {
-  const directory = resolve("../docs/evidence/discover-watch-v2-2026-10-26", info.project.name);
+  const directory = resolve("../tmp/e2e-evidence/discover-watch", info.project.name);
   mkdirSync(directory, { recursive: true });
   await page.screenshot({ path: resolve(directory, `${name}.png`), animations: "disabled" });
 }

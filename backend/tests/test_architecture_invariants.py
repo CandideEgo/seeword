@@ -1,8 +1,7 @@
 """Mechanized architecture invariants.
 
-Each test names the invariant it protects — the rule text lives in `.agent/invariants.md`. The
-point of putting them in code is that reintroducing a removed shape of the system fails a test
-instead of passing review because a reviewer did not remember.
+Each test names and implements the invariant it protects. Reintroducing a
+removed shape fails a test instead of relying on a reviewer's memory.
 """
 
 from __future__ import annotations
@@ -135,7 +134,7 @@ class TestVideoProcessingIsOperatorTriggered:
         assert not offenders, f"removed '{fragment}' routes reappeared: {offenders}"
 
 
-# --- error contract (docs/architecture-fix-plan-2026-10.md 批 1) -------------
+# --- error contract (backend/tests/test_response_contract.py 批 1) -------------
 
 # 服务层过去用这些内建异常表达领域失败，路由层再按消息文本反解状态码。
 LEGACY_DOMAIN_EXC_TYPES = {"ValueError", "LookupError", "PermissionError"}

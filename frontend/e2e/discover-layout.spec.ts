@@ -117,7 +117,7 @@ for (const width of [360, 390, 430, 600, 820, 1024, 1366, 1440, 1920]) {
     expect(
       await page.locator("main").evaluate((el) => el.scrollWidth - el.clientWidth)
     ).toBeLessThanOrEqual(1);
-    const directory = resolve("../docs/evidence/discover-watch-v2-2026-10-26", info.project.name);
+    const directory = resolve("../tmp/e2e-evidence/discover-watch", info.project.name);
     if (width === 390 || width === 1440) {
       mkdirSync(directory, { recursive: true });
       await page.locator("main").evaluate((el) => {

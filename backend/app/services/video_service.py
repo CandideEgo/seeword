@@ -755,6 +755,9 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
     onto the same output files). Only the request whose UPDATE actually flipped
     the row dispatches (ADM-14).
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production()
     result = await db.execute(
         update(Video)
         .where(

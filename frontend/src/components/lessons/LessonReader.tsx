@@ -52,25 +52,64 @@ function intervalLabel(start: number, end: number) {
 
 type ReaderState = { lesson: LessonDetail } | { error: number } | null;
 
-export function LessonReader({
-  lessonId,
-  revision,
-  anchor,
-  conversationId,
-}: {
+/** A successful full read pins this session, including retries, to that revision. */
+export function createLessonReaderLoader(lessonId: string, revision: string | null) {
+  let pinnedRevision = revision;
+  let loaded: LessonDetail | null = null;
+  return async (signal: AbortSignal): Promise<LessonDetail> => {
+    try {
+      if (!loaded) {
+        const lesson = await getLesson(lessonId, pinnedRevision, signal);
+        signal.throwIfAborted();
+        pinnedRevision = lesson.revision_id;
+        loaded = lesson;
+      } else {
+        // Only revalidate a pack that this session has actually loaded.
+        const current = await getLessonState(lessonId, pinnedRevision, signal);
+        signal.throwIfAborted();
+        const unchanged =
+          loaded.permissions.model_processing === current.permissions.model_processing &&
+          loaded.permissions.tutor_enabled === current.permissions.tutor_enabled &&
+          loaded.permissions.vocabulary_enabled === current.permissions.vocabulary_enabled;
+        if (!unchanged) loaded = { ...loaded, permissions: current.permissions };
+      }
+      return loaded;
+    } catch (error) {
+      // Do not leave an error screen dependent on a state-only response: the
+      // next attempt must reload the pinned body, never a newer current pack.
+      if (!signal.aborted) loaded = null;
+      throw error;
+    }
+  };
+}
+
+interface LessonReaderProps {
   lessonId: string;
   revision: string | null;
   anchor: LessonAnchor | null;
   conversationId: string | null;
-}) {
+}
+
+export function LessonReader(props: LessonReaderProps) {
+  // Route changes must discard body, progress and in-flight UI immediately,
+  // before effects run. Also cover callers that do not key the route page.
+  return (
+    <LessonReaderSession
+      key={JSON.stringify([props.lessonId, props.revision, props.anchor, props.conversationId])}
+      {...props}
+    />
+  );
+}
+
+function LessonReaderSession({ lessonId, revision, anchor, conversationId }: LessonReaderProps) {
   const [state, setState] = useState<ReaderState>(null);
   const [retry, setRetry] = useState(0);
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const load = useMemo(() => createLessonReaderLoader(lessonId, revision), [lessonId, revision]);
 
   useEffect(() => {
     const controller = new AbortController();
-    let pinnedRevision = revision;
     let inFlight = false;
 
     async function refresh(blocking: boolean) {
@@ -78,27 +117,8 @@ export function LessonReader({
       inFlight = true;
       if (blocking) setRefreshing(true);
       try {
-        if (pinnedRevision) {
-          // The pack is immutable per revision, so revalidation only asks
-          // whether this revision is still servable and what it now permits.
-          // Re-downloading every segment on a timer is what this avoids.
-          const current = await getLessonState(lessonId, pinnedRevision, controller.signal);
-          if (controller.signal.aborted) return;
-          setState((previous) => {
-            if (!previous || !("lesson" in previous)) return previous;
-            const lesson = previous.lesson;
-            const same =
-              lesson.permissions.model_processing === current.permissions.model_processing &&
-              lesson.permissions.tutor_enabled === current.permissions.tutor_enabled &&
-              lesson.permissions.vocabulary_enabled === current.permissions.vocabulary_enabled;
-            return same ? previous : { lesson: { ...lesson, permissions: current.permissions } };
-          });
-          return;
-        }
-        const lesson = await getLesson(lessonId, null, controller.signal);
-        if (controller.signal.aborted) return;
-        pinnedRevision = lesson.revision_id;
-        setState({ lesson });
+        const lesson = await load(controller.signal);
+        if (!controller.signal.aborted) setState({ lesson });
       } catch (error) {
         if (!controller.signal.aborted) {
           setState({ error: error instanceof ApiClientError ? error.status : 0 });
@@ -114,7 +134,12 @@ export function LessonReader({
     }
 
     void refresh(false);
-    getLessonProgress(lessonId, controller.signal).then(setProgress, () => {});
+    getLessonProgress(lessonId, controller.signal).then(
+      (result) => {
+        if (!controller.signal.aborted) setProgress(result);
+      },
+      () => {}
+    );
     document.addEventListener("visibilitychange", revalidateVisible);
     window.addEventListener("pageshow", revalidateVisible);
     const poll = setInterval(() => void refresh(false), 20_000);
@@ -124,7 +149,7 @@ export function LessonReader({
       window.removeEventListener("pageshow", revalidateVisible);
       clearInterval(poll);
     };
-  }, [lessonId, revision, retry]);
+  }, [lessonId, load, retry]);
 
   if (state && "lesson" in state) {
     return (
@@ -171,6 +196,8 @@ export function LessonReader({
           title="课程加载失败"
           onRetry={() => {
             setState(null);
+            setProgress(null);
+            setRefreshing(false);
             setRetry((value) => value + 1);
           }}
         />

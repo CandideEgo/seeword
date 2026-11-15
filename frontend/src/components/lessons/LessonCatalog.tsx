@@ -6,77 +6,119 @@ import { ArrowUpRight, BookOpen, Clapperboard } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { InlineSpinner } from "@/components/common/Spinner";
+import { LessonHistory } from "@/components/lessons/LessonHistory";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { api } from "@/lib/api";
 import { ApiClientError } from "@/lib/createApiClient";
-import { formatTime } from "@/lib/format";
-import { lessonHref, type LessonHistoryItem, type LessonSummary } from "@/lib/lessons";
+import { formatCount } from "@/lib/format";
+import {
+  LESSON_CATALOG_PAGE_SIZE,
+  searchLessonCatalog,
+  type LessonCatalogPage,
+} from "@/lib/lessonCatalog";
+import { lessonHref } from "@/lib/lessons";
 
 export function LessonCatalog() {
-  const [retry, setRetry] = useState(0);
-  const [lessons, setLessons] = useState<LessonSummary[] | null>(null);
-  const [error, setError] = useState<number | null>(null);
-  const [history, setHistory] = useState<LessonHistoryItem[]>([]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    api<{ lessons: LessonSummary[] }>("/api/v1/lessons", {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then((data) => {
-        setLessons(data.lessons);
-        setError(null);
-      })
-      .catch((failure: unknown) => {
-        if (!controller.signal.aborted) {
-          setLessons(null);
-          setError(failure instanceof ApiClientError ? failure.status : 0);
-        }
-      });
-    api<{ items: LessonHistoryItem[] }>("/api/v1/lessons/_history", {
-      signal: controller.signal,
-      cache: "no-store",
-    }).then(
-      (result) => {
-        if (!controller.signal.aborted) setHistory(result.items);
-      },
-      () => {}
-    );
-    return () => controller.abort();
-  }, [retry]);
+  const [input, setInput] = useState("");
+  const [request, setRequest] = useState({ query: "", offset: 0 });
 
   return (
     <div className="mx-auto max-w-4xl space-y-7 py-6 sm:py-9">
       <PageHeader title="视频课程" />
+      <form
+        role="search"
+        aria-label="课程检索"
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setRequest({ query: input.trim(), offset: 0 });
+        }}
+      >
+        <Input
+          type="search"
+          aria-label="搜索课程"
+          placeholder="搜索课程"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+        />
+        <Button type="submit" variant="outline" className="shrink-0">
+          搜索
+        </Button>
+      </form>
+      <CatalogPage
+        key={JSON.stringify(request)}
+        query={request.query}
+        offset={request.offset}
+        onPage={(offset) => setRequest({ ...request, offset })}
+      />
+      <LessonHistory />
+    </div>
+  );
+}
+
+function CatalogPage({
+  query,
+  offset,
+  onPage,
+}: {
+  query: string;
+  offset: number;
+  onPage: (offset: number) => void;
+}) {
+  const [retry, setRetry] = useState(0);
+  const [page, setPage] = useState<LessonCatalogPage | null>(null);
+  const [error, setError] = useState<number | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    searchLessonCatalog(query, offset, controller.signal).then(
+      (result) => {
+        if (!controller.signal.aborted) setPage(result);
+      },
+      (failure: unknown) => {
+        if (!controller.signal.aborted) {
+          setError(failure instanceof ApiClientError ? failure.status : 0);
+        }
+      }
+    );
+    return () => controller.abort();
+  }, [query, offset, retry]);
+
+  return (
+    <section aria-label="课程目录" className="space-y-3">
       {error === 503 ? (
         <EmptyState icon={BookOpen} title="课程试点暂未开放" />
       ) : error !== null ? (
-        <ErrorState title="课程目录加载失败" onRetry={() => setRetry((count) => count + 1)} />
-      ) : lessons === null ? (
+        <ErrorState
+          title="课程目录加载失败"
+          onRetry={() => {
+            setError(null);
+            setRetry((count) => count + 1);
+          }}
+        />
+      ) : page === null ? (
         <div role="status" aria-label="正在加载课程" className="flex justify-center py-16">
           <InlineSpinner />
         </div>
-      ) : !lessons.length ? (
-        <EmptyState icon={BookOpen} title="暂无已发布课程" />
+      ) : !page.items.length ? (
+        <EmptyState icon={BookOpen} title={query ? "未找到匹配课程" : "暂无已发布课程"} />
       ) : (
         <ul className="divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface-card">
-          {lessons.map((lesson) => (
+          {page.items.map((lesson) => (
             <li key={lesson.lesson_id}>
               <Link
-                href={lessonHref(lesson.lesson_id)}
+                href={lessonHref(lesson.lesson_id, lesson.revision_id)}
                 className="group flex min-w-0 items-center gap-4 px-4 py-5 transition-colors hover:bg-surface-soft sm:px-6"
               >
                 <span className="grid size-12 shrink-0 place-items-center rounded-md bg-surface-soft text-brand-700">
                   <Clapperboard size={21} aria-hidden />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span lang="en" className="block text-title font-semibold break-words text-ink">
-                    {lesson.title}
-                  </span>
-                  <span className="mt-1 block text-meta text-muted">
-                    {lesson.access_mode === "provider_embed" ? "站内播放" : "原站观看"}
-                  </span>
+                <span
+                  lang="en"
+                  className="min-w-0 flex-1 text-title font-semibold break-words text-ink"
+                >
+                  {lesson.title}
                 </span>
                 <ArrowUpRight
                   size={19}
@@ -88,36 +130,31 @@ export function LessonCatalog() {
           ))}
         </ul>
       )}
-      {history.length > 0 && (
-        <section aria-labelledby="lesson-history-title" className="space-y-3">
-          <h2 id="lesson-history-title" className="text-title font-semibold text-ink">
-            学习历史
-          </h2>
-          <ul className="divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface-card">
-            {history.map((item) => (
-              <li key={item.lesson_id}>
-                <Link
-                  // A withdrawn revision would answer 410; open the lesson so the
-                  // catalog can show whatever is published now instead.
-                  href={lessonHref(item.lesson_id, item.available ? item.revision_id : null)}
-                  className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 hover:bg-surface-soft"
-                >
-                  <span className="min-w-0 break-words font-medium text-ink">
-                    {item.available ? item.title : "材料已不可用"}
-                  </span>
-                  <span className="text-meta text-muted tabular-nums">
-                    {item.completed
-                      ? "已学完"
-                      : item.position_ms === null
-                        ? "已开始"
-                        : `进度 ${formatTime(item.position_ms / 1000)}`}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {(offset > 0 || (page && page.total > LESSON_CATALOG_PAGE_SIZE)) && (
+        <nav aria-label="课程目录分页" className="flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={offset === 0}
+            onClick={() => onPage(Math.max(0, offset - LESSON_CATALOG_PAGE_SIZE))}
+          >
+            上一页
+          </Button>
+          {page && (
+            <span className="text-meta text-muted tabular-nums">
+              第 {formatCount(Math.floor(offset / LESSON_CATALOG_PAGE_SIZE) + 1)} 页
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === null || error !== null || offset + page.limit >= page.total}
+            onClick={() => onPage(offset + LESSON_CATALOG_PAGE_SIZE)}
+          >
+            下一页
+          </Button>
+        </nav>
       )}
-    </div>
+    </section>
   );
 }

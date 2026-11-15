@@ -1,6 +1,6 @@
 """首页编辑内容 —— AI 草稿生成（T2）。
 
-职责边界见 ``docs/home-editorial-content-implementation-2026-10.md`` §4「生成状态机」：
+职责边界见 ``backend/app/schemas/home_content.py``「生成状态机」：
 
 - 本模块只做**纯生成**：构建 prompt、控制输入预算、调用 ``AIService.chat_json()``、
   解析并校验模型输出。**不碰数据库**——状态机、冲突断言与写回在

@@ -108,7 +108,7 @@ services:
       TEACHING_ENABLED: ${TEACHING_ENABLED:-false}
       TEACHING_RUNS_ENABLED: ${TEACHING_RUNS_ENABLED:-false}
       TEACHING_ALLOWED_USER_IDS: ${TEACHING_ALLOWED_USER_IDS:-}
-      # SLCS lessons (docs/slcs/06-implementation-roadmap.md). Default off; the
+      # SLCS lessons (docs/project-audit/architecture.md). Default off; the
       # tables exist after migrations either way. Listed here because this file
       # is a whitelist with no env_file — an unlisted name set in the host .env
       # never reaches the container.

@@ -59,6 +59,11 @@ class AIService:
             self.model,
         )
 
+    @staticmethod
+    def _require_enabled() -> None:
+        if not get_settings().llm_enabled:
+            raise AIServiceError("模型能力已关闭（LLM_ENABLED=false）")
+
     def _get_engine_client(self, name: str) -> tuple[AsyncOpenAI, str]:
         """Return ``(client, model)`` for an engine, creating it lazily.
 
@@ -68,6 +73,7 @@ class AIService:
         the same creds/base_url/model as subtitle translation — no hardcoded
         keys. Raises ``AIServiceError`` if an engine is unconfigured.
         """
+        self._require_enabled()
         if name == "agnes":
             if self.client is None:
                 raise AIServiceError("LLM 未配置（COMMANDCODE_API_KEY / OPENAI_API_KEY 均为空，agnes 引擎）")
@@ -99,6 +105,7 @@ class AIService:
         response_format: dict | None = None,
         task: str = TASK_DEFAULT,
     ) -> str:
+        self._require_enabled()
         if self.client is None:
             raise AIServiceError("LLM 未配置（COMMANDCODE_API_KEY / OPENAI_API_KEY 均为空）")
         import time
@@ -376,6 +383,7 @@ class AIService:
           * ``scripts/precompute_global_word_notes.py`` — 'global' context,
             one-shot preheat of all ECDICT exam words
         """
+        self._require_enabled()
         if not items:
             return []
         # Bound the batch so a single prompt stays under the model's context
@@ -436,6 +444,7 @@ class AIService:
         dual-engine fan-out in ``generate_word_notes_bulk`` can route a batch
         to a secondary engine (qwen, ...) by passing them explicitly.
         """
+        self._require_enabled()
         word_block = "\n".join(
             f"{i + 1}. {w['word']} ({w.get('translation', '')})\n   Context: {w.get('context_sentence', '') or '(none)'}"
             for i, w in enumerate(batch)

@@ -4,7 +4,7 @@
  * 后端契约在 `backend/app/schemas/home_content.py`，两者必须一一对应；本文件是
  * 前端**唯一**解释这份 JSON 的地方，页面组件不得再自己 `as` cast 任意结构。
  *
- * 三个概念（对应三张表，见 docs/home-editorial-content-execution-plan-2026-10.md）：
+ * 三个概念（对应三张表，见 backend/app/models/home_content.py）：
  *
  * - **内容草稿**（`HomeContentDraft`）：每条视频一份、可编辑、可被 AI 生成结果替换。
  * - **已发布内容版本**（`HomeContentRevisionSummary`）：不可变；公共接口只返回它。

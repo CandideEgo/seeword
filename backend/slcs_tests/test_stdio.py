@@ -24,6 +24,8 @@ def test_stdio_reads_only_approved_segments(tmp_path):
                 assert all("path" not in tool.input_schema.get("properties", {}) for tool in tools.values())
                 resolved = await client.call_tool("resolve", {"headword": "public domain"})
                 assert not resolved.is_error
+                assert resolved.structured_content["fingerprint_version"] == "slcs-pack-v1"
+                assert len(resolved.structured_content["fingerprint"]) == 64
                 (occurrence,) = resolved.structured_content["matches"]
                 assert occurrence["token_ids"] == ["w04", "w05"]
                 assert occurrence["segment_id"] == "s03"

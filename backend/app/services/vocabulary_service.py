@@ -121,7 +121,7 @@ async def record_review(
 
 
 async def record_idempotent_review(
-    db: AsyncSession, user_id: str, word_id: str, quality: int, operation_id: str
+    db: AsyncSession, user_id: str, word_id: str, quality: int, operation_id: str, *, source: str = "manual"
 ) -> dict | None:
     """Replay the operation's original result, even after a newer review."""
     if not 0 <= quality <= 5:
@@ -142,11 +142,11 @@ async def record_idempotent_review(
         )
     )
     if prior is not None:
-        if prior.vocabulary_id != word_id or prior.quality != quality or prior.source != "manual":
+        if prior.vocabulary_id != word_id or prior.quality != quality or prior.source != source:
             raise AppError(409, "IDEMPOTENCY_CONFLICT", "操作编号已用于不同的复习")
         state = prior.after_state
     else:
-        await apply_logged_review(db, vocab, quality, source="manual", operation_id=operation_id)
+        await apply_logged_review(db, vocab, quality, source=source, operation_id=operation_id)
         await learning_event_service.record_event(
             db, user_id, learning_event_service.EVENT_REVIEWED_WORDS, source="vocabulary"
         )
@@ -484,6 +484,30 @@ async def attach_word_sources(db: AsyncSession, words: list[Vocabulary]) -> list
     return payloads
 
 
+def due_condition(now: datetime | None = None, *, include_new: bool = False):
+    """One scheduling window for first-party lists and delegated review queues."""
+    condition = (Vocabulary.next_review_at.is_(None) | (Vocabulary.next_review_at <= (now or datetime.now(UTC)))) & (
+        Vocabulary.mastery_level != MASTERY_MASTERED
+    )
+    return condition if include_new else condition & (Vocabulary.mastery_level != MASTERY_NEW)
+
+
+async def due_query(db: AsyncSession, user_id: str):
+    """Return a composable query; resource filtering must happen before paging."""
+    start, end = await _utc_window_of_local_yesterday(db, user_id)
+    wrong_yesterday = (Vocabulary.last_wrong_at >= start) & (Vocabulary.last_wrong_at < end)
+    return (
+        select(Vocabulary)
+        .where(Vocabulary.user_id == user_id, due_condition())
+        .order_by(
+            case((wrong_yesterday, 0), else_=1).asc(),
+            Vocabulary.wrong_count.desc(),
+            Vocabulary.next_review_at.asc().nulls_first(),
+            Vocabulary.id,
+        )
+    )
+
+
 async def build_daily_session(
     db: AsyncSession,
     user_id: str,
@@ -513,25 +537,7 @@ async def build_daily_session(
     )
     new_words = (await db.execute(new_stmt)).scalars().all()
 
-    wrong_yesterday_start, wrong_yesterday_end = await _utc_window_of_local_yesterday(db, user_id)
-    wrong_yesterday = (Vocabulary.last_wrong_at >= wrong_yesterday_start) & (
-        Vocabulary.last_wrong_at < wrong_yesterday_end
-    )
-    review_stmt = (
-        select(Vocabulary)
-        .where(
-            Vocabulary.user_id == user_id,
-            (Vocabulary.next_review_at == None) | (Vocabulary.next_review_at <= now),
-            Vocabulary.mastery_level != MASTERY_MASTERED,
-            Vocabulary.mastery_level != MASTERY_NEW,
-        )
-        .order_by(
-            case((wrong_yesterday, 0), else_=1).asc(),
-            Vocabulary.wrong_count.desc(),
-            Vocabulary.next_review_at.asc().nulls_first(),
-        )
-        .limit(review_count)
-    )
+    review_stmt = (await due_query(db, user_id)).limit(review_count)
     review_words = (await db.execute(review_stmt)).scalars().all()
 
     new_total = (
@@ -549,9 +555,7 @@ async def build_daily_session(
         await db.execute(
             select(func.count(Vocabulary.id)).where(
                 Vocabulary.user_id == user_id,
-                (Vocabulary.next_review_at == None) | (Vocabulary.next_review_at <= now),
-                Vocabulary.mastery_level != MASTERY_MASTERED,
-                Vocabulary.mastery_level != MASTERY_NEW,
+                due_condition(now),
             )
         )
     ).scalar() or 0

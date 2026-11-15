@@ -5,6 +5,7 @@ from app.models.catalog import CatalogItem
 from app.models.channel import Channel
 from app.models.content_publication import ContentPublicationOperation, TeachingContentDraft
 from app.models.data_export import DataExportTask
+from app.models.delegated_learning import ExternalLearningGrant, ExternalLearningIntent, ExternalLearningOperation
 from app.models.engagement import VideoLike
 from app.models.exam_corpus import ExamSentence, ExamSentenceWord, ExamWordFreq
 from app.models.exam_test import ExamAnswer, ExamPaper, ExamQuestion, ExamSession

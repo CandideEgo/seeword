@@ -1092,8 +1092,10 @@ async def seed_video(
 
 async def _require_valid_cookies(source_url: str):
     """Ensure YouTube cookies are valid; raise HTTPException if not."""
+    from app.core.capabilities import require_content_production
     from app.services.youtube_cookies_service import ensure_cookies
 
+    require_content_production(model=True)
     cookies_status = await ensure_cookies(source_url)
     if cookies_status == "need_manual_login":
         raise HTTPException(

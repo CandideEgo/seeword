@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 
+from .contract import FINGERPRINT_VERSION
 from .material import VideoLearningMaterial, resolve_vocabulary
 
 
@@ -12,6 +13,7 @@ def lookup(
     occurrences = resolve_vocabulary(material, headword, segment_ids=allowed_segments)
     return {
         "lesson_id": material.lesson_id,
+        "fingerprint_version": FINGERPRINT_VERSION,
         "fingerprint": material.source_fingerprint,
         "matches": [
             {

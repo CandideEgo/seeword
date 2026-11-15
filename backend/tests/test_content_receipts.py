@@ -84,9 +84,9 @@ def test_changed_claim_cannot_reuse_a_valid_signature(signing_key, field, value)
 @pytest.mark.parametrize(
     "change",
     [
-        {"exp": int(time.time()) - 1},
-        {"iat": int(time.time()) + 1000},
-        {"exp": int(time.time()) + 90000},
+        {"exp": lambda: int(time.time()) - 1},
+        {"iat": lambda: int(time.time()) + 1000},
+        {"exp": lambda: int(time.time()) + 90000},
         {"iss": "another-issuer"},
         {"aud": "login"},
         {"v": True},
@@ -97,7 +97,10 @@ def test_changed_claim_cannot_reuse_a_valid_signature(signing_key, field, value)
 )
 def test_expiry_audience_and_policy_are_not_optional(signing_key, change):
     private, public = signing_key
-    assert not verify(signed(private, claims_change=change), public)
+    # Long full-suite runs may reach this test after the collection-time future
+    # has already passed. Keep the same negative cases relative to execution.
+    current_change = {key: value() if callable(value) else value for key, value in change.items()}
+    assert not verify(signed(private, claims_change=current_change), public)
 
 
 def test_unknown_key_wrong_signature_and_jose_headers_fail_closed(signing_key):

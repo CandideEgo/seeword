@@ -1,18 +1,6 @@
 name: CI
 
-# NOTE (规则层重构 B / R3, 2026-10-12) — 「给三个 job 各加 paths」在 GitHub Actions 里**做不到**：
-# `paths` / `paths-ignore` 只存在于 workflow 的 `on.*` 上，job 级没有这个键。要按端拆触发条件只有两条路：
-#
-#   (a) 把三个 job 拆成三个 workflow，各自声明 `on.*.paths`。被跳过的 workflow 不产生 check run —
-#       看起来是「没跑」而不是「绿了」，这是诚实的那条路；**但**若这三个 job 在分支保护里是 required
-#       status check，PR 会一直挂在「未完成」，所以必须同一次调整 required checks。
-#   (b) 保留一个 workflow，在 job 内部检测改动集后早退。省事，代价是 job 绿着但没跑测试 ——
-#       正是本仓审查原则第 6 条判为最严重的那类静默失效。
-#
-# 两条都要动分支保护或接受静默跳过，属仓库级决定，**本轮未改触发条件**，只把约束记在这里，
-# 免得下一个人照着「job 级 paths」去找一个不存在的键。现状：workflow 级 `paths-ignore` 已让
-# markdown-only 改动跳过这三个 job（见 `on:` 下的注释）。
-
+# Markdown-only changes skip this workflow; SLCS has its own path-filtered workflow.
 on:
   push:
     branches: [master, main]
@@ -154,7 +142,7 @@ jobs:
         # query details" — the client traceback names the victim, never the two
         # statements that formed the cycle. Without this the log is discarded
         # with the service container and the next person is back to guessing at
-        # lock order (see docs/slcs/start-here.md §5).
+        # lock order (see backend/app/services/listening_service.py).
         if: failure()
         run: |
           # Everything here is best-effort: a missing psql client or a container

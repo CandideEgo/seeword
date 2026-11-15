@@ -12,7 +12,7 @@ Two ideas share one row and must not be confused:
   studied" count and the weekly totals.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,21 @@ from app.services.learning_event_service import (
 from app.services.lessons import get_visible_revision, insert_for, may_display_revision
 
 
+def progress_version(row: LessonProgress | None) -> str:
+    if row is None:
+        return "0"
+    updated = row.updated_at
+    return (updated.replace(tzinfo=UTC) if updated.tzinfo is None else updated.astimezone(UTC)).isoformat(
+        timespec="microseconds"
+    )
+
+
+def _updated_after(row: LessonProgress, now: datetime) -> datetime:
+    previous = row.updated_at
+    previous = previous.replace(tzinfo=UTC) if previous.tzinfo is None else previous.astimezone(UTC)
+    return max(now, previous + timedelta(microseconds=1))
+
+
 def _progress(row: LessonProgress | None, *, pointer_available: bool = True) -> dict:
     # Withdrawal never erases learner state: the position and the completion stay
     # readable. ``pointer_available`` tells the page whether the revision the
@@ -41,6 +56,7 @@ def _progress(row: LessonProgress | None, *, pointer_available: bool = True) -> 
         "completed": row.completed if row else False,
         "watch_seconds": row.watch_seconds if row else 0.0,
         "pointer_available": pointer_available,
+        "version": progress_version(row),
     }
 
 
@@ -49,10 +65,10 @@ async def read_progress(db: AsyncSession, user_id: str, lesson_id: str) -> dict:
     if row is None:
         await get_visible_revision(db, lesson_id)
         return _progress(None)
-    # Only the status is needed to know whether the resume pointer can still be
-    # opened; loading the whole revision would drag the pack along.
-    status = await db.scalar(select(LessonRevision.status).where(LessonRevision.id == row.revision_id))
-    return _progress(row, pointer_available=status == "published")
+    revision = await db.scalar(
+        select(LessonRevision).where(LessonRevision.id == row.revision_id).options(defer(LessonRevision.pack))
+    )
+    return _progress(row, pointer_available=revision is not None and may_display_revision(revision))
 
 
 async def read_history(db: AsyncSession, user_id: str, *, offset: int, limit: int) -> list[dict]:
@@ -81,14 +97,20 @@ async def read_history(db: AsyncSession, user_id: str, *, offset: int, limit: in
 
 
 async def _ensure_row(
-    db: AsyncSession, user_id: str, lesson_id: str, revision_id: str, now: datetime
+    db: AsyncSession,
+    user_id: str,
+    lesson_id: str,
+    revision_id: str,
+    now: datetime,
+    *,
+    expected_version: str | None = None,
 ) -> LessonProgress:
     """Return the learner's progress row, locked, creating it if this is the first write.
 
     The insert is the race-free gate: exactly one concurrent request creates the
     row, every other one takes the conflict path and blocks on the row lock.
     """
-    await db.execute(
+    created = await db.scalar(
         insert_for(db, LessonProgress)
         .values(
             user_id=user_id,
@@ -98,6 +120,7 @@ async def _ensure_row(
             updated_at=now,
         )
         .on_conflict_do_nothing(index_elements=["user_id", "lesson_id"])
+        .returning(LessonProgress.user_id)
     )
     row = await db.scalar(
         select(LessonProgress)
@@ -107,10 +130,19 @@ async def _ensure_row(
     )
     if row is None:  # pragma: no cover - the inserted row cannot be invisible inside the transaction
         raise AppError(409, ErrorCode.CONFLICT, "学习进度正在更新，请重试")
+    if expected_version is not None and expected_version != ("0" if created is not None else progress_version(row)):
+        raise AppError(409, ErrorCode.CONFLICT, "课程进度已更新，请重新读取后再保存")
     return row
 
 
-async def save_progress(db: AsyncSession, user_id: str, lesson_id: str, body: SaveLessonProgress) -> dict:
+async def save_progress(
+    db: AsyncSession,
+    user_id: str,
+    lesson_id: str,
+    body: SaveLessonProgress,
+    *,
+    expected_version: str | None = None,
+) -> dict:
     revision = await get_visible_revision(db, lesson_id, body.revision_id, lock=True)
     if body.position_ms > revision.pack["media"]["duration_ms"]:
         raise AppError(422, ErrorCode.VALIDATION_ERROR, "播放位置超过课程时长")
@@ -118,10 +150,10 @@ async def save_progress(db: AsyncSession, user_id: str, lesson_id: str, body: Sa
     # Only the resume pointer moves. ``completed`` is never touched here: an old
     # tab or an old deep link saving its position must not clear a lesson the
     # learner already finished.
-    row = await _ensure_row(db, user_id, lesson_id, revision.id, now)
+    row = await _ensure_row(db, user_id, lesson_id, revision.id, now, expected_version=expected_version)
     row.revision_id = revision.id
     row.position_ms = body.position_ms
-    row.updated_at = now
+    row.updated_at = _updated_after(row, now)
     await db.flush()
     return _progress(row)
 
@@ -163,7 +195,7 @@ async def record_activity(db: AsyncSession, user_id: str, lesson_id: str, body: 
     row.watch_seconds += delta
     row.revision_id = revision.id
     row.completed = row.completed or completing
-    row.updated_at = now
+    row.updated_at = _updated_after(row, now)
     await db.flush()
 
     metadata = {"lesson_id": lesson_id, "revision_id": revision.id}

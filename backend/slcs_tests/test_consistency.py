@@ -159,6 +159,7 @@ def test_read_and_resolve_outside_repository(tmp_path):
     resolved = cli("resolve", str(EXAMPLE), "public domain", cwd=tmp_path)
     assert resolved.returncode == 0, resolved.stderr
     result = json.loads(resolved.stdout)
+    assert result["fingerprint_version"] == "slcs-pack-v1"
     assert result["fingerprint"] == REFERENCE_DIGEST
     (occurrence,) = result["matches"]
     assert occurrence["segment_id"] == "s03"

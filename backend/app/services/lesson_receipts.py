@@ -12,6 +12,24 @@ AUDIENCE = "seeword-slcs-lesson-publication"
 TOKEN_TYPE = "seeword-slcs-lesson-receipt+jwt"
 
 
+def requires_withdrawal_review(status: str, review: dict | None) -> bool:
+    """Fail closed for legacy withdrawals too; the signed review must match this cycle.
+
+    ``required_withdrawal_id`` is updated under the lesson lock on every withdrawal.
+    It is audit metadata, not a new pack field or a second publication mechanism.
+    """
+    if status != "withdrawn":
+        return False
+    metadata = review or {}
+    required = metadata.get("required_withdrawal_id")
+    return not (
+        isinstance(required, str)
+        and required
+        and metadata.get("withdrawal_id") == required
+        and metadata.get("review_operation_id")
+    )
+
+
 def verify_lesson_receipt(token: str, expected: dict[str, str]) -> str:
     settings = get_settings()
     keys = settings.slcs_lesson_receipt_public_keys

@@ -6,7 +6,7 @@
 ``home_content_service``，布局与公共读取在 ``home_content_layout``。
 
 四条不变量里的第 3 条（来源指纹）在本模块实现；服务层与布局层都从这里取，
-不各写一份。契约见 ``docs/home-editorial-content-implementation-2026-10.md``。
+不各写一份。契约见 ``backend/app/schemas/home_content.py``。
 """
 
 from __future__ import annotations

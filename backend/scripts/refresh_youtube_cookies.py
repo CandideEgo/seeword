@@ -33,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Reuse helpers from get_youtube_cookies.py
 # ---------------------------------------------------------------------------
 from scripts.get_youtube_cookies import (
-    PLAYWRIGHT_STATE_FILE,
     convert_to_netscape,
     is_browser_open,
     is_youtube_logged_in,

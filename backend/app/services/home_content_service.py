@@ -1,6 +1,6 @@
 """首页编辑内容服务——草稿 / 不可变版本 / 生成状态机（A15 业务边界拆分后）。
 
-契约：``docs/home-editorial-content-implementation-2026-10.md``。API 路由只做解析与
+契约：``backend/app/schemas/home_content.py``。API 路由只做解析与
 调用，所有规则收敛在首页内容这一族模块里。A15 按业务边界拆成三层：
 
 - ``home_content_content``：常量、来源指纹、字段级 issues、展示 DTO（不碰布局与写入）；
@@ -692,6 +692,9 @@ async def claim_generation(
     - 卡死的 queued/running（超过 ``GENERATION_STALE_SECONDS``）先标 failed TIMEOUT
       再重新占位，任务不会永久卡在 generating。
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production(model=True)
     await _get_video(db, video_id)
     fingerprint, subtitles = await current_source_fingerprint(db, video_id)
     if not subtitles:
@@ -781,6 +784,9 @@ async def claim_generation(
 
 async def enqueue_generation(db: AsyncSession, claim: GenerationClaim) -> None:
     """把任务投到云端 Celery 队列；入队失败必须可见、可重试（503 + failed 状态）。"""
+    from app.core.capabilities import require_content_production
+
+    require_content_production(model=True)
     try:
         from app.tasks.home_content_tasks import generate_home_content_draft
 

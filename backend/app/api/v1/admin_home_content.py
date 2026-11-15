@@ -1,6 +1,6 @@
 """管理员首页编辑内容 API（全部 ``get_admin_user``）。
 
-契约：``docs/home-editorial-content-implementation-2026-10.md`` §4。这一层只做参数
+契约：``backend/app/schemas/home_content.py``。这一层只做参数
 解析与 service 调用——校验、乐观锁、事务、状态机都在
 ``app.services.home_content_service``。
 """

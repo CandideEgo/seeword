@@ -4,7 +4,7 @@ Why this file exists
 --------------------
 ``tests/`` pins status codes and error codes in ~200 places, but nothing pinned
 *which fields a card endpoint returns*. Three later batches of
-``docs/architecture-fix-plan-2026-10.md`` (error contract, card projector,
+``backend/tests/test_response_contract.py`` (error contract, card projector,
 fossil cleanup) change response bodies — without this file every one of those
 changes would have to be reviewed by eye.
 

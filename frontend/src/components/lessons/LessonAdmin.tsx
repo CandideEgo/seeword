@@ -9,13 +9,17 @@ import { InlineSpinner } from "@/components/common/Spinner";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input, Textarea } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { adminApi } from "@/lib/adminApi";
 import { ApiClientError } from "@/lib/createApiClient";
 import { apiErrorMessage } from "@/lib/errors";
 import {
   adminLessonAction,
   adminLessonRevisionApiPath,
+  getAdminLessonDiff,
   type AdminLesson,
+  type AdminLessonDiff,
+  type LessonDiffCategory,
   type AdminLessonDetail,
   type AdminLessonRevision,
   type ReviewUse,
@@ -36,6 +40,120 @@ function getDiagnostics(error: unknown) {
   return error.detail.filter(
     (item): item is Diagnostic =>
       typeof item?.path === "string" && typeof item?.message === "string"
+  );
+}
+
+const diffLabels: Record<LessonDiffCategory, string> = {
+  metadata: "材料信息",
+  media: "媒体",
+  provenance: "来源与权利依据",
+  segments: "段落结构",
+  original: "原文",
+  translation: "译文",
+  timing: "时间对齐",
+  anchors: "词锚点",
+  vocabulary: "词汇",
+};
+
+function RevisionDiff({ detail, lesson }: { detail: AdminLessonDetail; lesson: AdminLesson }) {
+  const baselines = lesson.revisions.filter((item) => item.revision_id !== detail.revision_id);
+  const [baseline, setBaseline] = useState(
+    baselines.find((item) => item.revision_id === lesson.current_revision_id)?.revision_id ??
+      baselines[0]?.revision_id ??
+      ""
+  );
+  const [result, setResult] = useState<{
+    baseline: string;
+    data?: AdminLessonDiff;
+    error?: string;
+  } | null>(null);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    if (!baseline) return;
+    const controller = new AbortController();
+    getAdminLessonDiff(detail.lesson_id, detail.revision_id, baseline, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setResult({ baseline, data });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setResult({ baseline, error: apiErrorMessage(error, "差异加载失败") });
+      });
+    return () => controller.abort();
+  }, [detail.lesson_id, detail.revision_id, baseline, retry]);
+
+  if (!baselines.length) return null;
+  const visible = result?.baseline === baseline ? result : null;
+  return (
+    <section aria-label="修订差异" className="space-y-3 border-t border-hairline pt-4">
+      <FormField label="对比基准修订" htmlFor="lesson-diff-baseline">
+        <Select
+          id="lesson-diff-baseline"
+          value={baseline}
+          onChange={(event) => {
+            setBaseline(event.target.value);
+            setResult(null);
+          }}
+        >
+          {baselines.map((item) => (
+            <option key={item.revision_id} value={item.revision_id}>
+              {item.title} · {item.revision_id} · {labels[item.status]}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+      {!visible ? (
+        <div role="status" aria-label="正在加载差异">
+          <InlineSpinner />
+        </div>
+      ) : visible.error ? (
+        <ErrorState
+          title={visible.error}
+          onRetry={() => {
+            setResult(null);
+            setRetry((value) => value + 1);
+          }}
+        />
+      ) : visible.data ? (
+        visible.data.changes.length ? (
+          <div className="space-y-2">
+            <p className="text-meta text-muted">
+              影响：{visible.data.impacts.map((category) => diffLabels[category]).join("、")}
+            </p>
+            <div className="max-h-96 space-y-2 overflow-auto">
+              {visible.data.changes.map((change) => (
+                <details
+                  key={`${change.category}:${change.path}`}
+                  className="rounded-md border border-hairline p-3"
+                >
+                  <summary className="cursor-pointer break-all text-meta text-ink">
+                    {diffLabels[change.category]} · {change.path} ·{" "}
+                    {{ added: "新增", removed: "删除", modified: "修改" }[change.kind]}
+                  </summary>
+                  <dl className="mt-2 space-y-2 text-meta">
+                    {(["before", "after"] as const).map((side) => (
+                      <div key={side}>
+                        <dt className="font-medium text-ink">
+                          {side === "before" ? "基准" : "此修订"}
+                        </dt>
+                        <dd>
+                          <pre className="break-words whitespace-pre-wrap text-muted">
+                            {JSON.stringify(change[side], null, 2)}
+                          </pre>
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-copy text-muted">与基准修订无差异</p>
+        )
+      ) : null}
+    </section>
   );
 }
 
@@ -158,11 +276,20 @@ export function LessonAdmin() {
         },
       ])
     );
-    void execute("review", { source_commit: String(form.get("source_commit") ?? "").trim(), uses });
+    const minutes = String(form.get("human_minutes") ?? "").trim();
+    void execute("review", {
+      source_commit: String(form.get("source_commit") ?? "")
+        .trim()
+        .toLowerCase(),
+      uses,
+      verification_method: String(form.get("verification_method") ?? "").trim() || null,
+      limitations: String(form.get("limitations") ?? "").trim() || null,
+      human_minutes: minutes === "" ? null : Number(minutes),
+    });
   }
 
-  const currentRevisionId =
-    lessons?.find((lesson) => lesson.lesson_id === detail?.lesson_id)?.current_revision_id ?? null;
+  const selectedLesson = lessons?.find((lesson) => lesson.lesson_id === detail?.lesson_id);
+  const currentRevisionId = selectedLesson?.current_revision_id ?? null;
 
   return (
     <div className="space-y-6">
@@ -336,13 +463,35 @@ export function LessonAdmin() {
                     </div>
                   </details>
                 )}
-                {detail.status === "candidate" && (
+                {selectedLesson && (
+                  <RevisionDiff
+                    key={`diff:${detail.revision_id}`}
+                    detail={detail}
+                    lesson={selectedLesson}
+                  />
+                )}
+                {detail.review && (
+                  <details className="rounded-md border border-hairline p-3">
+                    <summary className="cursor-pointer font-medium text-ink">已记录的审核</summary>
+                    <pre className="mt-2 max-h-64 overflow-auto text-meta break-words whitespace-pre-wrap text-muted">
+                      {JSON.stringify(detail.review, null, 2)}
+                    </pre>
+                  </details>
+                )}
+                {(detail.status === "candidate" || detail.status === "withdrawn") && (
                   <form
-                    key={`${detail.revision_id}:${detail.review?.review_sha256 ?? ""}`}
+                    key={`review:${detail.revision_id}:${detail.review?.review_sha256 ?? ""}`}
                     onSubmit={review}
                     className="space-y-3 border-t border-hairline pt-4"
                   >
-                    <h3 className="font-semibold text-ink">用途审核</h3>
+                    <h3 className="font-semibold text-ink">
+                      {detail.status === "withdrawn" ? "重新审核用途" : "用途审核"}
+                    </h3>
+                    {detail.status === "withdrawn" && detail.requires_review && (
+                      <p role="status" className="text-copy text-muted">
+                        恢复前须针对最近撤回重新审核；旧审核和撤回前收据不能恢复此修订。
+                      </p>
+                    )}
                     <FormField label="来源 Git 提交" htmlFor="lesson-review-commit">
                       <Input
                         id="lesson-review-commit"
@@ -367,11 +516,50 @@ export function LessonAdmin() {
                             id={`lesson-review-${key}`}
                             name={`${key}-evidence`}
                             rows={2}
+                            required
+                            maxLength={4000}
                             defaultValue={detail.review?.uses[key]?.evidence}
                           />
                         </FormField>
                       </div>
                     ))}
+                    <FormField label="核对方式（可留空）" htmlFor="lesson-review-method">
+                      <Textarea
+                        id="lesson-review-method"
+                        name="verification_method"
+                        rows={2}
+                        maxLength={4000}
+                        defaultValue={
+                          detail.requires_review ? "" : (detail.review?.verification_method ?? "")
+                        }
+                      />
+                    </FormField>
+                    <FormField label="争议与限制（可留空）" htmlFor="lesson-review-limitations">
+                      <Textarea
+                        id="lesson-review-limitations"
+                        name="limitations"
+                        rows={2}
+                        maxLength={4000}
+                        defaultValue={
+                          detail.requires_review ? "" : (detail.review?.limitations ?? "")
+                        }
+                      />
+                    </FormField>
+                    <FormField
+                      label="本次人工工时（分钟，未知留空）"
+                      htmlFor="lesson-review-minutes"
+                    >
+                      <Input
+                        id="lesson-review-minutes"
+                        name="human_minutes"
+                        type="number"
+                        min={0}
+                        step="any"
+                        defaultValue={
+                          detail.requires_review ? "" : (detail.review?.human_minutes ?? "")
+                        }
+                      />
+                    </FormField>
                     <Button
                       type="submit"
                       variant="outline"
@@ -382,10 +570,11 @@ export function LessonAdmin() {
                     </Button>
                   </form>
                 )}
-                {detail.review?.uses.site_display.approved &&
+                {!detail.requires_review &&
+                  detail.review?.uses.site_display.approved &&
                   currentRevisionId !== detail.revision_id && (
                     <form
-                      key={detail.revision_id}
+                      key={`publish:${detail.revision_id}:${detail.review.review_sha256}`}
                       className="space-y-3 border-t border-hairline pt-4"
                       onSubmit={(event) => {
                         event.preventDefault();
@@ -410,7 +599,7 @@ export function LessonAdmin() {
                   )}
                 {detail.status === "published" && (
                   <form
-                    key={detail.revision_id}
+                    key={`withdraw:${detail.revision_id}`}
                     className="space-y-3 border-t border-hairline pt-4"
                     onSubmit={(event) => {
                       event.preventDefault();

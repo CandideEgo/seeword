@@ -149,7 +149,7 @@ class TestWordLevelsPreservation:
     NOT covered here: INV-013 itself. The pipeline guard is inlined in `finalize_video`
     (app/tasks/video_processing.py, the "annotating" step) and these tests never call it.
     Until that decision is extracted from the Celery task, INV-013 stays unenforced — see
-    .agent/invariants.md.
+    backend/tests/test_architecture_invariants.py.
     """
 
     @pytest.mark.asyncio

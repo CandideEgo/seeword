@@ -10,6 +10,7 @@ from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.limiter import rate_limit
 from app.models.user import User
+from app.schemas.lesson_catalog import MAX_ANCHOR_ID_LENGTH, MAX_ANCHOR_TOKENS
 from app.schemas.teaching_dialogue import DialoguePage
 from app.services import lesson_learning, teaching_runs
 from app.services.teaching import dialogue
@@ -17,7 +18,9 @@ from app.services.teaching.principal import Principal
 
 router = APIRouter(tags=["lesson learning"])
 
-Slug = Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
+Slug = Annotated[
+    str, StringConstraints(min_length=1, max_length=MAX_ANCHOR_ID_LENGTH, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
+]
 
 
 class OccurrenceRef(BaseModel):
@@ -25,7 +28,7 @@ class OccurrenceRef(BaseModel):
 
     revision_id: str = Field(min_length=1, max_length=36)
     segment_id: Slug
-    token_ids: list[Slug] = Field(min_length=1, max_length=128)
+    token_ids: list[Slug] = Field(min_length=1, max_length=MAX_ANCHOR_TOKENS)
 
 
 class LessonTurn(OccurrenceRef):

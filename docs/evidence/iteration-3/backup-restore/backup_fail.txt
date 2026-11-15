@@ -1,3 +1,0 @@
-[backup 20261030T130733Z] dumping database seeword
-Error response from daemon: No such container: seeword-no-such-db
-[backup 20261030T130733Z] FAILED: pg_dump failed

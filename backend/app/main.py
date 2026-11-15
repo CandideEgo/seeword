@@ -22,6 +22,7 @@ from app.api.v1 import (
     browse,
     catalog,
     channels,
+    delegated_learning,
     discovery,
     exam_pdfs,
     exams,
@@ -32,6 +33,7 @@ from app.api.v1 import (
     internal,
     learning,
     learning_plan,
+    lesson_catalog,
     lesson_learning,
     lessons,
     media,
@@ -379,6 +381,7 @@ def create_app() -> FastAPI:
     app.include_router(notes.router, prefix="/api/v1")
     app.include_router(learning.router, prefix="/api/v1")
     app.include_router(learning_plan.router, prefix="/api/v1")
+    app.include_router(lesson_catalog.router, prefix="/api/v1")
     app.include_router(lessons.router, prefix="/api/v1")
     app.include_router(lesson_learning.router, prefix="/api/v1")
     app.include_router(shadowing.router, prefix="/api/v1")
@@ -391,6 +394,7 @@ def create_app() -> FastAPI:
     app.include_router(teaching_runs.router, prefix="/api/v1")
     app.include_router(tutor.router, prefix="/api/v1")
     app.include_router(external_connections.router, prefix="/api/v1")
+    app.include_router(delegated_learning.router, prefix="/api/v1")
     mcp_app = None
     if settings.mcp_sdk_enabled:
         try:

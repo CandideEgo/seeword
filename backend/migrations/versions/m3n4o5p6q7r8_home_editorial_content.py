@@ -5,7 +5,7 @@ Revises: j1i2n3s4h5u6
 Create Date: 2026-10-20 06:00:00.000000
 
 首页编辑内容（管理员换主推）的三张表，契约见
-``docs/home-editorial-content-implementation-2026-10.md`` §2：
+``backend/app/schemas/home_content.py``：
 
 - ``home_content_drafts``：每视频一份可编辑草稿 + 生成任务状态机
 - ``home_content_revisions``：只追加的不可变已发布版本（公共接口只读它）

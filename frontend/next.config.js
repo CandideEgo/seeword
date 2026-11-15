@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+const buildCpus =
+  process.env.NEXT_BUILD_CPUS === undefined ? undefined : Number(process.env.NEXT_BUILD_CPUS);
+if (buildCpus !== undefined && (!Number.isSafeInteger(buildCpus) || buildCpus < 1)) {
+  throw new Error("NEXT_BUILD_CPUS must be a positive safe integer");
+}
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -16,6 +21,8 @@ const nextConfig = {
   // 编译/运行时错误浮层不受影响（Next 仍会显示）。
   devIndicators: false,
   experimental: {
+    // Optional local resource limit; all pages and type checks still execute.
+    ...(buildCpus === undefined ? {} : { cpus: buildCpus }),
     // Rewrite barrel-file imports (recharts, lucide-react) into direct,
     // tree-shakeable imports to keep unused chart/icon code out of bundles.
     optimizePackageImports: ["recharts", "lucide-react"],

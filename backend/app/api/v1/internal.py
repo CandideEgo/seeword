@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.capabilities import require_content_production
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.limiter import rate_limit
@@ -85,6 +86,7 @@ async def transcription_callback(
     acknowledged but ignored — this prevents both double-enqueuing the tail and
     wiping already-translated subtitles.
     """
+    require_content_production(model=True)
     settings = get_settings()
     expected = settings.transcription_callback_secret
     # 常量时间比较必须比 **bytes**：``secrets.compare_digest`` 对非 ASCII 的

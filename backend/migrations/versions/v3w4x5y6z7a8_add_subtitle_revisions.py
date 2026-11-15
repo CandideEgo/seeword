@@ -8,7 +8,7 @@ Adds ``subtitle_revisions`` for Phase 3 edit audit: one row per subtitle edit
 (before/after delta + scope: fork|standard + edited_by + created_at). Powers
 the edit-history UI, one-click rollback, and the propose-back flow's lineage.
 
-See docs/plans/PIPELINE-RESUME-DEDUP-AUDIT.md Phase 3.
+See backend/app/services/subtitle_edit_service.py Phase 3.
 """
 
 from collections.abc import Sequence

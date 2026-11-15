@@ -2,8 +2,11 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 
 from app.core.errors import AppError
+
+DisclosureAudience = Literal["model", "application"]
 
 
 @dataclass(frozen=True)
@@ -14,6 +17,10 @@ class Principal:
     connection_id: str | None = None
     granted_scopes: frozenset[str] = field(default_factory=frozenset)
     credential_issued_at: datetime | None = None
+    # Server-loaded, explicit grants for the new learning surface. Legacy
+    # teaching credentials gain no course/word rights from an omitted limit.
+    resource_limits: dict[str, list[str]] = field(default_factory=dict)
+    disclosure_audience: DisclosureAudience = "model"
 
     @property
     def namespace(self) -> str:

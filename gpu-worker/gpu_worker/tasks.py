@@ -162,9 +162,7 @@ def transcribe_video_gpu(self, video_id: str, source: str, platform: str, langua
             raise
         raise self.retry(exc=e, countdown=60) from e
 
-    if not _post_transcription_callback(
-        video_id, status="ok", segments=segments, audio_duration=audio_duration
-    ):
+    if not _post_transcription_callback(video_id, status="ok", segments=segments, audio_duration=audio_duration):
         # The transcription itself succeeded; only delivery failed (e.g.
         # rate limit / network). Retrying re-runs the transcription, but that
         # is cheaper than leaving the video stuck in ``processing`` with a

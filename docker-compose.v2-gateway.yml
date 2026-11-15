@@ -95,7 +95,7 @@ services:
     command: ["/spike/check_v2_gateway.py", "--container-network", "--output", "/evidence/results.json"]
     volumes:
       - ./backend/scripts/check_v2_gateway.py:/spike/check_v2_gateway.py:ro
-      - ./docs/evidence/v2-gateway-spike-2026-11-03:/evidence
+      - ./tmp/gateway-probe:/evidence
     networks: [synthetic]
 
 networks:

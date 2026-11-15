@@ -7,7 +7,8 @@ but never published. This is that missing half.
 
 Three publish paths need a receipt, and all three must be signable or the
 operator sees a form they cannot complete: a first publication (candidate), a
-restore of a withdrawn revision, and a rollback to a superseded one (the older
+restore of a withdrawn revision after a new purpose review bound to its latest
+withdrawal, and a rollback to a superseded one (the older
 revision is still ``published`` but no longer current). A revision that *is* the
 current one needs no receipt and is refused here.
 
@@ -190,6 +191,15 @@ def _review_hash(row: dict) -> str:
             raise SignerError(f"修订 {row['id']} 的审核记录无法解析") from None
     if not isinstance(review, dict):
         raise SignerError(f"修订 {row['id']} 还没有审核记录；先在 /admin/lessons 保存审核再签收据")
+    if row["status"] == "withdrawn":
+        required = review.get("required_withdrawal_id")
+        if not (
+            isinstance(required, str)
+            and required
+            and review.get("withdrawal_id") == required
+            and review.get("review_operation_id")
+        ):
+            raise SignerError(f"修订 {row['id']} 需要针对最近撤回重新完成用途审核，再签恢复收据")
     value = review.get("review_sha256")
     if not isinstance(value, str) or not _SHA256.fullmatch(value):
         raise SignerError(f"修订 {row['id']} 的审核记录里没有 review_sha256；重新保存一次审核")

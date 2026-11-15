@@ -1,6 +1,6 @@
 """首页编辑内容：草稿 / 不可变版本 / 布局 / 公共读取 / 生成状态机的行为测试。
 
-对应 ``docs/home-editorial-content-implementation-2026-10.md`` §9 与任务文档 §10：
+对应 ``backend/app/schemas/home_content.py`` 与任务文档 §10：
 
 - 草稿/生成结果对普通用户不可见；非管理员不能读写管理接口。
 - 草稿保存、生成失败、重新生成都不改变当前首页。

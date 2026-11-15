@@ -299,7 +299,7 @@ async def test_concurrent_submit_and_start_do_not_deadlock():
     reaches the account row through the ``learning_events`` foreign key while
     start takes it explicitly, so with the two paths acquiring the session row
     and the account row in opposite orders they closed a wait cycle (see the
-    pg_locks dump in ``docs/slcs/start-here.md`` §5). Both paths now take the
+    pg_locks dump in ``backend/app/services/listening_service.py``). Both paths now take the
     account lock first.
 
     ``restart=False`` on purpose: with ``restart=True`` the outcome genuinely

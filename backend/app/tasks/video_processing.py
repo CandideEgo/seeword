@@ -207,6 +207,9 @@ def process_video(self, video_id: str):
     once subtitles arrive. The lock is released before the gap — cross-task
     coordination uses DB ``status``/``processing_step``.
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production(model=True)
     if not acquire_lock(video_id):
         logger.warning("Video %s is already being processed, skipping", video_id)
         return
@@ -846,6 +849,9 @@ def finalize_video(self, video_id: str, engine: str | None = None):
     Triggered by the transcription callback endpoint once subtitles arrive from
     the GPU worker. Runs on the cloud (default ``celery`` queue).
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production(model=True)
     if not acquire_lock(video_id):
         logger.warning("Video %s is already being processed, skipping finalize", video_id)
         return
@@ -1075,6 +1081,9 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
         force: bypass the download_fail_count strike limit. Admin manual
             trigger passes True; the beat retry task passes False (default).
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production()
     if not acquire_lock(video_id):
         logger.warning("Video %s is already being processed, skipping localize", video_id)
         return
@@ -1175,6 +1184,9 @@ def localize_video(self, video_id: str, force: bool = False):
 
     Thin Celery wrapper for ``_run_localize``. See that function for behavior.
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production()
     run_pipeline_task(_run_localize(self, video_id, force))
 
 
@@ -1199,6 +1211,8 @@ async def _run_retry_failed_downloads() -> None:
     from app.services.youtube_cookies_service import ensure_cookies_for_pipeline
 
     settings = get_settings()
+    if not settings.content_production_enabled:
+        return
 
     # Admin kill switch (settings row; absent row -> enabled):
     # download_auto_retry_enabled=False stops the daily retry loop without

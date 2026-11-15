@@ -50,7 +50,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code (no model cache)
 COPY --from=builder /app /app
-RUN chown -R app:app /app
+# Pre-create the mountpoint so a fresh named media volume inherits app ownership.
+# Without it Docker creates a root-owned directory and exports/beat cannot write.
+RUN mkdir -p /app/media && chown -R app:app /app
 
 # Entrypoint runs alembic migrations before the app server starts.
 COPY entrypoint.sh /app/entrypoint.sh

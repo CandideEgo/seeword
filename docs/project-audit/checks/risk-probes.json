@@ -1,0 +1,29 @@
+{
+  "date_beijing": "2026-11-14",
+  "scope": "isolated policy probes; all remote/persistent side effects replaced",
+  "results": [
+    {
+      "id": "R02",
+      "method": "synthetic Redis exception, real policy functions",
+      "observed": {
+        "blacklist_denies": false,
+        "refresh_single_use_claim_allowed": true
+      },
+      "meaning": "Redis outage loses revocation/single-use enforcement; no real Redis or production session involved"
+    },
+    {
+      "id": "R01",
+      "method": "real callback handler with synthetic processing row and valid assumed quality; persistence/lock/dispatch replaced",
+      "observed": {
+        "response": {
+          "acknowledged": true
+        },
+        "after_status": "ready_subtitles",
+        "subtitle_rows_added": 1,
+        "per_attempt_identity_in_payload": false
+      },
+      "meaning": "Callback cannot distinguish a late old attempt from a current attempt; this is a rule-seam probe, not a real worker/PG concurrency reproduction"
+    }
+  ],
+  "business_fixes_applied": false
+}

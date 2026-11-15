@@ -205,6 +205,9 @@ async def gather_user_data(db: Any, user: Any) -> dict[str, Any]:
 
     data.update(await _gather_teaching_data(db, user.id))
     data.update(await _gather_lesson_data(db, user.id))
+    from app.services.delegated_learning import export_sections as delegated_sections
+
+    data.update(await delegated_sections(db, user.id))
     return data
 
 
@@ -400,6 +403,9 @@ EXPORT_ORDER = (
     "teaching_feedbacks",
     "teaching_operations",
     "external_connections",
+    "external_learning_grants",
+    "external_learning_operations",
+    "external_learning_intents",
     "teaching_runs",
     "videos",
     "notifications",

@@ -1,6 +1,6 @@
 """首页编辑内容 —— AI 草稿生成 Celery 任务（T2）。
 
-契约见 ``docs/home-editorial-content-implementation-2026-10.md`` §4「生成状态机」：
+契约见 ``backend/app/schemas/home_content.py``「生成状态机」：
 
 - 任务名 ``app.tasks.home_content_tasks.generate_home_content_draft``，默认 ``celery``
   队列（不路由到 GPU 队列），``soft_time_limit=420`` / ``time_limit=480``；由服务层
@@ -84,6 +84,17 @@ async def _read_generation_error_code(generation_id: str) -> str | None:
 
 async def _generate_async(generation_id: str) -> dict[str, Any]:
     """任务体的异步实现（测试直接 await 它，不经过 Celery 序列化）。"""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    if not settings.content_production_enabled or not settings.llm_enabled:
+        await _fail_generation(generation_id, "SERVICE_UNAVAILABLE", "模型或内容生产能力已关闭")
+        return {
+            "generation_id": generation_id,
+            "status": _STATUS_FAILED,
+            "error_code": "SERVICE_UNAVAILABLE",
+            "ai_calls": 0,
+        }
     # 1) 读上下文。服务层顺手把 queued → running；返回 None = 任务已被取代/取消/已结束。
     async with get_async_session_maker()() as db:
         context = await load_generation_context(db, generation_id)

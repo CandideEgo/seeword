@@ -2,7 +2,7 @@
 """A10 / OPS-04 —— GPU 服务端权限边界的隔离环境验证。
 
 用例矩阵与判定口径的唯一家是
-[`docs/iteration-3-isolation-validation-2026-10-30.md`](../../docs/iteration-3-isolation-validation-2026-10-30.md) §4.3。
+[当前运行边界](README.md)。
 Redis/ACL 来自 [`deploy/redis/users.acl.template`](../../deploy/redis/users.acl.template)，
 GPU 侧的 broker 设置来自 [`gpu-worker/gpu_worker/broker_settings.py`](../../gpu-worker/gpu_worker/broker_settings.py)
 与 `gpu-worker/gpu_worker/celery_app.py`（真实 worker 与桩 worker 共用）。
@@ -11,7 +11,7 @@ GPU 侧的 broker 设置来自 [`gpu-worker/gpu_worker/broker_settings.py`](../.
 
     PYTHONUTF8=1 backend/.venv/Scripts/python.exe scripts/isolation/test_a10_gpu_acl.py
 
-每个用例记录命令与原始输出；结果写 `docs/evidence/iteration-3/a10-<今天>.json`。
+每个用例记录命令与原始输出；结果写 `tmp/isolation/a10-<今天>.json`。
 T9（SSH 隧道限制）在当前隔离环境无法执行：隔离栈没有 sshd，D6 又禁止引入新镜像；
 脚本会以 SKIP 记录并输出生产宿主的配置清单，不作为通过。
 """
@@ -724,7 +724,7 @@ def _today() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="A10 GPU permission-boundary drill (isolated stack)")
-    parser.add_argument("--out", default=str(REPO_ROOT / "docs" / "evidence" / "iteration-3" / f"a10-{_today()}.json"))
+    parser.add_argument("--out", default=str(REPO_ROOT / "tmp" / "isolation" / f"a10-{_today()}.json"))
     parser.add_argument("--cases", default="", help="逗号分隔，如 A10-T4,A10-T6（默认全部）")
     parser.add_argument("--keep", action="store_true", help="结束后不 down -v，保留现场")
     args = parser.parse_args()

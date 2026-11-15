@@ -1,0 +1,64 @@
+{
+  "date_beijing": "2026-11-14",
+  "baseline_commit": "a93979c34dab7b8fb7a5493f76b63a28e58d48ac",
+  "baseline_files": 2582,
+  "inventory_records": 2597,
+  "current_files": 1259,
+  "baseline_covered": 2582,
+  "directories": 235,
+  "empty_roles": [],
+  "recovery_files_checked": 1488,
+  "recovery_mismatches": [],
+  "latest_group_files_checked": 26,
+  "latest_group_markdown_pointer_updates": [
+    "docs/open-learning/p0/source-evidence-ledger.md",
+    "docs/open-learning/content-access-matrix.md",
+    "docs/seeword-open-source-development-outline-2026-11-13.md"
+  ],
+  "protected_assets_checked": 25,
+  "protected_assets_mismatches": [],
+  "effective_ignore_rules_unchanged": true,
+  "migration_files": 100,
+  "python_semantic_changes_allowlisted": [
+    "backend/scripts/check_llm_provider.py",
+    "backend/scripts/refresh_youtube_cookies.py",
+    "backend/scripts/seed_official_videos.py",
+    "scripts/isolation/test_a07_redis_recovery.py",
+    "scripts/isolation/test_a10_gpu_acl.py"
+  ],
+  "yaml": {
+    "ci_semantics_unchanged": true,
+    "production_compose_unchanged": true
+  },
+  "markdown_links_checked": 6083,
+  "broken_markdown_links": [],
+  "links_to_local_only_preserved_logs": [
+    {
+      "source": "docs/evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/post-review-check-build.log"
+    },
+    {
+      "source": "docs/evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/post-review-unit.log"
+    },
+    {
+      "source": "docs/evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/post-review-check-build.log"
+    },
+    {
+      "source": "docs/evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/post-review-e2e.log"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "target": "docs/evidence/open-learning/p0/gsap-removal-check-build.log"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "target": "docs/evidence/open-learning/p0/gsap-removal-unit.log"
+    }
+  ],
+  "slcs_release_checksum_files": 28,
+  "errors": [],
+  "passed": true
+}

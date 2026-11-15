@@ -1,31 +1,18 @@
+# Local secrets, dependencies, build outputs and generated evidence.
 node_modules/
 .next/
-# Next 自动生成的声明文件：16.3.7 起 `next dev` 写 `.next/dev/types/*`、`next build` 写
-# `.next/types/*`，两条路径随谁最后跑而翻转（dev 每跑一次就翻脏工作区一次）。Next 自带文档
-# （node_modules/next/dist/docs/02-project-structure.md）明说它 "should not be tracked by
-# version control"；tsconfig 的 include 保留即可 —— 实测「没有 .next + 没有该文件」时
-# `tsc --noEmit` 仍然通过。
 next-env.d.ts
 __pycache__/
 *.pyc
-# IDE planning artifacts (local agent session outputs)
 .qoder/
-# 一次性诊断脚本与截图（只读探针、量具产物）：`knowledge/plans/*诊断*` 明确要求它们不入库，
-# 但目录里没有 `.gitignore` 时 `git add -A` 会把 20 个探针文件一起带进提交（10-02 实测）。
 .tmp-diag/
-# Environment files (whitelist: only *.env.example may be committed)
 *.env*
 !*.env.example
-# gpu-worker 的模板（真实 .env.gpu-worker 仍被 *.env* 忽略）
 !*.env.gpu-worker.example
 *.egg-info/
 dist/
 build/
-# SLCS 公开发行树的构建输出（backend/scripts/build_slcs_release.py --out release，
-# CI 与本地都会写这里）；发行物本身发布到 CandideEgo/slcs，不入本仓。
 release/
-# 根目录一次性脚本/量具产物（调查、审计时写的临时 .py / .mjs）。
-# 子目录 backend/tmp/ 另有单独规则；这条只管仓库根的 tmp/。
 /tmp/
 .vercel/
 media/
@@ -39,56 +26,41 @@ wsl.localhost/
 .coverage.*
 htmlcov/
 
-# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# OS
 .DS_Store
 Thumbs.db
 
-# Windows NUL redirect artifacts
 nul
 NUL
 
-# Logs
 logs/*.log
 *.log
-# 运维脚本与产物：logs/ 下除 .gitkeep 外一律不入库。
-# 原因：这里会落 admin JWT（logs/admin_token.txt）、生产服务器访问脚本等
-# 本地运维物料 —— 曾有一次 admin_token.txt 出现在未跟踪列表里（从未提交过，
-# 但只差一次 `git add -A`）。真需要版本化的运维脚本放 backend/scripts/ 或
-# scripts/。见 knowledge/wiki/problems/cache-invalidation-and-media-gate-blindspots.md 同期笔记。
 logs/*
 !logs/.gitkeep
 
-# 一次性迁移/抓取临时产物（非可复用代码）
 .deploy-tmp/
 .lr-scrape/
 backend/scripts/_*.txt
 .claude/plans/
 
-# Temporary files
 backend/temp/
 backend/tmp/
 backend/transcripts/
 backend/reprocess_export/
 
-# ECDICT word database (downloaded via scripts/download_ecdict.py, ~30MB)
 backend/data/
 
-# Cookie backups
 backend/youtube_cookies*.txt
 backend/youtube_state.json
 
-# Screenshots
 *_test.png
 homepage*.png
 watch_page.png
 
-# Experimental scripts (kept in git history, ignored for future)
 backend/batch_transcribe.py
 backend/retranscribe*.py
 backend/translate_subtitles.py
@@ -96,98 +68,66 @@ backend/seed_test_video.py
 backend/seed_whisper_video.py
 export_cookies.js
 
-# Large media files
 test_audio.wav
 *.wav
 
-# Playwright CLI artifacts
 .playwright/
 .playwright-cli/
 backend/.playwright-cli/
 frontend/.playwright-cli/
 
-# Playwright test output (e2e run artifacts)
 frontend/test-results/
 frontend/playwright-report/
 
-# Backend build artifacts (should never exist)
 backend/.next/
 backend/.mypy_cache/
 
-# Backend nested directory (accident)
 backend/backend/
 
-# Temporary test/debug files
 tmp_audio*
 test_whisperx_llm.py
 whisper-sentence-segmentation-*.md
 
-# 第三方源码/发行物下载物（Astryx 源码、PyPI 元数据与 wheel 等）：只作合规核对的本机引用副本，
-# 体积上百 MB 且非产品源码。证据与哈希入库（docs/open-learning、docs/evidence/open-learning），
-# 下载物本身不入库。
 .references/
 
-# Local agent / workflow artifacts
 .gsd/
 .claude/worktrees/
 .claude/model_audit_output.json
 .claude/loop-state.local.md
 .claude/scheduled_tasks.lock
 
-# Orphaned cookie-acquisition script (youtube platform module removed)
 frontend/yt_cookies.mjs
 
-# Debug screenshots (generated during dev)
 .debug-shots/
 frontend/.debug-shots/
 .production-smoke/
 backend/watch-current.png
 
-# Project planning notes (not code) — moved to knowledge/plans/
-# 后续开发项目.txt
-
-# AOCI agent host integration (machine-bound; do not commit)
 .mcp.json
 .mcp.json.backup.*
 
-# Codex/Claude 本机配置（机器绑定，勿提交）
 .codex/
 .claude/settings.local.json
 
-# 本机一次性产物（不入库）
-# .agents/ 是 .claude/skills/ 的旧副本（deploy/dev skill 副本 + tmp/ 下的 pytest 全量
-# 日志、模型目录、分享页抓取脚本）。事实源是 .claude/skills/，副本不入库。
 .agents/
-# 一次性探针脚本（yt-dlp 元数据探测）与 mypy 输出/差异脚本：跑完即弃，不进版本库。
 backend/.tmp-*
-# Playwright 无障碍树快照（对比用的一次性产物）
 /channels-before.yml
-# Raven runtime checkpoint（每回合影子 git 仓库，机器绑定；见 .raven/NOTICE.txt）
 .raven/
-# 设计导出本地缓存（含嵌套 .raven，不入库）
 designs/
-# 一次性词表调试产物（ECDICT 查词探查）
 backend/tmp_defs.txt
 backend/tmp_exact.txt
 
-# 2026-10-24 审计的一次性探针/会话文件：报告与截图入库，脚本与 token 会话不入库。
-# `_session.json` 存的是临时账号 token，绝不能进历史。
 docs/audit-2026-10-24/*.mjs
 docs/audit-2026-10-24/*.cjs
 docs/audit-2026-10-24/*.js
 docs/audit-2026-10-24/*.py
 docs/audit-2026-10-24/_session.json
-# 原始巡检 JSON 里有临时账号的 JWT / 手机号，只留在本机，报告与截图入库。
 docs/audit-2026-10-24/_*.json
 docs/audit-2026-10-24/_next-dev.log
 
-# 隔离演练渲染出的 Redis ACL（含一次性密码）：模板入库，产物不入库
 deploy/redis/users.acl.generated
-# 生产宿主上渲染出的 ACL（compose 挂载的正是这个文件）：同样含密码，绝不入库。
 deploy/redis/users.acl
 
-# 生产 TLS 证书与私钥（docker-compose.prod.yml 把 ./nginx/ssl 只读挂进容器）。
-# 私钥一旦提交就永久留在历史里；目录本机/服务器上各自放置。
 nginx/ssl/
 *.pem
 *.key

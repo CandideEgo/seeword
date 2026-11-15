@@ -4,7 +4,7 @@
 跑的是 [`docker-compose.isolation.yml`](../../docker-compose.isolation.yml) 里的
 一次性 Redis（127.0.0.1:16379）与可选一次性 Postgres（15432），不碰开发栈
 （6379/5432）与生产。用例矩阵与判定口径的唯一家是
-[`docs/iteration-3-isolation-validation-2026-10-30.md`](../../docs/iteration-3-isolation-validation-2026-10-30.md) §3.2。
+[当前运行边界](README.md)。
 
 用法（Windows，Docker 在 WSL 里）：
 
@@ -14,7 +14,7 @@
 可用 `A07_DOCKER` 覆盖（例如 `A07_DOCKER=docker`）。
 
 每个用例独立记录命令与原始输出；最后写 JSON 到 `--out`（默认
-`docs/evidence/iteration-3/a07-<今天>.json`），有 FAIL 时退出码为 1。
+`tmp/isolation/a07-<今天>.json`），有 FAIL 时退出码为 1。
 演练结束默认 `down -v` 回收；`--keep` 保留现场。
 """
 
@@ -948,7 +948,7 @@ def _today() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="A07 Redis recovery drill (isolated stack)")
-    parser.add_argument("--out", default=str(REPO_ROOT / "docs" / "evidence" / "iteration-3" / f"a07-{_today()}.json"))
+    parser.add_argument("--out", default=str(REPO_ROOT / "tmp" / "isolation" / f"a07-{_today()}.json"))
     parser.add_argument("--cases", default="", help="逗号分隔，如 A07-T1,A07-T3（默认全部）")
     parser.add_argument("--keep", action="store_true", help="结束后不 down -v，保留现场")
     args = parser.parse_args()

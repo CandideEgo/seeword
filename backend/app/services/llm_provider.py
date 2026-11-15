@@ -2,8 +2,7 @@
 
 This adapts the provider/model design of ``earendil-works/pi`` (a single
 ``models.json`` with ``providers.<id>.{baseUrl, api, apiKey, models[]}`` and
-explicit model metadata, see ``docs/llm-provider-commandcode-research-2026-10.md``)
-to this repo's env-driven settings:
+explicit model metadata) to this repo's env-driven settings:
 
 - one *provider* block resolves to ``baseUrl + api + apiKey + default model``
   (``COMMANDCODE_*`` today; legacy ``OPENAI_*`` is the fallback provider);
@@ -174,6 +173,8 @@ def resolve_provider(settings: Settings | None = None) -> ProviderSpec | None:
     in keyless tests/CI — they fail loudly at call time instead).
     """
     s = settings or get_settings()
+    if not s.llm_enabled:
+        return None
     timeout = float(s.llm_call_timeout)
     if s.commandcode_api_key.strip():
         return ProviderSpec(

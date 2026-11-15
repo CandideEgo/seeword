@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.capabilities import require_content_production
 from app.core.database import commit_refresh
 from app.core.errors import (
     BadRequestError,
@@ -245,6 +246,7 @@ async def seed_video(
     ``error`` (rather than left in ``processing`` with nothing queued) and the
     request answers 503.
     """
+    require_content_production(model=True)
     await validate_video_url(source_url)
     lock_key = _seed_lock_key(source_url)
     if not await _acquire_single_flight(lock_key, _SEED_LOCK_TTL_SECONDS):
@@ -328,6 +330,7 @@ async def start_processing(db: AsyncSession, video_id: str) -> VideoResponse:
         Invalid: If the video is not in pending_processing status.
         Unavailable: If the GPU worker is offline.
     """
+    require_content_production(model=True)
     result = await db.execute(select(Video).where(Video.id == video_id))
     video = result.scalar_one_or_none()
     if video is None:
@@ -382,6 +385,7 @@ async def recover_processing(db: AsyncSession, video_id: str) -> VideoAdminRespo
         Conflict: If the pipeline still holds a live lock, or a recover/retry
             for this video already ran in the last 60 seconds.
     """
+    require_content_production(model=True)
     result = await db.execute(select(Video).where(Video.id == video_id))
     video = result.scalar_one_or_none()
     if video is None:
@@ -445,6 +449,7 @@ async def retry_video(db: AsyncSession, video_id: str) -> VideoAdminResponse:
         Conflict: If a live pipeline lock is still held, or a recover/retry for
             this video already ran in the last 60 seconds.
     """
+    require_content_production(model=True)
     result = await db.execute(select(Video).where(Video.id == video_id))
     video = result.scalar_one_or_none()
     if video is None:
@@ -550,6 +555,7 @@ async def retranslate_video(db: AsyncSession, video_id: str, engine: str | None 
         Invalid: If the video has no subtitles to translate.
         Unprocessable: If ``engine`` is not a known translation engine.
     """
+    require_content_production(model=True)
     result = await db.execute(select(Video).where(Video.id == video_id))
     video = result.scalar_one_or_none()
     if video is None:

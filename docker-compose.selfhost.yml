@@ -1,0 +1,193 @@
+# Standalone source self-hosting; never merge with docker-compose.prod.yml.
+# Usage, credentials, TLS and upgrades: docs/self-hosting.md
+name: ${COMPOSE_PROJECT_NAME:-seeword-selfhost}
+
+x-app: &app
+  image: ${SELFHOST_IMAGE_PREFIX:-seeword-selfhost}-backend:local
+  build:
+    context: ./backend
+    dockerfile: Dockerfile.cloud
+  environment: &runtime
+    ENV: production
+    PYTHONUTF8: "1"
+    RUN_MIGRATIONS: "0"
+    DATABASE_URL: postgresql+asyncpg://seeword:${DB_PASSWORD:?Set DB_PASSWORD (hex recommended)}@db:5432/${DB_NAME:-seeword}
+    REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD (hex recommended)}@redis:6379/0
+    JWT_SECRET: ${JWT_SECRET:?Set a unique JWT_SECRET of at least 32 characters}
+    FRONTEND_URL: ${SITE_URL:-https://localhost:19443}
+    LLM_ENABLED: ${LLM_ENABLED:-false}
+    CONTENT_PRODUCTION_ENABLED: ${CONTENT_PRODUCTION_ENABLED:-false}
+    # No fixed SMS code, including when the operator forgets a provider key.
+    SMS_DEV_FAKE_ENABLED: "false"
+    SMS_LOGIN_ENABLED: "false"
+    SLCS_LESSONS_ENABLED: ${SLCS_LESSONS_ENABLED:-false}
+    SLCS_VOCABULARY_ENABLED: ${SLCS_VOCABULARY_ENABLED:-false}
+    SLCS_LESSON_RECEIPT_ISSUER: ${SLCS_LESSON_RECEIPT_ISSUER:-}
+    SLCS_LESSON_RECEIPT_PUBLIC_KEYS: ${SLCS_LESSON_RECEIPT_PUBLIC_KEYS:-{}}
+    SLCS_LESSON_RECEIPT_MAX_AGE_SECONDS: "900"
+    # Opt-in production/GPU path. No model key is required in the base mode.
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+    OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+    COMMANDCODE_API_KEY: ${COMMANDCODE_API_KEY:-}
+    TRANSCRIPTION_CALLBACK_SECRET: ${TRANSCRIPTION_CALLBACK_SECRET:-}
+    TRANSCRIPTION_CALLBACK_URL: ${TRANSCRIPTION_CALLBACK_URL:-}
+    OSS_UPLOAD_ENABLED: "false"
+    FORWARDED_ALLOW_IPS: "*"
+  volumes:
+    - selfhost-media:/app/media
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seeword
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-seeword}
+    volumes:
+      - selfhost-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U seeword -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command:
+      [
+        "sh",
+        "-c",
+        'exec redis-server --appendonly yes --appendfsync everysec --save "" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"',
+      ]
+    volumes:
+      - selfhost-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    # The normal image entrypoint tolerates migration failure; this release gate must not.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      [
+        "/app/entrypoint.sh migrate-only && python scripts/check_schema_revision.py",
+      ]
+    healthcheck:
+      disable: true
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    <<: *app
+    command:
+      [
+        "gunicorn",
+        "app.main:app",
+        "-w",
+        "2",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "-b",
+        "0.0.0.0:8000",
+        "--error-logfile",
+        "-",
+      ]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    command:
+      [
+        "celery",
+        "-A",
+        "app.tasks.celery_app",
+        "worker",
+        "-Q",
+        "celery",
+        "--concurrency=2",
+        "--loglevel=warning",
+      ]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+
+  beat:
+    <<: *app
+    command:
+      [
+        "celery",
+        "-A",
+        "app.tasks.celery_app",
+        "beat",
+        "--schedule=/app/media/celerybeat-schedule",
+        "--loglevel=warning",
+      ]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+
+  frontend:
+    image: ${SELFHOST_IMAGE_PREFIX:-seeword-selfhost}-frontend:local
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:-https://localhost:19443}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:${HTTPS_PORT:-19443}:443"
+    volumes:
+      - ./nginx.ssl.conf:/etc/nginx/nginx.conf:ro
+      - type: bind
+        source: ${SSL_CERT_DIR:?Set SSL_CERT_DIR to a directory outside the repository}
+        target: /etc/nginx/ssl
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  selfhost-db:
+  selfhost-redis:
+  selfhost-media:

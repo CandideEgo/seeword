@@ -1,7 +1,7 @@
 /**
  * 移动端文稿的滚动模型 —— DEC-073 判据 4。
  *
- * 方案：`knowledge/plans/移动端设计优化-2026-10.md`。
+ * 方案：`frontend/src/lib/watchLayout.ts`。
  *
  * 断言的契约（移动端 ≤1023px）：
  *   ① 文稿容器**不再有自己的滚动**：`[data-coach="subtitles"]` 的 `overflow-y` 不是

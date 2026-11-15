@@ -1,0 +1,287 @@
+{
+  "recorded_at": "2026-11-14T21:55:11+08:00",
+  "scope": "P0 E01 原始来源与许可条件核对；不是用途放行或阶段验收",
+  "git_head": "a93979c34dab7b8fb7a5493f76b63a28e58d48ac",
+  "working_tree": "既有未提交审计清场改动保留；本次仅维护 P0 文档、证据和 progress.txt",
+  "sources": [
+    {
+      "url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm",
+      "method": "web-search extract (Firecrawl)",
+      "status": "text_extracted_and_manually_read",
+      "sha256_extracted_utf8": "b3c809da6aa379294f9bca3daaab973228d03526fd6f741c566aa9fd8a2f0285",
+      "local_reference": ".references/p0-e01-20261114-1279ad6223794c01a7bd59255e42c261/extracted-page.md",
+      "markers_checked": [
+        "Own work",
+        "Bodhisattwa",
+        "Attribution-Share Alike 4.0 International",
+        "oldid=1162038555"
+      ],
+      "page_revision_reported_in_extraction": "1162038555",
+      "boundary": "提取正文不是媒体字节、原始 HTTP 响应或独立 API revision 核验。"
+    },
+    {
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.en",
+      "method": "web-search extract (Firecrawl)",
+      "status": "text_extracted_and_manually_read",
+      "sha256_extracted_utf8": "f3d03682437a81a8c385042593ede298787c2d7d614154b5dc9997ce68e221ca",
+      "local_reference": ".references/p0-e01-20261114-3282b252b2a04a82a5a3c88010620f79/extracted-page.md",
+      "markers_checked": [
+        "Section 2",
+        "Section 3",
+        "No downstream restrictions",
+        "Attribution",
+        "ShareAlike"
+      ],
+      "page_revision_reported_in_extraction": null,
+      "boundary": "提取正文不是媒体字节、原始 HTTP 响应或独立 API revision 核验。"
+    }
+  ],
+  "local_inputs": [
+    {
+      "path": "docs/slcs/examples/welcome-to-wikisource.json",
+      "sha256": "9d72fe3a58d36c863942f914396c4205397f0d2ac705f2408fb65aa2ffd6444d"
+    },
+    {
+      "path": "docs/slcs/LICENSES.md",
+      "sha256": "fd3266069f43dfd502fdc8bb7dbd912b53835d988545355079e5ddd954f326c1"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "856bd88f128688b38794ea84ce7c8114836db88f75f33853c7148f0ec83772d2"
+    }
+  ],
+  "pack_counts": {
+    "duration_ms": 49453,
+    "segments": 12,
+    "tokens": 97,
+    "vocabulary_occurrences": 7
+  },
+  "observations": [
+    "Commons 页面声明作者 Bodhisattwa、来源 Own work、日期 2016-06-23、CC BY-SA 4.0，与包的媒体声明对应。",
+    "包与 SLCS 许可页已有作者、来源、许可和改动说明；只确认声明存在，不证明来源声明无遗漏或所有展示面合规。",
+    "CC BY-SA 4.0 第 2(a)(1)、2(a)(5)、2(b)、3(a)、3(b) 节按正文核对；分享与改编有条件许可，不随应用许可改发 AGPL。"
+  ],
+  "not_verified_or_authorized": [
+    "转录、对齐、译文、词汇释义与题目准确性及本站新增部分的完整权利来源",
+    "媒体字节、TimedText、下载／嵌入可用性、页面所有第三方权利",
+    "三类人群任务适配、正式语料、具名用途审核与实际展示面的告知履行",
+    "向模型披露、站内新发布、媒体再分发、修订演练及业务库操作",
+    "根许可修改、贡献入口开放、P0 通过、P1–P5 开始或生产部署"
+  ],
+  "execution_note": "首次本地打印因隔离 Python 的 GBK stdout 编码失败；使用 -I -X utf8 读取同一提取结果成功，未重取或改写来源。",
+  "document_checks": {
+    "checked_at": "2026-11-15T00:46:10+08:00",
+    "documents": [
+      {
+        "path": "docs/open-learning/p0-worklog.md",
+        "sha256": "ec3837d5f8386208848738ad818fb1e4c5d2c41ba3fdaff0cdde9f6d7af91faf"
+      },
+      {
+        "path": "docs/open-learning/p0/d04-license-inventory.md",
+        "sha256": "c3098205625a8af891004ae958eaca19bc278cd7a6c43ee067268b61bc5d45e8"
+      },
+      {
+        "path": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+        "sha256": "2de07f79f386a661038870fbc8dfc298446d93cbdb13bfb18652bdcd81cd1703"
+      },
+      {
+        "path": "docs/open-learning/p0/source-evidence-ledger.md",
+        "sha256": "3f9cb4de104a2c9eb650aa49d63e86448d010aeea7279a192d9a67fac772026a"
+      },
+      {
+        "path": "docs/evidence/open-learning/acceptance-cards.md",
+        "sha256": "650549514a92b1f9318672d3491587bf9984ac942095d5a99afccc3a61af3253"
+      },
+      {
+        "path": "docs/seeword-open-source-development-outline-2026-11-13.md",
+        "sha256": "4cf7b61906ae5f5ef57b90abde4d3d7945d2092a683bef83cb3735c0a401d7a1"
+      }
+    ],
+    "local_links_and_anchors_checked": 96,
+    "local_link_failures": [],
+    "source_and_input_hashes_checked": 5,
+    "reference_copies_ignored_by_git": true,
+    "license_and_reference_pack_unchanged_from_head": true,
+    "git_diff_check": "passed",
+    "prettier_check": "passed: 8 of 8 files after P0 internal trial; prior checks preserved in history",
+    "business_tests_and_browser": "No business/website tests; ego-browser source-page access reported 429; installed-reader trial results are linked separately"
+  },
+  "document_check_history": [
+    {
+      "checked_at": "2026-11-14T21:57:07+08:00",
+      "documents": [
+        {
+          "path": "docs/open-learning/p0-worklog.md",
+          "sha256": "8a126de13b385de67e0c02e66945c46613bfa7cc4aecaabc3696a266497f57a1"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-inventory.md",
+          "sha256": "610aaac8a0e16791e78cf6839bda43ffad6fa6146c782cde5c7d327a6a3cc530"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+          "sha256": "6fa8bbe6576f5ae7e7062042f82e1bf12de6f608388475951675682139f4708e"
+        },
+        {
+          "path": "docs/open-learning/p0/source-evidence-ledger.md",
+          "sha256": "e74c7dd837b140878fbe4e6310567db8d314989a2f12658cfc7221a6a0d9c581"
+        },
+        {
+          "path": "docs/evidence/open-learning/acceptance-cards.md",
+          "sha256": "1b4562feb342447641992fb612abb888901bd55b8159e6a852804980d7d75f56"
+        },
+        {
+          "path": "docs/seeword-open-source-development-outline-2026-11-13.md",
+          "sha256": "ae160adc460eea5363bf34856c91cf8741433370a435176741584d81dc4c9b98"
+        }
+      ],
+      "local_links_and_anchors_checked": 85,
+      "local_link_failures": [],
+      "source_and_input_hashes_checked": 5,
+      "reference_copies_ignored_by_git": true,
+      "license_and_reference_pack_unchanged_from_head": true,
+      "git_diff_check": "passed",
+      "prettier_check": "failed: 6 of 7 checked files need formatting; cards file passed; bulk write denied by permission protection, not retried",
+      "business_tests_and_browser": "not run: documentation/evidence only, no previewable code changes"
+    },
+    {
+      "checked_at": "2026-11-14T22:01:47+08:00",
+      "documents": [
+        {
+          "path": "docs/open-learning/p0-worklog.md",
+          "sha256": "7938765a09e18a01d84f6265e8455685a6f6df01355ae733e213cb6456e364d8"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-inventory.md",
+          "sha256": "ba7090b6254c76799496429c36b1ad15fe8ec0758dd6a93c712ccf7e3d563830"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+          "sha256": "2de07f79f386a661038870fbc8dfc298446d93cbdb13bfb18652bdcd81cd1703"
+        },
+        {
+          "path": "docs/open-learning/p0/source-evidence-ledger.md",
+          "sha256": "5139c6077a444185a06e483efb2cc78af2c7883eb4a40bf6520edf06ad7b93c6"
+        },
+        {
+          "path": "docs/evidence/open-learning/acceptance-cards.md",
+          "sha256": "1b4562feb342447641992fb612abb888901bd55b8159e6a852804980d7d75f56"
+        },
+        {
+          "path": "docs/seeword-open-source-development-outline-2026-11-13.md",
+          "sha256": "75dcb5787390a5a5132176998c99ac271bb4d337c8590658898b78f0854436b0"
+        }
+      ],
+      "local_links_and_anchors_checked": 85,
+      "local_link_failures": [],
+      "source_and_input_hashes_checked": 5,
+      "reference_copies_ignored_by_git": true,
+      "license_and_reference_pack_unchanged_from_head": true,
+      "git_diff_check": "passed",
+      "prettier_check": "passed: 7 of 7 files after explicit user authorization; original failure preserved in history",
+      "business_tests_and_browser": "not run: documentation/evidence only, no previewable code changes"
+    },
+    {
+      "checked_at": "2026-11-15T00:24:30+08:00",
+      "documents": [
+        {
+          "path": "docs/open-learning/p0-worklog.md",
+          "sha256": "0f81419d11928ad9f721c4c09496f92027156320fde279b0c631e098bef187cd"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-inventory.md",
+          "sha256": "c3098205625a8af891004ae958eaca19bc278cd7a6c43ee067268b61bc5d45e8"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+          "sha256": "2de07f79f386a661038870fbc8dfc298446d93cbdb13bfb18652bdcd81cd1703"
+        },
+        {
+          "path": "docs/open-learning/p0/source-evidence-ledger.md",
+          "sha256": "5139c6077a444185a06e483efb2cc78af2c7883eb4a40bf6520edf06ad7b93c6"
+        },
+        {
+          "path": "docs/evidence/open-learning/acceptance-cards.md",
+          "sha256": "dba899a3e59307affc9512c8949b269224d8c707ddbc804230bdd3840871b899"
+        },
+        {
+          "path": "docs/seeword-open-source-development-outline-2026-11-13.md",
+          "sha256": "0171d206f99af2d5a5c6dc1a5dab14202254deb10a7392ad8007058d24aa697b"
+        }
+      ],
+      "local_links_and_anchors_checked": 90,
+      "local_link_failures": [],
+      "source_and_input_hashes_checked": 5,
+      "reference_copies_ignored_by_git": true,
+      "license_and_reference_pack_unchanged_from_head": true,
+      "git_diff_check": "passed",
+      "prettier_check": "passed: 7 of 7 files after P0 task/resource design update; prior checks preserved in history",
+      "business_tests_and_browser": "not run: documentation/evidence only, no previewable code changes"
+    },
+    {
+      "checked_at": "2026-11-15T00:36:58+08:00",
+      "documents": [
+        {
+          "path": "docs/open-learning/p0-worklog.md",
+          "sha256": "f9066075785125157802930af73f9163792e1156f62cbdee340d783bc4c8c9a8"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-inventory.md",
+          "sha256": "c3098205625a8af891004ae958eaca19bc278cd7a6c43ee067268b61bc5d45e8"
+        },
+        {
+          "path": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+          "sha256": "2de07f79f386a661038870fbc8dfc298446d93cbdb13bfb18652bdcd81cd1703"
+        },
+        {
+          "path": "docs/open-learning/p0/source-evidence-ledger.md",
+          "sha256": "3f9cb4de104a2c9eb650aa49d63e86448d010aeea7279a192d9a67fac772026a"
+        },
+        {
+          "path": "docs/evidence/open-learning/acceptance-cards.md",
+          "sha256": "30ae28191d8c3ca07f97ade0848913d8ecbf1ef97de71f16676322d8d37ad3b2"
+        },
+        {
+          "path": "docs/seeword-open-source-development-outline-2026-11-13.md",
+          "sha256": "4cf7b61906ae5f5ef57b90abde4d3d7945d2092a683bef83cb3735c0a401d7a1"
+        }
+      ],
+      "local_links_and_anchors_checked": 95,
+      "local_link_failures": [],
+      "source_and_input_hashes_checked": 5,
+      "reference_copies_ignored_by_git": true,
+      "license_and_reference_pack_unchanged_from_head": true,
+      "git_diff_check": "passed",
+      "prettier_check": "passed: 8 of 8 files after P0 internal trial; prior checks preserved in history",
+      "business_tests_and_browser": "No business/website tests; ego-browser source-page access reported 429; installed-reader trial results are linked separately"
+    }
+  ],
+  "formatting_followup": {
+    "authorization": "用户明确回复：允许格式化",
+    "checked_at": "2026-11-14T22:01:47+08:00",
+    "scope": "前次涉及的六份 Markdown 与本证据 JSON；不改业务代码、许可正文或方案结论",
+    "format_only_verification": "对七个文件逐项比较：格式化前文本经现有 Prettier 配置处理的输出，等于格式化后文件；JSON 值相等",
+    "source_evidence_unchanged": true,
+    "history": "初次失败与权限拦截记录保留在 document_check_history，不覆盖为历史已通过"
+  },
+  "task_design_followup": {
+    "checked_at": "2026-11-15T00:24:30+08:00",
+    "scope": "P0 分场景任务、资源估算方法和决策角色记录；不是试做或阶段验收结果",
+    "scenario_rows_checked": 9,
+    "card_id": "P0-E01-COST",
+    "card_status": "proposed_not_executed",
+    "source_evidence_unchanged": true,
+    "no_new_human_time_or_participant_results": true
+  },
+  "internal_trial_followup": {
+    "checked_at": "2026-11-15T00:46:10+08:00",
+    "path": "docs/evidence/open-learning/p0/e01-internal-review-2026-11-15.json",
+    "sha256": "9851e7d96c78da35e31bf5484b224a1a0d010461ade2a1b841bd53c698c65aa1",
+    "scope": "P0 E01 首轮内部核对；不是独立人工审核或阶段验收通过",
+    "scenario_rows_still_present": 9,
+    "card_id": "P0-E01-COST",
+    "card_status": "partially_executed_audio_and_human_review_pending",
+    "source_evidence_unchanged": true,
+    "no_new_human_time_or_participant_results": true
+  }
+}

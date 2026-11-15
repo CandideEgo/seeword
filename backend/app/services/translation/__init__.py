@@ -19,6 +19,7 @@ import threading
 import structlog
 from openai import AsyncOpenAI
 
+from app.core.capabilities import require_llm
 from app.core.config import get_settings
 from app.core.errors import BadRequestError, ServiceUnavailableError
 from app.services.llm_provider import COMMANDCODE_DEFAULT_BASE_URL, TASK_TRANSLATION, resolve_model
@@ -36,6 +37,7 @@ class TranslationService:
     """
 
     def __init__(self, engine_override: str | None = None) -> None:
+        require_llm()
         settings = get_settings()
         # engine_override: force a specific primary engine. Used by admin
         # re-translate to retry with a different engine after a quality block
@@ -206,6 +208,7 @@ class TranslationService:
             _max_retries: Maximum retry attempts (default 3).
             _base_delay: Initial delay in seconds (doubles each retry).
         """
+        require_llm()
         payload = json.dumps(texts, ensure_ascii=False)
         system = engine.system_prompt or DEFAULT_TRANSLATION_PROMPT
         user = f"Translate:\n{payload}\nReturn JSON array only."
@@ -397,6 +400,7 @@ class TranslationService:
         clients for non-translation LLM calls (e.g. prewarm fan-out) without
         reaching into private methods.
         """
+        require_llm()
         cfg = TranslationService._resolve_engine(name, get_settings())
         client = TranslationService._make_client(cfg)
         return client, cfg.model

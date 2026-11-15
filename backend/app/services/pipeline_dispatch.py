@@ -32,6 +32,8 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from app.core.capabilities import require_content_production
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.pipeline_dispatch import (
     DISPATCH_STATUS_ABANDONED,
@@ -113,6 +115,7 @@ async def enqueue(
     intent, so the task cannot be queued twice by two callers that both believe
     it is missing.
     """
+    require_content_production(model=task_name != LOCALIZE_VIDEO_TASK)
     now = _utcnow()
     values = {
         "id": str(uuid.uuid4()),
@@ -174,6 +177,11 @@ async def dispatch_now(db: AsyncSession, dispatch_id: str) -> bool:
 
 
 async def _attempt(db: AsyncSession, row: PipelineDispatch) -> bool:
+    # Keep durable intents pending while an operator disables a capability;
+    # do not send, abandon, consume attempts or change transaction ownership.
+    settings = get_settings()
+    if not settings.content_production_enabled or (row.task_name != LOCALIZE_VIDEO_TASK and not settings.llm_enabled):
+        return False
     required = _REQUIRED_STATUS.get(row.task_name)
     if required is not None:
         status = await db.scalar(select(Video.status).where(Video.id == row.video_id))

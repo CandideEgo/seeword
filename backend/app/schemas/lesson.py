@@ -36,6 +36,9 @@ class LessonUses(_Input):
 class ReviewLesson(_Operation):
     source_commit: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
     uses: LessonUses
+    verification_method: Evidence | None = None
+    limitations: Evidence | None = None
+    human_minutes: float | None = Field(default=None, ge=0, allow_inf_nan=False, strict=True)
 
 
 class PublishLesson(_Operation):

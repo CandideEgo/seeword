@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # Dypnsapi 短信认证服务 endpoint（SendSmsVerifyCode / CheckSmsVerifyCode）。
     aliyun_sms_endpoint: str = "dypnsapi.aliyuncs.com"
 
+    # Explicit capability switches, not environment/security bypasses. Existing
+    # deployments keep their enabled-path credential requirements by default.
+    llm_enabled: bool = True
+    content_production_enabled: bool = True
+
     # Legacy OpenAI-compatible gateway (kept as a fallback provider). AIService
     # prefers COMMANDCODE_* below when that key is set.
     openai_api_key: str = ""
@@ -476,7 +481,7 @@ class Settings(BaseSettings):
             # The guard is "an LLM key must exist", not "the OpenAI key must
             # exist": production may run entirely on the Command Code provider.
             # An empty pair is still fatal — features would fail at call time.
-            if not (
+            if self.llm_enabled and not (
                 self.openai_api_key.strip()
                 or self.commandcode_api_key.strip()
                 or (self.llm_gateway_base_url.strip() and self.llm_gateway_api_key.strip())
@@ -489,7 +494,7 @@ class Settings(BaseSettings):
             # here as a non-empty string; require it to have been provided.
             if not self.redis_url or "redis_url" not in self.model_fields_set:
                 raise RuntimeError("REDIS_URL must be set in production")
-            if not self.transcription_callback_secret:
+            if self.content_production_enabled and not self.transcription_callback_secret.strip():
                 raise RuntimeError("TRANSCRIPTION_CALLBACK_SECRET must be set in production")
 
 

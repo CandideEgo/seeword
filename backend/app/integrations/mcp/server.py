@@ -3,7 +3,6 @@
 import json
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from pydantic import ValidationError
@@ -14,9 +13,12 @@ from starlette.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.database import get_async_session_maker
 from app.core.errors import AppError
-from app.models.learning import Vocabulary
 from app.models.learning_plan import UserLearningProfile
+from app.schemas.delegated_learning import PrepareIntent, SaveProgress, SaveVocabulary
+from app.schemas.lesson_catalog import FixedReference, MaterialIdentity
+from app.services import delegated_learning, lesson_catalog
 from app.services.external_connection_service import authenticate
+from app.services.learning_authorization import required_uses
 from app.services.teaching import service as core
 from app.services.teaching.context import get_learning_context as project_context
 from app.services.teaching.context import resume_url
@@ -69,6 +71,9 @@ async def invoke(action: Callable[[AsyncSession, Principal], Awaitable[dict]], *
     try:
         async with get_async_session_maker()() as db:
             principal = await authenticate(db, _token.get(), write=write)
+            # Purpose is server-bound for every tool, including legacy personal
+            # profile/session tools that do not read a lesson revision.
+            required_uses(principal, model=True)
             result = await action(db, principal)
             await db.commit()
             return result
@@ -233,30 +238,105 @@ def create_mcp_app():
         return await invoke(action)
 
     @server.tool()
-    async def get_review_tasks() -> dict:
-        async def action(db, principal):
-            require_scope(principal, "review:read")
-            rows = (
-                await db.execute(
-                    select(Vocabulary)
-                    .where(Vocabulary.user_id == principal.user_id, Vocabulary.next_review_at <= datetime.now(UTC))
-                    .order_by(Vocabulary.next_review_at)
-                    .limit(30)
-                )
-            ).scalars()
-            return {
-                "items": [
-                    {
-                        "id": row.id,
-                        "word": row.word,
-                        "next_review_at": row.next_review_at.isoformat(),
-                        "resume_url": "/practice",
-                    }
-                    for row in rows
-                ]
-            }
+    async def get_review_tasks(offset: int = 0, limit: int = 20) -> dict:
+        return await invoke(
+            lambda db, principal: delegated_learning.review_tasks(db, principal, offset=offset, limit=limit, model=True)
+        )
 
-        return await invoke(action)
+    @server.tool()
+    async def search_materials(q: str = "", offset: int = 0, limit: int = 20) -> dict:
+        return await invoke(
+            lambda db, principal: lesson_catalog.search_materials(
+                db, principal, q, offset=offset, limit=limit, model=True
+            )
+        )
+
+    @server.tool()
+    async def search_occurrences(headword: str, offset: int = 0, limit: int = 20) -> dict:
+        return await invoke(
+            lambda db, principal: lesson_catalog.search_occurrences(
+                db, principal, headword, offset=offset, limit=limit, model=True
+            )
+        )
+
+    @server.tool()
+    async def resolve_reference(reference: dict) -> dict:
+        return await invoke(
+            lambda db, principal: lesson_catalog.resolve_reference(
+                db, principal, FixedReference(**reference), model=True
+            )
+        )
+
+    @server.tool()
+    async def get_context(reference: dict) -> dict:
+        return await invoke(
+            lambda db, principal: lesson_catalog.get_context(db, principal, FixedReference(**reference), model=True)
+        )
+
+    @server.tool()
+    async def get_reference_state(identity: dict) -> dict:
+        return await invoke(
+            lambda db, principal: lesson_catalog.get_state(db, principal, MaterialIdentity(**identity), model=True)
+        )
+
+    @server.tool()
+    async def save_vocabulary(operation_id: str, reference: dict) -> dict:
+        return await invoke(
+            lambda db, principal: delegated_learning.save_vocabulary(
+                db,
+                principal,
+                SaveVocabulary(operation_id=operation_id, reference=FixedReference.model_validate(reference)),
+                model=True,
+            ),
+            write=True,
+        )
+
+    @server.tool()
+    async def read_lesson_progress(lesson_id: str) -> dict:
+        return await invoke(
+            lambda db, principal: delegated_learning.read_progress(db, principal, lesson_id, model=True)
+        )
+
+    @server.tool()
+    async def save_lesson_progress(
+        lesson_id: str,
+        operation_id: str,
+        revision_id: str,
+        position_ms: int,
+        expected_version: str,
+    ) -> dict:
+        return await invoke(
+            lambda db, principal: delegated_learning.save_progress(
+                db,
+                principal,
+                lesson_id,
+                SaveProgress(
+                    operation_id=operation_id,
+                    revision_id=revision_id,
+                    position_ms=position_ms,
+                    expected_version=expected_version,
+                ),
+                model=True,
+            ),
+            write=True,
+        )
+
+    @server.tool()
+    async def prepare_learning_intent(parameters: dict) -> dict:
+        """Prepare only; the learner must confirm in the first-party account page."""
+        return await invoke(
+            lambda db, principal: delegated_learning.prepare_intent(
+                db, principal, PrepareIntent(**parameters), model=True
+            ),
+            write=True,
+        )
+
+    @server.tool()
+    async def execute_learning_intent(intent_id: str) -> dict:
+        """Execute the stored, unexpired, first-party-confirmed parameters once."""
+        return await invoke(
+            lambda db, principal: delegated_learning.execute_intent(db, principal, intent_id, model=True), write=True
+        )
 
     # No process-local protocol sessions: requests can move between web workers.
     settings = get_settings()

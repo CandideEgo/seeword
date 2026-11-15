@@ -1,6 +1,0 @@
-/c/Users/Fuwei/speaking/docs/comprehensive-audit-2026-10-29/evidence/entrypoint-stub/alembic
-[entrypoint] Running database migrations...
-AUDIT STUB: alembic fails with 17
-[entrypoint] WARNING: migration step failed — continuing startup so /health can report the DB issue.
-[entrypoint] migrate-only mode, exiting.
-observed_exit_code=0

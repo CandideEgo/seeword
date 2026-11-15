@@ -187,6 +187,20 @@ async def admin_detail(
     return await lessons.admin_detail(db, lesson_id, revision_id)
 
 
+@admin_router.get(_REVISION + "/diff")
+@rate_limit("60/minute")
+async def admin_diff(
+    request: Request,
+    response: Response,
+    lesson_id: str,
+    revision_id: str,
+    baseline_revision_id: str = Query(min_length=1, max_length=36),
+    db: AsyncSession = Depends(get_db),
+):
+    _no_store(response)
+    return await lessons.admin_diff(db, lesson_id, revision_id, baseline_revision_id)
+
+
 @admin_router.post(_REVISION + "/review")
 @rate_limit("20/minute")
 async def review(

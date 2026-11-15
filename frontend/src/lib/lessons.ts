@@ -103,6 +103,12 @@ export interface LessonReview {
   reviewer_id: string;
   reviewed_at: string;
   review_sha256: string;
+  verification_method?: string | null;
+  limitations?: string | null;
+  human_minutes?: number | null;
+  review_operation_id?: string;
+  withdrawal_id?: string | null;
+  required_withdrawal_id?: string | null;
 }
 
 export interface AdminLessonRevision {
@@ -112,6 +118,44 @@ export interface AdminLessonRevision {
   fingerprint_version: string;
   status: LessonRevisionStatus;
   review: LessonReview | null;
+  requires_review: boolean;
+}
+
+export type LessonDiffCategory =
+  | "metadata"
+  | "media"
+  | "provenance"
+  | "segments"
+  | "original"
+  | "translation"
+  | "timing"
+  | "anchors"
+  | "vocabulary";
+
+export interface AdminLessonDiff {
+  lesson_id: string;
+  revision_id: string;
+  baseline_revision_id: string;
+  impacts: LessonDiffCategory[];
+  changes: {
+    category: LessonDiffCategory;
+    kind: "added" | "removed" | "modified";
+    path: string;
+    before: unknown;
+    after: unknown;
+  }[];
+}
+
+export function getAdminLessonDiff(
+  id: string,
+  revision: string,
+  baseline: string,
+  signal: AbortSignal
+) {
+  return adminApi<AdminLessonDiff>(
+    `${adminLessonRevisionApiPath(id, revision)}/diff?baseline_revision_id=${encodeURIComponent(baseline)}`,
+    { cache: "no-store", signal }
+  );
 }
 
 export interface AdminLesson {

@@ -271,7 +271,7 @@ test.describe("首页下滑流 · 筛选", () => {
   });
 
   test("真实数据首页以完整视频为主，辅助练习接口保持可用", async ({ page, request }) => {
-    const directory = path.resolve(process.cwd(), "../docs/evidence/home-design-refresh");
+    const directory = path.resolve(process.cwd(), "../tmp/e2e-evidence/home-feed");
     const browserErrors: string[] = [];
     page.on("pageerror", (error) => browserErrors.push(error.message));
     page.on("console", (message) => {

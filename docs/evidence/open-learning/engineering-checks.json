@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "scope": "local_engineering_only",
+  "formal_stage_acceptance": "not_passed",
+  "recorded_at_beijing": "2026-11-15T17:03:31.456201+08:00",
+  "source": {
+    "head": "a93979c34dab7b8fb7a5493f76b63a28e58d48ac",
+    "uncommitted": true,
+    "sha256": {
+      "backend/app/main.py": "5e56e50d63cca3e8e75f7991caa412950120a83e6e9926c7bc1e823575c20b1b",
+      "backend/app/core/config.py": "a01a42627e0e75d34a1af8f933ace00713a6835f6f431bb14cdf4522c7a8b07b",
+      "backend/app/core/capabilities.py": "67a76891dd3484261c5075a92d82608b48565d3bb7f07f3a80a01ad0fca50c5a",
+      "backend/app/services/ai_service.py": "6dbb00dd8561d070990ecb817fa1c074fa8fced6bcfe90243bc90342dba34354",
+      "backend/app/services/llm_provider.py": "7b18606b5bf58c85c201e5a471ca7b32f02dbe74d90103ed2cfed6ae31c21721",
+      "backend/app/services/translation/__init__.py": "933eca0080c2b8c640d96d5d1ed80f2bff5a1bef8421c9db4040099de462dae7",
+      "backend/app/services/teaching_gateway.py": "6ffd505819d6ae451b33bb9f566e9beb26302bc28b060929bc6eb5b3729154a9",
+      "backend/app/services/home_content_service.py": "87d68978a0a113d95e54cc6edc22a27679bf233ce0323b7bd79598524bfcde9b",
+      "backend/app/services/pipeline_dispatch.py": "0219891cfe8b697e7e08683f60eee205c1ec80832e2d98470b4558b8e8a1835c",
+      "backend/app/services/video_seed_service.py": "ba068848250167517c825063b52a7c95083eac496604589daf7cbc44b00f7fb1",
+      "backend/app/services/video_service.py": "ef60665213d3a2d4fa06a75c1e5fb460d6d8eb62f0a9dc7304dde67fbd0089cd",
+      "backend/app/tasks/home_content_tasks.py": "ddd785e48c96c363aa993962159b6f169cde46520fb0d7c154b0c522b3ba0f0a",
+      "backend/app/tasks/video_processing.py": "038081e08d6d6ef5f3f86ea5800fede315c085ee4c1901a98e7788d03723d6e3",
+      "backend/app/api/v1/internal.py": "79a9b82612cbf95b9fd1ffc476ec4a0e893091b3a4528c462b40acfc4a72c2ce",
+      "backend/app/api/v1/videos.py": "fe27721a0be0a4f63c22cf5e7e85dc5fbd8f86c348d0951e294a28052266cc07",
+      "backend/app/api/v1/lesson_catalog.py": "e8591fafe8c38bdb5622dce95345e1d81ae630b2d2c3102139014c39c780b797",
+      "backend/app/api/v1/delegated_learning.py": "b1f15af917143d803a8d156dc16881ff2455819f568b85870248a13566e522c4",
+      "backend/app/api/v1/external_connections.py": "4517faa7a8f8e25065427303785441f8fe49f9109564d30c374da8e0534e4ffc",
+      "backend/app/api/v1/lesson_learning.py": "6f69facf85834801e25d5bbd54b8b3173fa0ac6ae370f1e6123de069be257f85",
+      "backend/app/api/v1/lessons.py": "8cf907e26597b5c841a21d5e1c212c0fd333456df27330fae010048c6207b341",
+      "backend/app/models/delegated_learning.py": "d479c60cf71572479a36c9df2712b8c0e36ccdb8d7286862c2cc968dc13d6be0",
+      "backend/app/models/__init__.py": "d98628bd80fdb13619a2378de28a02480e12977d8475ada718bbc008f42a154e",
+      "backend/app/schemas/delegated_learning.py": "0117c4ec10b061048738719dd3509c740d2c6c0579b217a3c7a2fb0ef3996eb7",
+      "backend/app/schemas/lesson_catalog.py": "487e2b3e3bae91e0fbfa2623d7630f3988bcfbfd81d830394e0b79ebad337dfd",
+      "backend/app/schemas/lesson.py": "bad1cdd539f00c7bf687d098529ede1ac0b1e7dd02b8c56da0297dc01baf98bf",
+      "backend/app/services/delegated_learning.py": "4238e8f5b9122b82840c4d701b84ff11ef01b4558c65b83e115b1f5bfad23351",
+      "backend/app/services/external_connection_service.py": "393b04a5cd0a57de82872891c5ce0b427641d3b7f49acca49fba2a98fb6d7805",
+      "backend/app/services/learning_authorization.py": "5e5d6b889109fc4cd4a0170c360921fecf994628675acd0b829dc7e06a04029a",
+      "backend/app/services/teaching/principal.py": "a843b40e07a38f5627c605e4822b77d413e8bd028e40852e473561dcc7f45a6c",
+      "backend/app/services/lesson_catalog.py": "d1c860a73dc3bce1cb735e7bb24f7a54a89bc27d4c8beb2febf20a7e3670b288",
+      "backend/app/services/lessons.py": "ffe2c78528d24c0ce25e334164f5d49b98949fd2377d81022480344f45005d5f",
+      "backend/app/services/lesson_receipts.py": "6873bc73d448051c67d905f8d47d993407c8e58e3bc11748a37347a708214616",
+      "backend/app/services/lesson_diff.py": "7b27aca26b981772bd966062e1d45c380d5620627a0f7a46addccf7f4f90b40c",
+      "backend/app/services/lesson_progress.py": "6e8e449590d01d40b04b0600f7be3c6827fae6f911e95d856c5b0938cfdc3c87",
+      "backend/app/services/lesson_learning.py": "670246764fd70ee913f13eaa9bcffab0e04a50fda4d27c1f21ddf3d9eca3cdd7",
+      "backend/app/services/vocabulary_service.py": "9876f6477498ac5eebef9072740b48d591ef8c987d3f049ed89937bd9e98e4c0",
+      "backend/app/services/account_data.py": "91d252a04432f67d631083cf3429cb8d5b23b5329570b6f9138cea4920af60ad",
+      "backend/app/integrations/mcp/server.py": "2a2aadf0906fb54e31e19056f488662e1ab6d345e7837d7444423806906ed078",
+      "backend/app/tasks/account_tasks.py": "a02ece413567812b57bdb1b1420ea21f33bc1eba82a74a8ecbaf934eac64ad4e",
+      "backend/app/tasks/celery_app.py": "a66220245c29079e49708c37394243f1be6e7210e14f8cc63423bc7dd7cb5446",
+      "backend/app/tasks/delegated_learning_tasks.py": "8ac4b540e4087fd95659896a83a60fc203da47e088d5097a88963a5af02c8118",
+      "backend/migrations/versions/d7e21b4c9f83_delegated_learning.py": "51ecdc6baa255238761d4e9be8026b537cf59c9122a6c83bffc6cefd7f2e4acb",
+      "backend/scripts/create_admin.py": "a6404b46d09e30182fc66699614ef6c8fd4d5fbcc126b39f9c8f8d524bd00b6a",
+      "backend/scripts/check_schema_revision.py": "3fb7b44070a96546f10579c29ace5568862fdd2f971085c9efeac9ee1f71f2c3",
+      "backend/scripts/smoke_selfhost.py": "ac429dbb553f15995556eb0dd8820daa744db75e019ffac2d29835522f8fbd8d",
+      "backend/scripts/sign_lesson_receipt.py": "afb9c8d4271b879e70bfd283b36bb01ce0c7ae54412de5fa20b1ddbcd69d2fc4",
+      "backend/scripts/smoke_lesson_publication.py": "d7b0553d795025d25dbe92525abab13ef52c4425bfd7ce8d5e0f9d006828d181",
+      "backend/requirements-cloud.txt": "b674c30516bcf0e52fcfc586cadfee7c82c2930b2930933a0e6329b6016eaccd",
+      "backend/Dockerfile.cloud": "81c03d9cc4ecbdbd7cf77d2d0100bcc00f75614b5a4276bb2a436614a7099779",
+      "backend/slcs/lookup.py": "071e18bc4b9caa6f7ef163005a1024bb5ce28becfcea770d90a4683f9b67b3a3",
+      "backend/slcs/stdio.py": "f138f1b169611c91351deb1001f59ebd79bfe23f4d65801cee651efe124c97eb",
+      "frontend/next.config.js": "875e40fb06b5fda25ee1de5f8a40f700ea795009063c56035c61a6f9b972d16e",
+      "frontend/src/components/lessons/LessonReader.tsx": "323988dec585d4114be8463416b437a5d4e87d8c41db0f33483eb4074c7159e3",
+      "frontend/src/components/lessons/LessonCatalog.tsx": "68cee5481a08ca8ed87a607c3094467063c58a31e6a67c17a43d05d670f3be9c",
+      "frontend/src/components/lessons/LessonHistory.tsx": "ff1e5158c405695afdfeb4ca1b483c44af179ca9b9c03157795576f7ae032981",
+      "frontend/src/components/lessons/LessonAdmin.tsx": "a705ee7a0557f1eed08ef7918a9e9191b22fd03f477f0d2d8a18be49db57619c",
+      "frontend/src/components/profile/ExternalConnections.tsx": "e8a2e6ccc8b51cff93402813c6c38ce29a3cfead94fc776127fdd7169b6b038b",
+      "frontend/src/components/profile/ConnectionResourcePicker.tsx": "a025363ba2f8d87603717dd219e05c44c6b067f8bd550f2975969e9a48ca18ec",
+      "frontend/src/components/profile/PendingLearningIntents.tsx": "6639e8ac5261a5ef3b5de3dc51516e39c7fac48aa2cf432cb1972b052e32ddf8",
+      "frontend/src/lib/learningConnections.ts": "c22b87449e7c36e300908b06f9b7bb8bf33e91f6181352192a0a157a89df01f2",
+      "frontend/src/lib/lessons.ts": "452427a336162c35d2a78d6174729e96aaa19e2099c62bd72163fa9a98071455",
+      "frontend/src/lib/lessonCatalog.ts": "aa528e6f9d65ce27cff0ec0a0c599f35dd1159314eed4e01fe3949daaf41e866",
+      "frontend/src/lib/lessonHistory.ts": "d98328c7e881ba9d825432dfbd6dd9421b0b68b21ed5e82aa3c120d1364a6e03",
+      "frontend/src/app/(main)/history/page.tsx": "7b97bbadc3ede654c5ce62cf56e0850d8511142ae4a9d3f4940198f1c71ad42d",
+      "frontend/e2e/lessons-learning.spec.ts": "f4d5a7fb101fcb60db45ac02e2ddcfc6c78b01197ca6c1fa8495eb5cbb76bfe2",
+      "docker-compose.selfhost.yml": "3ea35e75a669f3ccfb32cd124b10cb5e951365899abf87a03b7375b52e041833",
+      "deploy/selfhost.env.example": "ffa1573b37b351ff8c1244d678f78f68412a6501a1f7a09184077ff02ad43a89"
+    }
+  },
+  "checks": {
+    "backend_full": {
+      "passed": 1988,
+      "failed": 0,
+      "skipped": 0,
+      "files": 173,
+      "serial_shards": 29,
+      "scope_note": "Full run after original review fixes, before final audience hardening; later changes verified by affected suite below",
+      "results_sha256": "daf6f9da53478d356e1c8177695d3710e2561ae6c9b226e8575390f8df411bce"
+    },
+    "backend_final_affected": {
+      "tests": 192,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "stages": [
+        {
+          "name": "ruff",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "format",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "script-lint",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "script-format",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "mypy-baseline",
+          "exit_code": 0,
+          "passed": true,
+          "attempts": [
+            {
+              "exit_code": 1,
+              "passed": false,
+              "log_sha256": "6e9cca6c991a4f18873b8a085dfdd3e5b867647d3fe7da21409adf5cd92efe0f"
+            },
+            {
+              "exit_code": 0,
+              "passed": true,
+              "log_sha256": "ab7d39203d66508281bc370468d01bcac968c0e01fd62548e85a9b690e56939b"
+            }
+          ],
+          "resolution": "Explicit Sequence union for reader vocabulary; baseline unchanged"
+        },
+        {
+          "name": "migrate-head",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "schema-revision",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "schema-drift",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "downgrade-new-only",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "reupgrade-head",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "schema-revision-roundtrip",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "schema-drift-roundtrip",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "affected-1",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "affected-2",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "affected-3",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "affected-4",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "sdk-kombu-pin",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "sdk-pip-check",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "sdk-protocol",
+          "exit_code": 0,
+          "passed": true
+        }
+      ],
+      "results_sha256": "571aa8fdac325091eb295be48c00a589778c01dbf34cbf03b59fdce51cb2c906"
+    },
+    "frontend": {
+      "check": "passed",
+      "unit_passed": 433,
+      "build_static_pages": 44,
+      "build_workers": 1,
+      "scope_note": "Final application and test sources checked; every static page and type check executed",
+      "log_sha256": "9fc46b5c3e6db0d191597802817c243d5684693c4bb54e24ae7b7dc996a2b9d7"
+    },
+    "e2e": {
+      "chromium_passed": 5,
+      "mobile_chrome_passed": 5,
+      "retries": 0,
+      "real_http": true,
+      "synthetic_fixtures": true,
+      "log_sha256": "9dace717e94409fc1f313c0c0bf7e59a6041182e1e467e9e864d54839b12413c"
+    },
+    "selfhost": {
+      "env": "production",
+      "localhost_only": true,
+      "official_model_credentials": false,
+      "gpu_required": false,
+      "sms_fake": false,
+      "real_worker_export": true,
+      "independent_beat_purge": true,
+      "temporary_project_removed": true,
+      "scope_note": "Fresh model-free base-mode smoke; later audience-only, JSX-key and type-annotation deltas were checked separately",
+      "log_sha256": "910e3d71734a639ff678302b49f97925f8b3addb38357b0434e48eb68533ba0e"
+    },
+    "slcs": {
+      "installed_wheel_tests": 12,
+      "release_checksums": 28,
+      "reader_version": "0.1.0",
+      "pack_schema": "0.1.0",
+      "fingerprint_version": "slcs-pack-v1",
+      "platform": "Windows",
+      "linux_ci_not_run": true
+    },
+    "manual_browser": {
+      "course_point_read_save_review_pinned_return": "passed",
+      "viewport_390_dark_overflow": false,
+      "keyboard_confirmation": "passed",
+      "admin": {
+        "status": "passed",
+        "diff_before_after": true,
+        "anchor_impacts_visible": true,
+        "re_review_unknown_minutes": true,
+        "restore_requires_new_receipt": true,
+        "no_automatic_restore": true,
+        "duplicate_key_issue_fixed": true,
+        "note": "Synthetic local fixture only; no signed restore was submitted through the browser",
+        "expanded_before_after_visible": true
+      },
+      "credential_export_from_page": false,
+      "intent_fixture_note": "Website confirmed a service-prepared synthetic intent; external HTTP/MCP auth tested separately"
+    },
+    "independent_review": {
+      "initial_findings_verified_fixed": 5,
+      "final_audience_delta": "no high-confidence defect found",
+      "not_content_acceptance": true
+    },
+    "documents": {
+      "status": "passed",
+      "files": 10,
+      "local_links": 125,
+      "errors": []
+    }
+  },
+  "not_authorized_or_not_verified": [
+    "production deployment",
+    "business database migration",
+    "root license conversion",
+    "independent distribution repository release",
+    "real E01 listening and human time",
+    "real learners and independent external integration participants",
+    "GPU/media production or paid model quality"
+  ],
+  "secrets": "No tokens, passwords, private keys, restricted source text or raw credential-bearing traces are embedded"
+}

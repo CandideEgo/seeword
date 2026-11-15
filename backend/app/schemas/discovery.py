@@ -1,8 +1,4 @@
-"""Discovery response schemas (BE-07 first slice: subscriptions + favorites).
-
-The broader search/dictionary/sets payloads are still untyped and tracked in
-``docs/audit-2026-10-24/no-response-model-endpoints.md``.
-"""
+"""Discovery response contracts for search, dictionary, sets and learner actions."""
 
 from datetime import datetime
 

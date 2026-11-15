@@ -454,9 +454,7 @@ async def list_vocabulary(
     now = datetime.now(UTC)
     # Mastered words have exited the review loop (tri-state semantics) and
     # never appear in due queues, whatever next_review_at says.
-    due_filter = ((Vocabulary.next_review_at == None) | (Vocabulary.next_review_at <= now)) & (
-        Vocabulary.mastery_level != "mastered"
-    )
+    due_filter = vocabulary_service.due_condition(now, include_new=True)
 
     stmt = select(Vocabulary).where(Vocabulary.user_id == current_user.id)
     count_stmt = select(func.count(Vocabulary.id)).where(Vocabulary.user_id == current_user.id)

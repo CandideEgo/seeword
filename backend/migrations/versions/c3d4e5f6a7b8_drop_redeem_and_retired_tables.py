@@ -1,6 +1,6 @@
 """Drop the retired redeem-code system and the frozen user-data tables.
 
-2026-10 backend cleanup (docs/admin-audit-2026-10-26/backend-removal.md). Every
+2026-10 backend cleanup (backend/tests/test_architecture_invariants.py). Every
 table below is dormant: no active feature reads or writes it, and the
 compatibility shells that used to keep them alive now answer 410
 ``FEATURE_RETIRED`` (or no longer exist at all).

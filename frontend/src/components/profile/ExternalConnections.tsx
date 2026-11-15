@@ -3,10 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
+import { formatCount } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ConnectionResourcePicker } from "@/components/profile/ConnectionResourcePicker";
+import { PendingLearningIntents } from "@/components/profile/PendingLearningIntents";
+import {
+  needsLearningResources,
+  toggleConnectionScope,
+  type LearningResourceLimits,
+} from "@/lib/learningConnections";
 import {
   EXTERNAL_SCOPES,
   type ExternalConnection,
@@ -18,8 +26,15 @@ export function ExternalConnections() {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [canCreate, setCanCreate] = useState(false);
   const [host, setHost] = useState("Codex");
-  const [scopes, setScopes] = useState<string[]>(["teaching:read"]);
+  const [scopes, setScopes] = useState<string[]>(["materials:read"]);
+  const [resourceLimits, setResourceLimits] = useState<LearningResourceLimits>({
+    lesson_ids: [],
+    word_ids: [],
+  });
+  const needsResources = needsLearningResources(scopes);
+  const hasResources = resourceLimits.lesson_ids.length > 0 || resourceLimits.word_ids.length > 0;
   const [busy, setBusy] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState("");
   const [credential, setCredential] = useState<ExternalCredentialCreated | null>(null);
   const [revoke, setRevoke] = useState<ExternalConnection | null>(null);
@@ -56,7 +71,12 @@ export function ExternalConnections() {
     try {
       const result = await api<ExternalCredentialCreated>("/api/v1/external-connections", {
         method: "POST",
-        body: JSON.stringify({ host_label: host, granted_scopes: scopes }),
+        body: JSON.stringify({
+          host_label: host,
+          audience: "model",
+          granted_scopes: scopes,
+          ...(needsResources ? { resource_limits: resourceLimits } : {}),
+        }),
       });
       setCredential(result);
       await load();
@@ -117,10 +137,7 @@ export function ExternalConnections() {
   return (
     <section className="space-y-4 border-t border-hairline pt-4" aria-label="已连接 AI">
       <div>
-        <h3 className="text-copy font-semibold text-ink">已连接 AI · 私测</h3>
-        <p className="mt-1 text-meta text-muted">
-          让你的 AI 接续同一道题。默认只读，作答与揭晓分别授权；凭据 7 日有效。
-        </p>
+        <h3 className="text-copy font-semibold text-ink">已连接 AI</h3>
       </div>
       {error && (
         <div role="alert" className="space-y-2">
@@ -130,6 +147,11 @@ export function ExternalConnections() {
           </Button>
         </div>
       )}
+      <PendingLearningIntents
+        refreshKey={connections
+          .map((connection) => `${connection.id}:${connection.revoked_at ?? ""}`)
+          .join("|")}
+      />
       {!!connections.length && (
         <ul className="divide-y divide-hairline">
           {connections.map((c) => {
@@ -151,6 +173,15 @@ export function ExternalConnections() {
                     .map(([, label]) => label)
                     .join(" · ")}
                 </p>
+                {c.audience === "application" && (
+                  <p className="text-meta text-body">用途：第三方应用，不含向模型披露的授权</p>
+                )}
+                {c.resource_limits?.lesson_ids && c.resource_limits?.word_ids && (
+                  <p className="text-meta text-body">
+                    资料范围：{formatCount(c.resource_limits.lesson_ids.length)} 门课程，
+                    {formatCount(c.resource_limits.word_ids.length)} 个词语
+                  </p>
+                )}
                 {!inactive && (
                   <div className="flex gap-2">
                     <Button
@@ -211,7 +242,10 @@ export function ExternalConnections() {
         </div>
       )}
       {available && canCreate && (
-        <details className="rounded-sm border border-hairline p-3">
+        <details
+          className="rounded-sm border border-hairline p-3"
+          onToggle={(event) => setCreateOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer text-copy font-semibold text-ink">
             添加 AI 连接
           </summary>
@@ -236,12 +270,9 @@ export function ExternalConnections() {
                   <input
                     type="checkbox"
                     checked={scopes.includes(scope)}
-                    disabled={scope === "teaching:read"}
                     onChange={(e) =>
                       setScopes((current) =>
-                        e.target.checked
-                          ? [...current, scope]
-                          : current.filter((value) => value !== scope)
+                        toggleConnectionScope(current, scope, e.target.checked)
                       )
                     }
                     className="mt-0.5 accent-action-primary"
@@ -250,10 +281,18 @@ export function ExternalConnections() {
                 </label>
               ))}
             </fieldset>
+            {createOpen && needsResources && (
+              <ConnectionResourcePicker
+                value={resourceLimits}
+                onChange={setResourceLimits}
+                disabled={busy}
+              />
+            )}
+            <p className="text-meta text-muted">连接 7 日后到期；未选择的资料不会授权。</p>
             <Button
               size="sm"
               loading={busy}
-              disabled={!scopes.length || !!credential}
+              disabled={!scopes.length || !!credential || (needsResources && !hasResources)}
               onClick={() => void create()}
             >
               创建限时连接

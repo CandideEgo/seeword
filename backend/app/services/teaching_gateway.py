@@ -36,6 +36,9 @@ async def verify_content_receipt(receipt: dict) -> bool:
 
 
 def require_gateway() -> None:
+    from app.core.capabilities import require_llm
+
+    require_llm()
     settings = get_settings()
     if not (
         settings.llm_gateway_governance_verified

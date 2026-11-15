@@ -89,6 +89,9 @@ _README = """SeeWord 数据导出包
   exposure_mapping_states.json 历史暴露映射资格
   teaching_feedbacks.json / teaching_operations.json  未过期教学反馈与动作回执
   external_connections.json / teaching_runs.json  外部连接与讲解任务安全摘要
+  external_learning_grants.json  本人明确授权的课程与词条范围
+  external_learning_operations.json  委托学习操作回执（不含原始正文）
+  external_learning_intents.json  短期操作意图与确认时间
   tutor_conversations.json  独立对话列表（含关联任务）
   teaching_messages.json  当前权限允许的对话消息
   videos.json                  你上传的视频元数据
@@ -232,6 +235,11 @@ async def _purge_user(db, user) -> None:
     from app.models.video import Video
 
     await _prepare_v2_removal(db, user.id)
+    # _prepare_v2_removal fences connections first, matching external writes.
+    # Delete new children before the generic sweep reaches external_connections.
+    from app.services.delegated_learning import purge_facts
+
+    await purge_facts(db, user.id)
 
     # 1. Disk paths to delete, collected before the rows go away. The rows are
     #    written inside this transaction; if it rolls back, no cleanup happens.
@@ -271,7 +279,6 @@ async def _purge_user(db, user) -> None:
     from app.services.lesson_learning import purge_learner_facts
 
     await purge_learner_facts(db, user.id)
-
     await _delete_v2_children(db, user.id)
 
     # 4. Every remaining table with a user_id FK to users.id, children before

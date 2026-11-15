@@ -22,7 +22,7 @@ from test_watch_postgres import provision
 
 
 async def seed(media: Path) -> str:
-    from app import models  # Register all tables before create_all.
+    from app import models  # noqa: F401 - register all ORM tables before create_all.
     from app.core.config import get_settings
     from app.core.database import Base, get_async_session_maker, get_engine
     from app.core.security import create_token

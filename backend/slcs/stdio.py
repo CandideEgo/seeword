@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from .contract import PackValidationError
+from .contract import FINGERPRINT_VERSION, PackValidationError
 from .lookup import lookup
 from .material import load_video_material
 
@@ -40,6 +40,7 @@ def serve(pack: Path, segment_ids: set[str]) -> None:
         return {
             "available": True,
             "lesson_id": material.lesson_id,
+            "fingerprint_version": FINGERPRINT_VERSION,
             "fingerprint": material.source_fingerprint,
             "segment_id": segment.id,
             "sentence": segment.text,
