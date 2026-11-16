@@ -61,7 +61,7 @@ CLIENT_GLOSS_OPEN = "gloss_open"
 CLIENT_REPLAY = "replay"
 
 #: ``replay`` 被判定为「同一次查词的回看」的最大间隔（秒）。与
-#: ``docs/a14-research-protocol-2026-10-31.md`` 的主指标窗口一致；前端镜像在
+#: ``backend/app/services/measurement_service.py`` 的主指标窗口一致；前端镜像在
 #: ``frontend/src/lib/analytics.ts`` 的 ``GLOSS_REPLAY_WINDOW_MS``。
 GLOSS_REPLAY_WINDOW_SECONDS = 10
 

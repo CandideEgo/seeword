@@ -15,7 +15,7 @@ Adds the Phase 2 "standard version" registry and fork lineage:
   (扩展 A4). SET NULL on delete so forks survive their source being removed.
 - ``ix_videos_source_url`` — index for standard-lookup and dedup queries.
 
-See docs/plans/PIPELINE-RESUME-DEDUP-AUDIT.md Phase 2 and ADR-0006.
+See backend/app/services/subtitle_edit_service.py Phase 2 and ADR-0006.
 """
 
 from collections.abc import Sequence

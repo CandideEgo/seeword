@@ -1,18 +1,6 @@
 name: CI
 
-# NOTE (规则层重构 B / R3, 2026-10-12) — 「给三个 job 各加 paths」在 GitHub Actions 里**做不到**：
-# `paths` / `paths-ignore` 只存在于 workflow 的 `on.*` 上，job 级没有这个键。要按端拆触发条件只有两条路：
-#
-#   (a) 把三个 job 拆成三个 workflow，各自声明 `on.*.paths`。被跳过的 workflow 不产生 check run —
-#       看起来是「没跑」而不是「绿了」，这是诚实的那条路；**但**若这三个 job 在分支保护里是 required
-#       status check，PR 会一直挂在「未完成」，所以必须同一次调整 required checks。
-#   (b) 保留一个 workflow，在 job 内部检测改动集后早退。省事，代价是 job 绿着但没跑测试 ——
-#       正是本仓审查原则第 6 条判为最严重的那类静默失效。
-#
-# 两条都要动分支保护或接受静默跳过，属仓库级决定，**本轮未改触发条件**，只把约束记在这里，
-# 免得下一个人照着「job 级 paths」去找一个不存在的键。现状：workflow 级 `paths-ignore` 已让
-# markdown-only 改动跳过这三个 job（见 `on:` 下的注释）。
-
+# Markdown-only changes skip this workflow; SLCS has its own path-filtered workflow.
 on:
   push:
     branches: [master, main]
@@ -68,13 +56,6 @@ jobs:
           pip install -r backend/requirements-cloud.txt
           pip install -r backend/requirements-dev.txt
 
-      - name: Validate SLCS example pack
-        # docs/slcs/README.md promises contributors that the same offline
-        # validator runs in CI; without this step that promise is false and a
-        # broken example only surfaces when someone runs the CLI by hand.
-        working-directory: backend
-        run: python -m app.slcs validate ../docs/slcs/examples/welcome-to-wikisource.json
-
       - name: Lint
         working-directory: backend
         run: ruff check app/ tests/
@@ -118,6 +99,20 @@ jobs:
           fi
           echo "No new mypy errors (baseline: $(wc -l < .mypy-baseline) file:code pairs). Lower the baseline as you fix existing ones."
 
+      - name: Surface lock waits in the Postgres log
+        # The deadlock's server-log DETAIL names both statements but not what
+        # each side was waiting on, which is the one fact needed to tell a
+        # lock-order bug from an unrelated wait that merely coincided. With
+        # log_lock_waits on, Postgres logs the waiter, the blocking PID and the
+        # lock mode for every wait longer than deadlock_timeout. Best-effort:
+        # a failure here must not mask the test result.
+        continue-on-error: true
+        run: |
+          PGPASSWORD=seeword_test psql -h localhost -U seeword -d seeword_test \
+            -c "ALTER DATABASE seeword_test SET log_lock_waits = on" \
+            -c "ALTER DATABASE seeword_test SET log_min_duration_statement = 2000" \
+            || echo "(psql unavailable; lock waits will not be logged)"
+
       - name: Run tests
         working-directory: backend
         # The full suite is ~1500 tests and takes 27+ minutes locally (coverage
@@ -140,7 +135,31 @@ jobs:
         # runs on in-memory SQLite). Tests marked `integration`
         # (test_celery_tasks_pg.py — Celery task bodies, with_for_update /
         # skip_locked row-locking semantics) now run against it for real.
-        run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=60
+        run: pytest tests/ -v --tb=short --cov=app --cov=slcs --cov-report=term-missing --cov-fail-under=60
+
+      - name: Dump Postgres server log on failure
+        # test_listening_pg's deadlock surfaces only as "HINT: See server log for
+        # query details" — the client traceback names the victim, never the two
+        # statements that formed the cycle. Without this the log is discarded
+        # with the service container and the next person is back to guessing at
+        # lock order (see backend/app/services/listening_service.py).
+        if: failure()
+        run: |
+          # Everything here is best-effort: a missing psql client or a container
+          # that already exited must never turn into a second failure line that
+          # hides the real one.
+          echo "=== pg_stat_activity ==="
+          PGPASSWORD=seeword_test psql -h localhost -U seeword -d seeword_test \
+            -c "select pid, state, wait_event_type, wait_event, left(query, 160) from pg_stat_activity where datname='seeword_test'" \
+            || echo "(psql unavailable; skipping pg_stat_activity)"
+          echo "=== postgres server log (deadlock detail) ==="
+          container="$(docker ps -q --filter ancestor=postgres:16-alpine | head -1)"
+          if [ -n "$container" ]; then
+            docker logs "$container" 2>&1 | grep -A 30 "deadlock detected" | tail -100 \
+              || echo "(no deadlock line in the server log)"
+          else
+            echo "(postgres service container not found)"
+          fi
 
       - name: Vulnerability scan (pip-audit)
         # Hard gate. Advisories we knowingly accept are listed in
@@ -151,6 +170,14 @@ jobs:
         run: |
           pip install pip-audit
           python scripts/pip_audit_gate.py
+
+      - name: Static security scan (bandit)
+        # `bandit` was in requirements-dev.txt and backend/CLAUDE.md claimed it
+        # gated the docs, but no workflow ran it. `-ll` = Medium/High only; the
+        # 39 Low findings are B110 try/except-pass in fail-open cache paths and
+        # are not actionable. First run on this tree: 0 Medium/High.
+        working-directory: backend
+        run: bandit -r app/ -ll -q
 
   gpu-worker:
     # The GPU transcription worker is a standalone component (``gpu-worker/``)
@@ -268,14 +295,15 @@ jobs:
 
   e2e:
     # End-to-end tests via Playwright against the full stack (postgres + redis +
-    # backend + frontend). The frontend runs in dev mode so next.config.ts
+    # backend + frontend). The frontend runs in dev mode so next.config.js
     # rewrites proxy /api and /media to the backend (a prod `next start` build
     # has no proxy and there is no nginx in this job). Hard gate - failures
     # block the PR.
     runs-on: ubuntu-latest
-    # 238 Chromium specs against `next dev`; CI retries failures twice. The
-    # job legitimately runs ~45 minutes. Keep a hard ceiling so a hung
-    # browser cannot occupy a runner for the 6-hour default.
+    # ~233 Chromium specs against `next dev` (count when this was written;
+    # `grep -cE '^\s*test\(' e2e/*.spec.ts` is the live number); CI retries
+    # failures twice. The job legitimately runs ~45 minutes. Keep a hard
+    # ceiling so a hung browser cannot occupy a runner for the 6-hour default.
     timeout-minutes: 75
     services:
       postgres:
@@ -349,10 +377,16 @@ jobs:
         working-directory: frontend
         run: |
           # Backend (uvicorn) + frontend (next dev). The frontend MUST run in
-          # dev mode so next.config.ts rewrites proxy /api and /media to the
+          # dev mode so next.config.js rewrites proxy /api and /media to the
           # backend - production `next start` has no proxy and there is no
           # nginx in this job, so a prod build cannot reach the backend.
-          (cd ../backend && nohup uvicorn app.main:app --port 8000 > /tmp/backend.log 2>&1 &)
+          # --timeout-keep-alive 120 is not optional: Next's dev proxy reuses
+          # idle connections, uvicorn's 5s default closes them from under it,
+          # and the ECONNRESET surfaces as a proxy 500 that never reaches the
+          # backend log (design-rollout.spec.ts:303 collects exactly those).
+          # playwright.config.ts and cross-browser.yml already set it; this job
+          # was the only one without it.
+          (cd ../backend && nohup uvicorn app.main:app --port 8000 --timeout-keep-alive 120 > /tmp/backend.log 2>&1 &)
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:8000/health
           nohup npm run dev > /tmp/frontend.log 2>&1 &
           curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:3000
@@ -363,11 +397,26 @@ jobs:
           echo "=== backend.log (tail) ==="; tail -50 /tmp/backend.log 2>/dev/null || true
           echo "=== frontend.log (tail) ==="; tail -50 /tmp/frontend.log 2>/dev/null || true
 
+      - name: Upload Playwright report on failure
+        # 失败时 trace / 截图 / 报告都随 runner 一起销毁，排查只剩「第几行断言失败」
+        # 这一句；nightly cross-browser job 一直有这一步，这里此前没有。
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-chromium
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   production-config:
     # A11/OPS-07：独立的生产配置预检。不连库、不起容器，只验证「会不会带着
-    # 错配置上线」——弱/缺密钥、生产假短信、站内支付误开、compose 白名单与
-    # nginx 安全头漂移，每一项都必须让本 job 失败（脚本在 backend/scripts/
+    # 错配置上线」——弱/缺密钥（JWT_SECRET / DATABASE_URL）、生产启用假短信、
+    # 告警与 SLCS 变量是否在 compose 白名单里、nginx 的 CSP/HSTS 与 media-src
+    # 是否漂移，每一项都必须让本 job 失败（脚本在 backend/scripts/
     # production_preflight.py，逐条打印实际命令与拒绝原因）。
+    # 会员收费链路已于 2026-11 整体下线，这里没有也不应有支付相关检查。
     runs-on: ubuntu-latest
 
     steps:

@@ -61,6 +61,19 @@ class TestTranslationQualityDecision:
         assert _translation_quality_decision(0.95, **gate) is None
 
 
+async def _assert_tail_intent(vid, engine, send):
+    from app.models.pipeline_dispatch import PipelineDispatch
+    from app.services.pipeline_dispatch import FINALIZE_VIDEO_TASK
+
+    async with TestSessionLocal() as db:
+        video = await db.get(Video, vid)
+        intent = await db.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == vid))
+        assert video.processing_generation is not None
+        assert intent.processing_generation == video.processing_generation
+        assert intent.args == [vid, engine, video.processing_generation]
+        send.assert_called_once_with(FINALIZE_VIDEO_TASK, intent.args, None)
+
+
 class TestRetranslateEndpoint:
     """POST /admin/{id}/retranslate clears text_zh + quality_flag, dispatches finalize."""
 
@@ -92,12 +105,12 @@ class TestRetranslateEndpoint:
             await db.commit()
             vid = v.id
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate?engine=glm", headers=admin_headers)
 
         assert resp.status_code == 200
         # finalize_video.delay called with the video id + engine override
-        mock_fin.delay.assert_called_once_with(vid, engine="glm")
+        await _assert_tail_intent(vid, "glm", mock_fin)
 
         async with TestSessionLocal() as db:
             fetched = (await db.execute(select(Video).where(Video.id == vid))).scalar_one()
@@ -124,11 +137,11 @@ class TestRetranslateEndpoint:
             await db.commit()
             vid = v.id
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate", headers=admin_headers)
 
         assert resp.status_code == 200
-        mock_fin.delay.assert_called_once_with(vid, engine=None)
+        await _assert_tail_intent(vid, None, mock_fin)
 
     async def test_retranslate_no_subtitles_400(self, client: AsyncClient, admin_headers: dict):
         async with TestSessionLocal() as db:

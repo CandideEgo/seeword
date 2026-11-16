@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+const buildCpus =
+  process.env.NEXT_BUILD_CPUS === undefined ? undefined : Number(process.env.NEXT_BUILD_CPUS);
+if (buildCpus !== undefined && (!Number.isSafeInteger(buildCpus) || buildCpus < 1)) {
+  throw new Error("NEXT_BUILD_CPUS must be a positive safe integer");
+}
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -16,6 +21,8 @@ const nextConfig = {
   // 编译/运行时错误浮层不受影响（Next 仍会显示）。
   devIndicators: false,
   experimental: {
+    // Optional local resource limit; all pages and type checks still execute.
+    ...(buildCpus === undefined ? {} : { cpus: buildCpus }),
     // Rewrite barrel-file imports (recharts, lucide-react) into direct,
     // tree-shakeable imports to keep unused chart/icon code out of bundles.
     optimizePackageImports: ["recharts", "lucide-react"],
@@ -28,10 +35,15 @@ const nextConfig = {
       // 显式 127.0.0.1 而不是 localhost：本机文档里的 uvicorn 一律绑 IPv4
       // （0.0.0.0 / 127.0.0.1），而 Node 的 `localhost` 会先尝试 ::1。写出实际
       // 端点，代理行为就不再依赖平台的解析顺序。
+      //
+      // BACKEND_PROXY_ORIGIN 覆盖它：docker-compose.yml 的 dev 全栈把 frontend
+      // 也跑在容器里，此时容器内的 127.0.0.1 是 frontend 自己，必须指向 compose
+      // 服务名。默认值保持 127.0.0.1，本机原生开发行为不变。
+      const backend = process.env.BACKEND_PROXY_ORIGIN || "http://127.0.0.1:8000";
       return [
-        { source: "/api/:path*", destination: "http://127.0.0.1:8000/api/:path*" },
-        { source: "/media/:path*", destination: "http://127.0.0.1:8000/media/:path*" },
-        { source: "/health", destination: "http://127.0.0.1:8000/health" },
+        { source: "/api/:path*", destination: `${backend}/api/:path*` },
+        { source: "/media/:path*", destination: `${backend}/media/:path*` },
+        { source: "/health", destination: `${backend}/health` },
       ];
     }
     return [];

@@ -1,7 +1,0 @@
-{
-  "rawSummary": "Found 58 errors in 29 files (checked 192 source files)",
-  "baselinePairs": 39,
-  "currentPairs": 39,
-  "newPairs": [],
-  "result": "baseline gate passed"
-}

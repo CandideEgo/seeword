@@ -14,6 +14,7 @@ import copy
 import json
 from collections import defaultdict
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import Row, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -29,6 +30,7 @@ from app.models.v2_runtime import (
     TutorConversationTask,
 )
 from app.schemas.teaching_dialogue import TutorReply
+from app.services import lesson_tutor
 from app.services.external_connection_service import utc
 from app.services.teaching.context import get_learning_context
 from app.services.teaching.principal import Principal
@@ -178,14 +180,21 @@ def _block_view(block: TeachingMessageBlock) -> dict:
 
 
 def project(
-    row: TeachingMessage, context: dict | None, run_status: str | None, blocks: list[TeachingMessageBlock]
+    row: TeachingMessage,
+    context: dict | None,
+    run_status: str | None,
+    blocks: list[TeachingMessageBlock],
+    *,
+    lesson: dict | Literal[False] | None = None,
 ) -> dict:
     """A task message is restricted by that task's *current* rights.
 
     ``context is None`` means the message never bound a task (or its task can
     no longer be projected); only the former is visible.
     """
-    if row.session_id is None:
+    if lesson is not None:
+        restricted = lesson is False
+    elif row.session_id is None:
         restricted = False
     elif context is None:
         restricted = True
@@ -197,6 +206,9 @@ def project(
             or (row.requires_reveal and not any(card["kind"] == "analysis" for card in context["cards"]))
             or not set(row.body.get("citation_ids", [])).issubset(current)
         )
+    body = None if restricted else copy.deepcopy(row.body)
+    if body is not None and isinstance(lesson, dict) and lesson["citation_id"] in body.get("citation_ids", []):
+        body["lesson_citation"] = lesson["citation"]
     return {
         "id": row.id,
         "conversation_id": row.conversation_id,
@@ -207,7 +219,7 @@ def project(
         "run_status": run_status,
         "role": row.role,
         "status": row.status,
-        "body": None if restricted else copy.deepcopy(row.body),
+        "body": body,
         "blocks": [] if restricted else [_block_view(block) for block in blocks],
         "restricted": bool(restricted),
         "created_at": utc(row.created_at).isoformat(),
@@ -259,10 +271,10 @@ async def _page_rows(
     return visible, len(rows) > limit, contexts, blocks
 
 
-def _page(visible: list, truncated: bool, contexts: dict, blocks: dict, after: int) -> dict:
+def _page(visible: list, truncated: bool, contexts: dict, blocks: dict, after: int, *, lesson=None) -> dict:
     return {
         "items": [
-            project(row, contexts.get(row.session_id) if row.session_id else None, status, blocks.get(row.id, []))
+            project(row, contexts.get(row.session_id), status, blocks.get(row.id, []), lesson=lesson)
             for row, status in visible
         ],
         "next_after": visible[-1][0].sequence if visible else after,
@@ -311,6 +323,30 @@ async def page_session(db: AsyncSession, principal: Principal, session: Teaching
     return _page(visible, truncated, contexts, blocks, after)
 
 
+async def page_lesson(
+    db: AsyncSession, principal: Principal, lesson_id: str, conversation_id: str, *, after=0, limit=50
+) -> dict:
+    _allowed(principal)
+    # A closed pilot must answer 503 like every other lesson entry, not hand back
+    # a message skeleton that the user cannot act on.
+    lesson_tutor.require_tutor()
+    conversation = await owned(db, principal, conversation_id)
+    if conversation.kind != lesson_tutor.LESSON_CONVERSATION:
+        raise AppError(404, "NOT_FOUND", "课程对话不存在")
+    _, anchored_lesson_id = await lesson_tutor.get_anchor(db, conversation_id)
+    if anchored_lesson_id != lesson_id:
+        raise AppError(404, "NOT_FOUND", "课程对话不存在")
+    visible, truncated, contexts, blocks = await _page_rows(
+        db,
+        principal,
+        (TeachingMessage.conversation_id == conversation_id, TeachingMessage.user_id == principal.user_id),
+        after,
+        limit,
+    )
+    lesson = await lesson_tutor.projection(db, conversation_id)
+    return _page(visible, truncated, contexts, blocks, after, lesson=lesson)
+
+
 async def export_all(db: AsyncSession, principal: Principal) -> tuple[list[dict], list[dict]]:
     """Every conversation and message the owner may read, task-less included.
 
@@ -350,11 +386,29 @@ async def export_all(db: AsyncSession, principal: Principal) -> tuple[list[dict]
     ).all()
     contexts = await _contexts_for(db, principal, {row.session_id for row, _ in rows if row.session_id})
     blocks = await _blocks_for(db, [row.id for row, _ in rows])
+    lesson_contexts = {
+        row.id: await lesson_tutor.projection(db, row.id)
+        for row in conversations
+        if row.kind == lesson_tutor.LESSON_CONVERSATION
+    }
     messages = [
-        project(row, contexts.get(row.session_id) if row.session_id else None, status, blocks.get(row.id, []))
+        project(
+            row,
+            contexts.get(row.session_id),
+            status,
+            blocks.get(row.id, []),
+            lesson=lesson_contexts.get(row.conversation_id),
+        )
         for row, status in rows
     ]
     return conversation_rows, messages
+
+
+async def _event_lesson(db: AsyncSession, conversation_id: str) -> dict | Literal[False] | None:
+    kind = await db.scalar(select(TutorConversation.kind).where(TutorConversation.id == conversation_id))
+    if kind == lesson_tutor.LESSON_CONVERSATION:
+        return await lesson_tutor.projection(db, conversation_id)
+    return None if kind is not None else False
 
 
 async def event_message(db: AsyncSession, principal: Principal, conversation_id: str, message_id: str) -> dict | None:
@@ -370,7 +424,9 @@ async def event_message(db: AsyncSession, principal: Principal, conversation_id:
         return None
     contexts = await _contexts_for(db, principal, {row.session_id} if row.session_id else set())
     blocks = (await _blocks_for(db, [row.id])).get(row.id, [])
-    return project(row, contexts.get(row.session_id) if row.session_id else None, None, blocks)
+    lesson = await _event_lesson(db, conversation_id) if row.session_id is None else None
+    context = contexts.get(row.session_id) if row.session_id is not None else None
+    return project(row, context, None, blocks, lesson=lesson)
 
 
 async def event_block(
@@ -395,7 +451,9 @@ async def event_block(
     if block is None:
         return None
     contexts = await _contexts_for(db, principal, {row.session_id} if row.session_id else set())
-    projected = project(row, contexts.get(row.session_id) if row.session_id else None, None, [block])
+    lesson = await _event_lesson(db, conversation_id) if row.session_id is None else None
+    context = contexts.get(row.session_id) if row.session_id is not None else None
+    projected = project(row, context, None, [block], lesson=lesson)
     if projected["restricted"] or not projected["blocks"]:
         return None
     return {"message_id": row.id, "message_status": row.status, "block": projected["blocks"][0]}
@@ -481,7 +539,7 @@ def finalize(message: TeachingMessage, body: dict, status: str) -> None:
 # --- model input -------------------------------------------------------------
 
 
-async def model_input(db: AsyncSession, principal: Principal, run: AgentRun) -> dict:
+async def model_input(db: AsyncSession, principal: Principal, run: AgentRun, *, lesson: dict | None = None) -> dict:
     """Bounded, permission-projected history plus the run's task, if any.
 
     History is scoped to the run's own task (or to task-less turns of the same
@@ -513,7 +571,7 @@ async def model_input(db: AsyncSession, principal: Principal, run: AgentRun) -> 
     blocks = await _blocks_for(db, [row.id for row in rows[:6]])
     history, size = [], 0
     for row in rows[:6]:
-        projected = project(row, context, None, blocks.get(row.id, []))
+        projected = project(row, context, None, blocks.get(row.id, []), lesson=lesson)
         if projected["restricted"]:
             continue
         text = row.body.get("text") or ""
@@ -529,7 +587,10 @@ async def model_input(db: AsyncSession, principal: Principal, run: AgentRun) -> 
         history.append(message)
         size += added
     history.reverse()
-    return {"learning_context": context, "history": history, "history_truncated": len(history) < len(rows)}
+    result = {"learning_context": context, "history": history, "history_truncated": len(history) < len(rows)}
+    if lesson is not None:
+        result["lesson_context"] = lesson
+    return result
 
 
 def validate_reply(reply: TutorReply, context: dict | None) -> None:

@@ -9,6 +9,7 @@ import { PublicTopBar } from "@/components/layout/PublicTopBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { UnreadCountSync } from "@/components/layout/UnreadCountSync";
 import { ShellSkeleton } from "@/components/common/ShellSkeleton";
+import { AstryxProvider } from "@/components/common/AstryxProvider";
 import { DeletionBanner } from "@/components/profile/DeletionBanner";
 import { useAuthStore } from "@/stores/authStore";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
@@ -121,24 +122,26 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       >
         跳到正文
       </a>
-      <Sidebar />
-      <UnreadCountSync />
-      <div className="user-shell-main">
-        <TopBar />
-        <DeletionBanner />
-        <main
-          id={SCROLL_CONTAINER_ID}
-          tabIndex={-1}
-          className={`flex-1 overflow-y-auto custom-scrollbar focus:outline-none${isWatch ? " user-watch-content" : ""}`}
-        >
-          {/* DEC-075：容器归壳层所有 —— 全站唯一 .container-page 在这里渲染一次，
+      <AstryxProvider>
+        <Sidebar />
+        <UnreadCountSync />
+        <div className="user-shell-main">
+          <TopBar />
+          <DeletionBanner />
+          <main
+            id={SCROLL_CONTAINER_ID}
+            tabIndex={-1}
+            className={`flex-1 overflow-y-auto custom-scrollbar focus:outline-none${isWatch ? " user-watch-content" : ""}`}
+          >
+            {/* DEC-075：容器归壳层所有 —— 全站唯一 .container-page 在这里渲染一次，
             页面不再自带容器类。h-full 让页面根的 min-h-full（练习 / 考试 / 搜索等
             满屏流）仍以滚动容器的高度为基准，几何与「页面自己写容器」时一致。 */}
-          <div className="container-page h-full">{children}</div>
-        </main>
-        <WatchShellControls />
-        <MobileTabBar />
-      </div>
+            <div className="container-page h-full">{children}</div>
+          </main>
+          <WatchShellControls />
+          <MobileTabBar />
+        </div>
+      </AstryxProvider>
     </div>
   );
 }

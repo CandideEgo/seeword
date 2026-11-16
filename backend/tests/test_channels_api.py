@@ -483,9 +483,9 @@ async def test_admin_list_channels_marks_is_auto(client, admin_headers, db_sessi
 # Cache invalidation: feed cards and video detail embed the author-page link
 # (`channel_slug`/`channel_name`), so a channel rename or delete must drop them
 # — otherwise the stale link survives the TTL (browse 5min, rankings snapshot up
-# to 48h) and points at a renamed or 404'd author page. See
-# wiki/problems/cache-invalidation-and-media-gate-blindspots.md (fail-open
-# invalidation silently no-ops when the test double lacks the Redis command).
+# to 48h) and points at a renamed or 404'd author page. Fail-open invalidation
+# silently no-ops when the test double lacks the Redis command it calls, so the
+# fake in conftest.py must implement every command production invalidation uses.
 # ---------------------------------------------------------------------------
 
 

@@ -37,7 +37,8 @@ from pathlib import Path
 DEFAULT_SRC = Path.home() / "guojiya"
 DEFAULT_OUT = Path("data/exam_pdfs")
 
-# 科目顺序，与 app/core/exam_subjects.py 一致（这里只要排序，不重复展示名）。
+# 科目排序（只用于本脚本的输出顺序；展示名与排序的唯一事实源是
+# frontend/src/lib/examSubjects.ts）。
 SUBJECT_ORDER = {"cet4": 1, "cet6": 2, "kaoyan": 5, "tem4": 6, "tem8": 7}
 
 

@@ -10,7 +10,7 @@ Brings up four native Windows services plus the Docker infra:
 | Service | What it is |
 |---|---|
 | Backend | FastAPI via uvicorn on :8000 |
-| Cloud Celery | worker (pool=solo) on the `celery` queue — video head/tail, localize, orders, watchdog |
+| Cloud Celery | worker (pool=solo) on the `celery` queue — video head/tail, localize, watchdog |
 | GPU Worker | Celery worker (pool=solo, concurrency=1) on the `transcription_gpu` queue — WhisperX on the local GPU, with a Redis heartbeat |
 | Frontend | Next.js dev server on :3000 |
 | Infra | PostgreSQL + Redis as Docker containers (`speaking-db-1`, `speaking-redis-1`) |
@@ -42,7 +42,7 @@ inlines it) — never hardcode a machine path; this checkout moved machines once
 
 4. **Run migrations** (idempotent):
    ```bash
-   cd "$(git rev-parse --show-toplevel)/backend" && .venv/Scripts/python.exe -m alembic upgrade head
+   cd "$(git rev-parse --show-toplevel)/backend" && PYTHONUTF8=1 .venv/Scripts/python.exe -m alembic upgrade head
    ```
 
 5. **Start the backend** (uvicorn on :8000) — background:
@@ -79,7 +79,8 @@ inlines it) — never hardcode a machine path; this checkout moved machines once
    ```
    Backend must return `{"status":"ok"}` and the frontend must return HTML. Then read the two worker
    startup logs: the cloud worker registered the `celery` queue only, the GPU worker registered
-   `transcription_gpu` and printed `[heartbeat] started`. Both should list the 5 video tasks.
+   `transcription_gpu` and printed `[heartbeat] started`. The cloud registers its five pipeline
+   tasks; the standalone GPU worker registers only the remote transcription task name.
    A service that is up but failed one of these checks is **not** started — report it.
 
 10. **Report status**:
@@ -87,7 +88,7 @@ inlines it) — never hardcode a machine path; this checkout moved machines once
     === Speaking — all services started ===
       Backend    → http://localhost:8000/docs
       Frontend   → http://localhost:3000
-      Cloud Cel  → pool=solo, queue: celery (head/tail/localize/orders/watchdog)
+      Cloud Cel  → pool=solo, queue: celery (head/tail/localize/watchdog)
       GPU Worker → queue: transcription_gpu, heartbeat → admin shows 在线
     ```
 
@@ -108,7 +109,7 @@ inlines it) — never hardcode a machine path; this checkout moved machines once
   3060 Ti) and writes a Redis heartbeat every 60s (key `worker:gpu:heartbeat`, TTL 90s) so the admin
   VideoManager page shows 在线. With it down, transcription tasks sit in `transcription_gpu` forever
   and that page shows 离线. Since the 2026-10 split it is a standalone component (`gpu-worker/`) with
-  its own venv (`gpu-worker/.venv/Scripts/python.exe`, already has `whisperx` + `torch+CUDA`) and its
+  its own venv (`gpu-worker/.venv/Scripts/python.exe`; verify it exists on the GPU machine) and its
   own `app`-free package — do not start it from `backend/` anymore.
 - `--pool=solo` is required for Celery on Windows; prefork is unsupported.
 - Everything above runs natively on Windows. Only Postgres + Redis are in Docker.

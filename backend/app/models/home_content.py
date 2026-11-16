@@ -1,7 +1,7 @@
 """首页编辑内容——三张表（草稿 / 不可变版本 / 单例布局）。
 
-契约见 ``docs/home-editorial-content-implementation-2026-10.md`` §2；产品边界见
-``docs/home-editorial-content-execution-plan-2026-10.md``。三张表的分工是这个
+契约见 ``backend/app/schemas/home_content.py``；产品边界见
+``backend/app/models/home_content.py``。三张表的分工是这个
 功能的核心决定，改之前先读那两节：
 
 - :class:`HomeContentDraft` —— 每条视频一份**可编辑**草稿，同时承载「生成任务」

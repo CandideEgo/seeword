@@ -11,15 +11,19 @@ repos:
       - id: ruff-format
         files: ^backend/
 
-  # Frontend formatting — local prettier so version matches package.json (^3.9.5)
+  # Frontend formatting — `npx prettier` resolves the project's own binary from
+  # frontend/node_modules (3.9.5 per package-lock), so the version really is the
+  # locked one. It must NOT be the pre-commit hosted repo: that pins its own rev.
+  # Scope matches `npm run format`/`format:check` ({src,e2e}); frontend/scripts/*.mjs
+  # is outside both on purpose (it is tooling the format gate does not own).
   - repo: local
     hooks:
       - id: prettier
         name: prettier
         entry: npx prettier --write
         language: system
-        files: ^frontend/
-        types_or: [ts, tsx, css, json, markdown]
+        files: ^frontend/(src|e2e)/
+        types_or: [ts, tsx, js, jsx, css, json, markdown]
 
   # 前端两条「机器执行的不变量」门禁（frontend/CLAUDE.md）：
   #   check-design-system.mjs —— DEC-075 设计系统规则

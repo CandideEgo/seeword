@@ -10,8 +10,7 @@ writes a ``SubtitleRevision`` capturing the before/after delta. This powers:
 affects that user's copy) from edits to a standard version body (shared,
 ``scope="standard"`` — affects the baseline for all future forks of that URL).
 The scope is decided by whether the edited video is the canonical standard for
-its ``source_url`` (see ``_determine_edit_scope``). See Grilling 决议 1/5 and
-docs/plans/PIPELINE-RESUME-DEDUP-AUDIT.md Phase 3.
+its ``source_url`` (see ``_determine_edit_scope``).
 
 ``before`` / ``after`` store ONLY the fields that actually changed, as
 ``{field: old_value}`` / ``{field: new_value}`` — rollback writes ``before``

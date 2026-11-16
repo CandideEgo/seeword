@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { MAIN_NAV, SECONDARY_NAV, navigationActive, type NavItem } from "@/lib/navigation";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { cn } from "@/lib/utils";
+import { useLessonAvailability } from "@/hooks/useLessonAvailability";
 
 export function Sidebar() {
   const pathname = usePathname();
   const due = useVocabularyStore((s) => s.stats.due_review_count);
   const unread = useNotificationStore((s) => s.unreadCount);
   const [collapsed, setCollapsed] = useState(false);
+  const lessonsEnabled = useLessonAvailability();
 
   useEffect(() => {
     try {
@@ -75,7 +77,14 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-1" aria-label="学习导航">
-        {MAIN_NAV.map(renderNavLink)}
+        {MAIN_NAV.map((item) => (
+          <Fragment key={item.href}>
+            {renderNavLink(item)}
+            {item.href === "/channels" &&
+              lessonsEnabled &&
+              renderNavLink({ href: "/lessons", label: "视频课程", icon: BookOpen })}
+          </Fragment>
+        ))}
         {!collapsed && <p className="user-nav-label">资料库</p>}
         {collapsed && <div className="my-2 border-t border-hairline" role="presentation" />}
         {SECONDARY_NAV.map(renderNavLink)}

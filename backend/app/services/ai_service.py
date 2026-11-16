@@ -7,6 +7,7 @@ import openai
 from openai import NOT_GIVEN, AsyncOpenAI
 
 from app.core.config import get_settings
+from app.core.errors import AppError
 from app.services.llm_provider import (
     TASK_DEFAULT,
     TASK_WORD_NOTES,
@@ -58,6 +59,11 @@ class AIService:
             self.model,
         )
 
+    @staticmethod
+    def _require_enabled() -> None:
+        if not get_settings().llm_enabled:
+            raise AIServiceError("模型能力已关闭（LLM_ENABLED=false）")
+
     def _get_engine_client(self, name: str) -> tuple[AsyncOpenAI, str]:
         """Return ``(client, model)`` for an engine, creating it lazily.
 
@@ -67,6 +73,7 @@ class AIService:
         the same creds/base_url/model as subtitle translation — no hardcoded
         keys. Raises ``AIServiceError`` if an engine is unconfigured.
         """
+        self._require_enabled()
         if name == "agnes":
             if self.client is None:
                 raise AIServiceError("LLM 未配置（COMMANDCODE_API_KEY / OPENAI_API_KEY 均为空，agnes 引擎）")
@@ -79,6 +86,12 @@ class AIService:
 
         try:
             client, model = TranslationService.resolve_engine_client(name)
+        except AppError as exc:
+            # TranslationService raises DomainError subclasses (503/400), which
+            # are NOT ValueErrors — catching only ValueError let a missing
+            # engine key escape as an unhandled exception instead of the
+            # AIServiceError (→ 502 AI_SERVICE_UNAVAILABLE) the envelope expects.
+            raise AIServiceError(str(exc)) from exc
         except ValueError as exc:
             raise AIServiceError(str(exc)) from exc
         self._engine_clients[name] = (client, model)
@@ -92,6 +105,7 @@ class AIService:
         response_format: dict | None = None,
         task: str = TASK_DEFAULT,
     ) -> str:
+        self._require_enabled()
         if self.client is None:
             raise AIServiceError("LLM 未配置（COMMANDCODE_API_KEY / OPENAI_API_KEY 均为空）")
         import time
@@ -369,6 +383,7 @@ class AIService:
           * ``scripts/precompute_global_word_notes.py`` — 'global' context,
             one-shot preheat of all ECDICT exam words
         """
+        self._require_enabled()
         if not items:
             return []
         # Bound the batch so a single prompt stays under the model's context
@@ -429,6 +444,7 @@ class AIService:
         dual-engine fan-out in ``generate_word_notes_bulk`` can route a batch
         to a secondary engine (qwen, ...) by passing them explicitly.
         """
+        self._require_enabled()
         word_block = "\n".join(
             f"{i + 1}. {w['word']} ({w.get('translation', '')})\n   Context: {w.get('context_sentence', '') or '(none)'}"
             for i, w in enumerate(batch)

@@ -5,7 +5,7 @@
  * 定稿的形态：滚过画框之后，画面**不缩、不飞、不消失** —— 它贴住 `main#main-scroll`
  * 上沿（= 壳顶栏下沿）常驻（`sticky`，活动范围是左列那层 grid item），`<video>` 节点
  * 不换父，所以内联 ↔ 常驻切换不丢播放进度。被否的三条与它们的读数代价在
- * `docs/design/mobile/prototypes/S-scroll.md`：
+ * `frontend/src/hooks/useStickyPip.ts`：
  *   · A2「只留一条」—— 当前句与点词热区整体出画（#27 的锚点在滚动后失效）
  *   · B「画面缩成条」—— 长句被画框切掉（216 字符句：条内只看得见 62/107px）
  *   · C「右下角 160×90」—— 当前句份数归零（INV-021 的锚点消失）+ iOS 地址栏 40px

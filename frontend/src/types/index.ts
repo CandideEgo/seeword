@@ -141,7 +141,12 @@ export interface Paginated<T> {
 
 export interface Subtitle {
   id: string;
-  video_id: string;
+  /**
+   * 后端 `SubtitleResponse` **不下发**这个字段（字幕总在某个视频的上下文里，
+   * 视频 id 由调用方持有）。保留为可选只为既有测试夹具；不要靠它拼链接，
+   * 需要视频 id 就从上层 props 取。
+   */
+  video_id?: string;
   start_time: number;
   end_time: number;
   text_en: string;
@@ -225,6 +230,8 @@ export interface GradedResult {
 export type MasteryLevel = "new" | "learning" | "reviewing" | "mastered";
 
 export interface VocabularyWord {
+  has_lesson_sources?: boolean;
+  review_operations_enabled?: boolean;
   id: string;
   word: string;
   ipa: string | null;
@@ -315,11 +322,12 @@ export interface VocabSet {
 /** POST /api/v1/vocab-sets — creation result (dedupes per video). */
 export interface VocabSetCreateResponse {
   id: string;
-  video_id: string;
+  /** null when the set was created without a video (non-video source). */
+  video_id: string | null;
   exam_level: string | null;
   total: number;
   added: number;
-  existed: number;
+  existed: boolean;
   message: string;
 }
 

@@ -2,11 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-# Single source of truth for default notification preferences, shared by the
-# REST layer (backend/app/api/v1/notifications.py) and the response schema so
-# the two cannot drift. Community-typed prefs (community_updates/new_follower/
-# comment_reply) are dormant since ADR-0012 cut the community — kept for
-# schema compat, OFF by default.
+# API-facing default notification preferences (what the client GETs/PUTs and
+# what NotificationPreferencesResponse exposes). This is deliberately a
+# different key set from ``app.models.preferences.DEFAULT_NOTIFICATION_PREFS``,
+# the row-level JSON default — see the comment there. Community-typed prefs
+# (community_updates/new_follower/comment_reply) are dormant since ADR-0012 cut
+# the community — kept for schema compat, OFF by default.
 DEFAULT_NOTIFICATION_PREFS: dict[str, bool] = {
     "push_notifications": True,
     "vocabulary_reminder": False,

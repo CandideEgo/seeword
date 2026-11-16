@@ -144,6 +144,20 @@ async def _database_problems(settings) -> list[HealthProblem]:
     try:
         async with get_async_session_maker()() as db:
             await db.execute(select(1))
+            if getattr(settings, "slcs_lessons_enabled", False):
+                from app.services.lessons import LESSON_ALL_TABLES
+                from app.services.v2_schema import missing_tables
+
+                missing = await missing_tables(db, LESSON_ALL_TABLES)
+                if missing:
+                    return [
+                        HealthProblem(
+                            kind="lesson_schema_missing",
+                            severity="warning",
+                            title="课程试点迁移未完成",
+                            detail=f"课程试点已启用，尚缺数据表：{', '.join(missing)}。",
+                        )
+                    ]
     except Exception as exc:
         return [
             HealthProblem(

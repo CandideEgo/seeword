@@ -17,7 +17,7 @@
   更新，不新增行 —— 重发同一条公告是刷新而不是刷屏；
 - 不带 ``related_url``：每次广播新增一行 —— 新公告必须能盖过旧未读公告。
 
-已知残留风险（写进 docs/admin-audit-2026-10-26/backend-fixes-admin.md 的
+已知残留风险（写进 backend/app/services/notification_service.py 的
 deferred/风险节）：分页提交意味着任务若在**中途**被 worker 杀掉并重投，
 ``related_url=None`` 的广播会给已处理用户再插一行。要根治需要公告实体表 +
 ``broadcast_id`` 唯一键（本轮 deferred）。

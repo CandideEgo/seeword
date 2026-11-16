@@ -110,3 +110,60 @@ async def test_localize_noop_for_local_or_missing_urls(media_dir):
     v2 = _FakeVideo("vid5", None)
     assert await thumbnail_service.localize_video_thumbnail(v2) is True
     assert v2.thumbnail_url is None
+
+
+async def test_generation_thumbnail_does_not_reuse_or_overwrite_other_attempts(media_dir, monkeypatch):
+    from app.services.processing_generation import artifact_identity
+
+    video_id = "11111111-1111-4111-8111-111111111111"
+    current = artifact_identity(video_id, "22222222-2222-4222-8222-222222222222")
+    other = artifact_identity(video_id, "33333333-3333-4333-8333-333333333333")
+    for name in (f"{video_id}_thumb.jpg", f"{other}_thumb.jpg", f"{other}_thumb.probe"):
+        (media_dir / name).write_bytes(_JPEG_HEAD)
+    calls = []
+
+    async def download(url, dest, proxy=None):
+        calls.append(dest.name)
+        dest.write_bytes(_PNG_HEAD)
+        return True
+
+    monkeypatch.setattr(thumbnail_service, "download_thumbnail", download)
+    video = _FakeVideo(video_id, "https://i.ytimg.com/vi/id/maxresdefault.jpg")
+    assert await thumbnail_service.localize_video_thumbnail(video, artifact_id=current)
+    assert calls == [f"{current}_thumb.probe"]
+    assert video.thumbnail_url == f"/media/{current}_thumb.png"
+    assert (media_dir / f"{current}_thumb.png").read_bytes() == _PNG_HEAD
+    for name in (f"{video_id}_thumb.jpg", f"{other}_thumb.jpg", f"{other}_thumb.probe"):
+        assert (media_dir / name).read_bytes() == _JPEG_HEAD
+    assert not (media_dir / f"{current}_thumb.probe").exists()
+    # Idempotence must also stay in the generation-specific namespace.
+    video.thumbnail_url = "https://i.ytimg.com/vi/id/maxresdefault.jpg"
+    assert await thumbnail_service.localize_video_thumbnail(video, artifact_id=current)
+    assert calls == [f"{current}_thumb.probe"]
+
+
+async def test_generation_frame_fallback_only_reads_its_own_local_video(media_dir, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.services.processing_generation import artifact_identity
+
+    video_id = "11111111-1111-4111-8111-111111111111"
+    current = artifact_identity(video_id, "22222222-2222-4222-8222-222222222222")
+    (media_dir / f"{video_id}_720p.mp4").write_bytes(b"legacy video")
+    monkeypatch.setattr(thumbnail_service, "download_thumbnail", AsyncMock(return_value=False))
+    paths = []
+
+    async def frame(video_path, dest):
+        paths.append((video_path.name, dest.name))
+        dest.write_bytes(_JPEG_HEAD)
+        return True
+
+    monkeypatch.setattr(thumbnail_service, "extract_frame_thumbnail", frame)
+    video = _FakeVideo(video_id, "https://i.ytimg.com/vi/id/maxresdefault.jpg")
+    assert not await thumbnail_service.localize_video_thumbnail(video, artifact_id=current)
+    assert not paths
+    raw = media_dir / f"{current}_raw.webm"
+    raw.write_bytes(b"this attempt's raw")
+    assert await thumbnail_service.localize_video_thumbnail(video, artifact_id=current)
+    assert paths == [(raw.name, f"{current}_thumb.probe")]
+    assert video.thumbnail_url == f"/media/{current}_thumb.jpg"

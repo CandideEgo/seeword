@@ -131,7 +131,7 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-surface-soft">
+    <div className="admin-workspace flex h-dvh overflow-hidden bg-surface-soft">
       <a
         href="#admin-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-canvas focus:px-4 focus:py-2 focus:text-copy focus:font-medium focus:text-ink focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500"

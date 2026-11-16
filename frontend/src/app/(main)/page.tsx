@@ -8,6 +8,7 @@ import { DiscoverContinue, DiscoverRail } from "@/components/home/DiscoverRail";
 import { FeaturedListening } from "@/components/home/FeaturedListening";
 import { HomeFeed } from "@/components/home/HomeFeed";
 import { HomeSubscribedChannels } from "@/components/home/HomeSubscribedChannels";
+import { LessonEntry } from "@/components/home/LessonEntry";
 import { VideoCardSkeleton } from "@/components/ui/VideoCard";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/common/SkeletonCard";
@@ -137,7 +138,10 @@ export default function HomePage() {
             </Suspense>
           </section>
         </div>
-        <DiscoverRail />
+        <div className="space-y-5">
+          <DiscoverRail />
+          <LessonEntry />
+        </div>
       </div>
 
       <HomeSubscribedChannels />

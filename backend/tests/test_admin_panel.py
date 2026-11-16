@@ -39,6 +39,20 @@ class TestAdminSettings:
         again = await client.get("/api/v1/admin/settings", headers=admin_headers)
         assert again.json()["site_name"] == "SeeWord Beta"
 
+    async def test_settings_explicit_null_threshold_is_ignored(self, client: AsyncClient, admin_headers: dict):
+        # The schema declares the thresholds ``float | None``; an explicit null
+        # must mean "leave unchanged", not ``float(None)`` → 500.
+        before = (await client.get("/api/v1/admin/settings", headers=admin_headers)).json()
+        resp = await client.put(
+            "/api/v1/admin/settings",
+            headers=admin_headers,
+            json={"quality_warn_threshold": None, "quality_block_threshold": None},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["quality_warn_threshold"] == before["quality_warn_threshold"]
+        assert data["quality_block_threshold"] == before["quality_block_threshold"]
+
     async def test_settings_threshold_validation(self, client: AsyncClient, admin_headers: dict):
         resp = await client.put(
             "/api/v1/admin/settings",

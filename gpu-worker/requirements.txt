@@ -7,10 +7,14 @@
 # structlog), ranged where upstream releases are safe (whisper/yt-dlp).
 #
 # Install: pip install -r requirements.txt  (use a venv, see README.md)
-# Celery >= 5.5 is required, not optional: A10's GPU ACL forbids the worker's
-# pidbox keys, and `worker_enable_remote_control` (which turns that consumer off)
-# does not exist before 5.5 — on 5.4 it silently stays on and the worker dies with
-# NoPermissionError in a restart loop. kombu follows celery's own pin (5.5.x -> 5.5.4).
+# Celery 5.5 is what this worker is verified on. The A10 ACL incident
+# (b5859ded) was two things at once: mingle declaring `<uuid>.reply.celery.pidbox`
+# — fixed with `--without-mingle` — and the pidbox consumer, which
+# `worker_enable_remote_control=False` turns off. That option does exist in 5.4
+# (`celery.app.defaults.NAMESPACES['worker']['enable_remote_control']`), so 5.4
+# itself is not the blocker the earlier comment claimed, but every real run of
+# this component has been on 5.5 and pinning the verified version is the point
+# of this file. kombu follows celery's own pin (5.5.x -> 5.5.4).
 celery[redis]==5.5.3
 redis==5.0.0
 httpx==0.27.0

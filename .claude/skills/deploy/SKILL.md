@@ -11,7 +11,7 @@ machine), so images are built on this workstation and loaded on the server. Thre
 
 | | |
 |---|---|
-| Host | `47.122.109.52`, **root password auth**, code at `/opt/speaking` (a source copy, no `.git`) |
+| Host | Resolve the current host/auth method from the local `~/.seeword/ACCESS.md` and trusted DNS; code at `/opt/speaking` is a source copy, not a git checkout |
 | Containers | `speaking-backend-1` `speaking-celery-1` `speaking-celery-beat-1` `speaking-frontend-1`; db/redis/nginx stay untouched |
 | Images | `speaking-backend` `speaking-celery` `speaking-celery-beat` `speaking-frontend` |
 | Site | https://seeword.top |
@@ -19,9 +19,10 @@ machine), so images are built on this workstation and loaded on the server. Thre
 `scripts/sshx.py` runs one command over SSH; `scripts/upload.py` does resumable SFTP. Both read the
 password from the `SW_PW` environment variable and take the host from `SW_HOST`.
 
-**Resolve the host from DNS, never from an SSH alias.** `~/.ssh/config`'s `seeword` points at
-`47.122.127.105`, a decommissioned machine whose containers are named `seeword-*`; reading its state
-as production already produced a false "production data is empty" conclusion once.
+**Verify the target before connecting.** Resolve the trusted site from DNS and compare with the
+current access record. Do not trust an SSH alias or an address copied from an old report. The
+helpers below use password auth; use them only when that method is explicitly authorized and
+still current. Never infer a production database is empty from a different host's containers.
 
 ## Steps
 
@@ -59,11 +60,11 @@ as production already produced a false "production data is empty" conclusion onc
      | gzip -1 > "$IMG"
    sha256sum "$IMG"
    ```
-   Done when the archive is ~403 MB and you have written its sha256 down. Record the four new image
+   Done when the archive is complete and you have recorded its sha256 and size. Record the four new image
    IDs too — step 8 compares them against the running containers.
 
-4. **Transfer, then verify the archive.** Run it in the background: ~9–17 min at ~400 KB/s, and the
-   connection does drop mid-flight (the script reconnects and resumes from the remote offset).
+4. **Transfer, then verify the archive.** Run it in the background; measure this run's duration rather
+   than treating a historical archive size or transfer speed as an invariant.
    `MSYS_NO_PATHCONV=1` is required or Git Bash rewrites `/root/images.tgz` into
    `C:/Program Files/Git/root/images.tgz`; the local argument must be a Windows-form path
    (`cygpath -m`) for the same reason.
@@ -113,10 +114,13 @@ as production already produced a false "production data is empty" conclusion onc
    "
    ```
    Done when the output contains `Migrations OK.` and `alembic current` reports the same head as the
-   local tree. **`entrypoint.sh` never blocks startup on a migration failure** — it prints
-   `WARNING: migration step failed` and the container still comes up healthy, so a green `/health`
-   proves nothing here. If the warning appears, stop before step 7 and report; services are still
-   running the old code and the rollback point is intact.
+   local tree. In `migrate-only` mode a migration failure makes `entrypoint.sh` print
+   `[entrypoint] ERROR: alembic upgrade head failed (exit N).` and exit non-zero, so the command above
+   fails outright — treat any non-zero exit as a hard stop. (The *normal* startup path is the one that
+   swallows the failure: it prints `[entrypoint] WARNING: continuing startup so /health can report the
+   DB issue.` and the container still comes up green, so a green `/health` proves nothing there.) If a
+   failure appears, stop before step 7 and report; services are still running the old code and the
+   rollback point is intact.
 
 7. **Switch: recreate the four app containers and re-resolve nginx's upstreams.**
    ```bash
@@ -157,7 +161,7 @@ as production already produced a false "production data is empty" conclusion onc
    in the backend log · `{"status":"ok"}` with database and redis both `ok` · `login=200` · `api=200`.
    Done when **all** of these hold.
 
-9. **Clean up.** Delete the 403 MB archive on both ends once step 8 passes.
+9. **Clean up.** Delete the transferred archive on both ends once step 8 passes.
    ```bash
    cd "$(git rev-parse --show-toplevel)/.claude/skills/deploy/scripts"
    MSYS_NO_PATHCONV=1 SW_HOST=<resolved-ip> SW_PW='<password>' python sshx.py "rm -f /root/images.tgz"
@@ -171,17 +175,20 @@ as production already produced a false "production data is empty" conclusion onc
   for s in backend celery celery-beat frontend; do docker tag speaking-$s:pre-deploy speaking-$s:latest; done
   docker compose -f docker-compose.prod.yml up -d --remove-orphans && docker exec speaking-nginx-1 nginx -s reload
   ```
-  New tables and columns are purely additive, so rolling back the images normally needs no schema
-  change. To back the schema out too, restore the `pg_predeploy_*.dump` from step 5 first
-  (`docker compose -f docker-compose.prod.yml exec -T db pg_restore -U seeword -d seeword --clean --if-exists < /root/backups/pg_predeploy_<TS>.dump`).
+  Before an image-only rollback, compare that image's expected schema with the applied migrations.
+  This repository includes destructive table/column removals, so migrations are NOT universally
+  additive and old images are not automatically compatible. A database restore is a separate
+  destructive operation: obtain explicit authorization, stop writes, verify the archive and target,
+  and account for writes since the backup. Never run a restore merely because an image rollback
+  failed. The maintained restore tool and its safeguards are in `scripts/backup/restore.sh`.
 - **Sync config only when it changed.** Compare the local and remote checksums:
   ```bash
   sha256sum docker-compose.prod.yml nginx.ssl.conf promtail.yml
   ```
   If they differ, copy those files to `/opt/speaking/` before step 7 (`backend/data/` is a
-  bind-mount, not in git — copy it only when the ECDICT/exam data itself changed). Do **not** copy
-  `nginx.conf`: `.env` sets `NGINX_CONF=nginx.ssl.conf`, so `nginx.conf` is a deliberately stale
-  HTTP-only leftover, and overwriting the live one silently drops the site back to plain HTTP.
+  bind-mount, not in git — copy it only when the ECDICT/exam data itself changed). Check the actual
+  deployment's `NGINX_CONF` before replacing any nginx file. Both HTTP and TLS templates remain in
+  this repository; copying the HTTP template over an active TLS config would break the site.
 - **Identifiers on the host**: the compose project prefix is `speaking-`, but `psql` takes
   `-U seeword -d seeword`.
 - **Worth fixing once**: authorizing this workstation's SSH key on the server would remove the

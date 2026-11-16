@@ -16,7 +16,7 @@ import type {
 /**
  * 独立验证：管理员真的能换一条首页主推（真实后端 + dev 代理，不 mock 核心链路）。
  *
- * 覆盖 `docs/home-editorial-content-execution-plan-2026-10.md` §10/§11：
+ * 覆盖 `backend/app/models/home_content.py`：
  *   1. 初始首页是 A（未发布编排时走旧兜底）；
  *   2. 管理员为 A 制作并发布主推（作为「恢复上一版」的回滚目标）；
  *   3. 管理员在 B 的草稿上改标题与一个选项反馈、用真实片段，预览可用；
@@ -31,14 +31,10 @@ import type {
  *  12. A 下线后拒绝恢复并说明，复原 A 后可恢复。
  *
  * 前提与收尾：
- *   - 运行前 dev 库 `home_content_drafts / home_content_revisions / home_page_config`
- *     三张表应为空（未发布编排），否则首页基线断言会失败；
- *   - 本 spec 会真实写 dev 库并发布编排；跑完后按
- *     `docs/home-editorial-verification-2026-10.md` 的清理记录执行 DELETE 复原；
- *   - B 上若已有一次真实 AI 生成留下的草稿（`generation.status === "succeeded"`），
- *     这里直接用它做「编辑草稿」的基底；没有则用真实字幕手写一份，AI 不可用也不阻塞。
- *   - 真实 AI 生成只授权一次，已由 `.tmp-diag/real_generation_probe.py` 单独执行；
- *     本 spec 不再触发真实生成，避免重复消耗额度。
+ *   - 仅在显式准备的专用 e2e 数据库运行，三张首页编排表应为空；
+ *   - 本 spec 会真实发布编排，不能指向开发/生产的已有内容；
+ *   - 基线不符时停止，重新创建独立测试数据，不对未知库执行清空；
+ *   - B 已有草稿则复用，否则用真实测试字幕手写；不触发付费生成。
  *
  * **外部数据依赖（CI 适配）**：本 spec 依赖下面三项仓库外的数据，因此
  * **不把任何真实账号口令或视频 ID 写进仓库**，全部由环境变量注入：
@@ -52,7 +48,7 @@ import type {
 test.describe.configure({ mode: "serial" });
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
-const EVIDENCE_DIR = path.resolve(process.cwd(), "../docs/evidence/home-editorial");
+const EVIDENCE_DIR = path.resolve(process.cwd(), "../tmp/e2e-evidence/home-editorial");
 /** 管理员账号：只从环境变量读，仓库里不留任何真实手机号/口令。 */
 const ADMIN_PHONE = process.env.E2E_ADMIN_PHONE ?? "";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "";
@@ -592,7 +588,7 @@ async function checkDataDependencies(request: APIRequestContext): Promise<DataDe
       ok: false,
       reason:
         "外部数据依赖不满足：库里已经有已发布的首页编排（home_page_config / home_content_revisions 非空），" +
-        "本 spec 的基线前提（未发布编排）不成立。请按 docs/home-editorial-verification-2026-10.md 的清理记录复原后再跑。",
+        "本 spec 的基线前提（未发布编排）不成立。请重新准备专用 e2e 数据库，不要清空已有业务数据。",
     };
   }
   for (const key of ["A", "B", "C", "D"] as const) {
@@ -603,7 +599,7 @@ async function checkDataDependencies(request: APIRequestContext): Promise<DataDe
         reason:
           `外部数据依赖不满足：视频 ${key}（${VIDEO_IDS[key]}）已有草稿或已发布版本` +
           "（home_content_drafts / home_content_revisions 非空），本 spec 的基线前提不成立。" +
-          "请按 docs/home-editorial-verification-2026-10.md 的清理记录复原后再跑。",
+          "请重新准备专用 e2e 数据库，不要清空已有业务数据。",
       };
     }
   }

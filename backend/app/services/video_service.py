@@ -5,6 +5,7 @@ so HTTP concerns (parsing, status codes) stay separate from
 domain logic (queries, state transitions, side effects).
 """
 
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -144,12 +145,19 @@ async def get_video_detail(
     current_user: User | None,
     *,
     skip_access_check: bool = False,
+    include_word_timings: bool = False,
 ) -> VideoDetailResponse:
     """Get video detail with subtitles. Creates a LearningRecord on first view.
 
     When *skip_access_check* is True the ``check_video_access`` gate is
     bypassed (used by the admin detail endpoint so admins can view UGC
     drafts they don't own).
+
+    *include_word_timings* adds each subtitle's word-level timestamps. Only the
+    admin subtitle editor needs them (precise split/merge); the public watch
+    page renders sentence text alone, and ``words`` is the single largest
+    per-subtitle field, so it stays off by default. A response built with them
+    is not cached — the shared ``video:detail:{id}`` entry is the lean shape.
 
     Every feature is free (2026-11): there is no membership/unlock gate. The
     login wall is the only remaining boundary — anonymous callers get the
@@ -190,7 +198,7 @@ async def get_video_detail(
     # can_watch 的响应才读写缓存。
     cache_key = f"video:detail:{video_id}"
     cacheable = can_watch
-    if cacheable:
+    if cacheable and not include_word_timings:
         cached = await cache_get(cache_key)
         if cached:
             detail = VideoDetailResponse.model_validate_json(cached)
@@ -233,6 +241,11 @@ async def get_video_detail(
                 grammar_note=s.grammar_note,
                 speaker=s.speaker,
                 word_levels=s.word_levels,
+                # Word timestamps are only for the admin subtitle editor's
+                # precise split/merge. Including them in the public watch
+                # payload would inflate the largest part of the response for
+                # every viewer, so it is opt-in per caller.
+                words=s.words if include_word_timings else None,
             )
             for s in subtitle_rows
         ]
@@ -294,7 +307,8 @@ async def get_video_detail(
     # Only cache when owner-only fields are None so the shared entry cannot
     # leak them to other viewers.
     if cacheable and video.is_official and detail.rejection_reason is None and detail.error_message is None:
-        await cache_set(cache_key, detail.model_dump_json(), ttl=300)
+        if not include_word_timings:
+            await cache_set(cache_key, detail.model_dump_json(), ttl=300)
 
     return detail
 
@@ -589,7 +603,9 @@ async def delete_video(db: AsyncSession, video_id: str) -> bool:
     # Explicit child-row cleanup for tables lacking ondelete CASCADE.
     from app.models.learning import Vocabulary
     from app.models.subtitle import Subtitle
+    from app.services.lesson_learning import detach_lesson_words_from_videos
 
+    await detach_lesson_words_from_videos(db, [video_id])
     await db.execute(delete(Subtitle).where(Subtitle.video_id == video_id))
     await db.execute(delete(LearningRecord).where(LearningRecord.video_id == video_id))
     await db.execute(delete(Vocabulary).where(Vocabulary.video_id == video_id))
@@ -629,19 +645,22 @@ def _delete_media_files(video_id: str) -> None:
         return
     if not media_dir.exists():
         return
-    import glob
-
-    for pattern in (
-        f"{video_id}.mp4",
-        f"{video_id}_raw.*",
-        f"{video_id}_480p.mp4",
-        f"{video_id}_720p.mp4",
-        f"{video_id}_1080p.mp4",
-    ):
-        for path in glob.glob(str(media_dir / pattern)):
+    # No prefix/glob deletion: similarly named videos, covers and malformed
+    # generation names do not belong to this video's raw/rendition namespace.
+    try:
+        if str(uuid.UUID(video_id)) != video_id:
+            return
+    except ValueError:
+        return
+    owned = re.compile(
+        rf"{re.escape(video_id)}(?:_g[0-9a-f]{{32}})?"
+        r"(?:\.mp4|_raw\.[^/\\]+|_(?:480p|720p|1080p)(?:\.[0-9a-f]{32}\.part)?\.mp4)"
+    )
+    for path in media_dir.iterdir():
+        if owned.fullmatch(path.name):
             try:
-                Path(path).unlink()
-            except Exception:
+                path.unlink()
+            except OSError:
                 pass
 
 
@@ -660,18 +679,24 @@ async def takedown_video(db: AsyncSession, video_id: str) -> VideoAdminResponse:
     字幕、word_levels、Vocabulary、VocabSetWord 与 LearningRecord 全部保留，
     收藏夹入口不断链，集合页「回看原视频」落到一个已下架的 watch 页。
     """
-    video = await _get_video_or_404(db, video_id)
+    video = await db.scalar(
+        select(Video).where(Video.id == video_id).with_for_update().execution_options(populate_existing=True)
+    )
+    if video is None:
+        raise NotFoundError("Video not found")
 
-    was_offline = video.storage_mode == STORAGE_OFFLINE
+    # Serialize with worker write fences: a worker either commits before this
+    # lock, or sees a replaced generation and rolls its transaction back.
+    video.processing_generation = str(uuid.uuid4())
     video.storage_mode = STORAGE_OFFLINE
     video.is_published = False
+    video.auto_publish = False
     video.video_url_480p = None
     video.video_url_720p = None
     video.video_url_1080p = None
     await commit_refresh(db, video)
 
-    if not was_offline:
-        _delete_media_files(video_id)
+    _delete_media_files(video_id)
 
     await _invalidate_video_detail_cache(video_id)
     from app.services.video_cache import invalidate_browse_cache
@@ -727,7 +752,7 @@ from app.tasks.pipeline_helpers import STEP_PROGRESS as _STEP_PROGRESS
 STEP_PROGRESS_DOWNLOADING = _STEP_PROGRESS["downloading"]
 
 
-async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminResponse:
+async def localize_video_admin(db: AsyncSession, video_id: str, *, force: bool = True) -> VideoAdminResponse:
     """Kick off local download+transcode for an imported video (admin).
 
     Keeps previous media until replacement succeeds and flips the video to
@@ -740,6 +765,9 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
     onto the same output files). Only the request whose UPDATE actually flipped
     the row dispatches (ADM-14).
     """
+    from app.core.capabilities import require_content_production
+
+    require_content_production()
     result = await db.execute(
         update(Video)
         .where(
@@ -752,6 +780,8 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
             error_message=None,
             processing_step="downloading",
             processing_progress=STEP_PROGRESS_DOWNLOADING,
+            processing_generation=str(uuid.uuid4()),
+            step_started_at=datetime.now(UTC),
             status=VideoStatus.processing,
         )
         .execution_options(synchronize_session=False)
@@ -770,8 +800,11 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
 
     from app.services.pipeline_dispatch import LOCALIZE_VIDEO_TASK, dispatch_now, enqueue
 
-    dispatch_id = await enqueue(db, video_id=video_id, task_name=LOCALIZE_VIDEO_TASK, args=[video_id, True])
+    dispatch_id = await enqueue(db, video_id=video_id, task_name=LOCALIZE_VIDEO_TASK, args=[video_id, force])
     await db.commit()
     video = await _get_video_or_404(db, video_id)
+    # The caller (notably beat) may already hold this row in its identity map;
+    # synchronize_session=False above must not return that pre-claim snapshot.
+    await db.refresh(video)
     await dispatch_now(db, dispatch_id)
     return VideoAdminResponse.model_validate(video)

@@ -6,6 +6,9 @@ __pycache__
 .env
 .env.*
 tests/
+# The standalone SLCS package's own suite installs the built wheel and is run by
+# .github/workflows/slcs.yml; it is not importable in the app image.
+slcs_tests/
 *.md
 .venv
 venv

@@ -5,6 +5,7 @@ not enqueue tasks, own database transactions or import the GPU worker.
 """
 
 import asyncio
+import shutil
 import uuid
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -33,7 +34,7 @@ def find_local_raw(video_id: str) -> str | None:
 
 
 async def stage_local_upload(video) -> tuple[str, str]:
-    """Rename a local upload to the canonical raw path and stage it on OSS.
+    """Copy a local upload to this attempt's raw path and stage it on OSS.
 
     Returns ``(gpu_source, remote_key)`` where ``gpu_source`` is a signed URL
     (private bucket) or CDN URL (public bucket) the GPU worker can fetch
@@ -42,8 +43,10 @@ async def stage_local_upload(video) -> tuple[str, str]:
     directly — ``remote_key`` is empty in that case.
     """
     from app.services import oss_service
+    from app.services.processing_generation import artifact_identity
 
     settings = get_settings()
+    artifact_id = artifact_identity(video.id, getattr(video, "processing_generation", None))
     src = Path(video.source_url)
     if not src.exists():
         raise Exception(f"Local upload file not found: {video.source_url}")
@@ -51,14 +54,22 @@ async def stage_local_upload(video) -> tuple[str, str]:
     ext = src.suffix or ".mp4"
     media_dir = Path(settings.local_media_path).resolve()
     media_dir.mkdir(parents=True, exist_ok=True)
-    raw_path = media_dir / f"{video.id}_raw{ext}"
+    raw_path = media_dir / f"{artifact_id}_raw{ext}"
     if src.resolve() != raw_path.resolve():
-        src.rename(raw_path)
-    # Keep source_url consistent with the rest of the pipeline (delete/resume
-    # glob on {id}_raw.*).
+        # A retry may inherit a prior attempt's source_url. Copy rather than
+        # rename: neither a new attempt nor a late legacy worker may steal
+        # another attempt's input. Publish the copy atomically for resumption.
+        # A .part extension also keeps the unfinished copy outside the media
+        # router's servable extension allowlist.
+        staged = media_dir / f"{artifact_id}_raw.{uuid.uuid4().hex}{ext}.part"
+        try:
+            shutil.copy2(src, staged)
+            staged.replace(raw_path)
+        finally:
+            staged.unlink(missing_ok=True)
     video.source_url = str(raw_path)
 
-    remote_key = f"{settings.oss_raw_prefix}/{video.id}{ext}"
+    remote_key = f"{settings.oss_raw_prefix}/{artifact_id}{ext}"
     cdn_url = await oss_service.upload_file(str(raw_path), remote_key)
     if cdn_url:
         if settings.oss_raw_bucket_public:

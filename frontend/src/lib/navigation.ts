@@ -55,3 +55,9 @@ export function navigationActive(pathname: string, href: string): boolean {
   const scope = ACTIVE_SCOPE[href] ?? [href];
   return scope.some((route) => inScope(pathname, route));
 }
+
+/** Courses have a desktop entry; mobile reaches them from Discover's library link. */
+export function mobileNavigationActive(pathname: string, href: string): boolean {
+  if (inScope(pathname, "/lessons")) return href === "/";
+  return navigationActive(pathname, href);
+}

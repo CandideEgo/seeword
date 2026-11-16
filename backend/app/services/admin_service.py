@@ -192,9 +192,14 @@ async def update_admin_settings(db: AsyncSession, patch: dict) -> AdminSetting:
     settings = await get_admin_settings(db)
 
     # Merge the patch with the current values on plain python floats, then
-    # validate — only after that touch the instance.
-    block_t = float(patch.get("quality_block_threshold", settings.quality_block_threshold))
-    warn_t = float(patch.get("quality_warn_threshold", settings.quality_warn_threshold))
+    # validate — only after that touch the instance. An explicit ``null`` in
+    # the patch means "leave it alone" (the schema declares these fields
+    # ``float | None`` and ``exclude_unset`` keeps an explicit null), so treat
+    # it like a missing key rather than calling ``float(None)`` → 500.
+    block_patch = patch.get("quality_block_threshold")
+    warn_patch = patch.get("quality_warn_threshold")
+    block_t = float(block_patch if block_patch is not None else settings.quality_block_threshold)
+    warn_t = float(warn_patch if warn_patch is not None else settings.quality_warn_threshold)
     if warn_t < block_t:
         raise BadRequestError("警告阈值不能低于阻塞阈值")
 

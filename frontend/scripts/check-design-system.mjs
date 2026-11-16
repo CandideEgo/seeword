@@ -119,7 +119,7 @@ const WHITELISTS = {
     ],
     [
       "frontend/src/lib/avatar.ts",
-      "说话人头像色板：按 id 哈希取一组固定色，颜色本身就是标识，逐个建 token 才是过度设计。",
+      "头像色板：按 id 哈希取一组固定渐变，颜色本身就是标识，逐个建 token 才是过度设计。",
     ],
     ["frontend/src/lib/examLevels.test.ts", "断言上面那套功能色映射，必须能写出原始类名。"],
     ["frontend/src/lib/avatar.test.ts", "断言头像色板映射，必须能写出原始类名。"],

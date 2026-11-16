@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.1.0",
+  "lesson_id": "synthetic-fixture",
+  "title": "Synthetic fixture",
+  "source_language": "en",
+  "translation_language": "zh-CN",
+  "media": {
+    "source_url": "https://example.com/video",
+    "duration_ms": 1000,
+    "access_mode": "external_link"
+  },
+  "segments": [
+    {
+      "id": "s01",
+      "start_ms": 0,
+      "end_ms": 1000,
+      "text": "Read.",
+      "translation": "读。",
+      "tokens": [
+        {
+          "id": "w01",
+          "start_char": 0,
+          "end_char": 4,
+          "timing": {
+            "start_ms": 0,
+            "end_ms": 800
+          }
+        }
+      ]
+    }
+  ],
+  "vocabulary": [
+    {
+      "headword": "read",
+      "gloss": "阅读",
+      "segment_id": "s01",
+      "token_ids": ["w01"]
+    }
+  ],
+  "provenance": {
+    "media": {
+      "attribution": "Synthetic fixture",
+      "basis": "Synthetic fixture",
+      "evidence_url": "https://example.com/rights"
+    },
+    "transcript": {
+      "attribution": "Synthetic fixture",
+      "basis": "Synthetic fixture",
+      "evidence_url": "https://example.com/rights"
+    },
+    "translation": {
+      "attribution": "Synthetic fixture",
+      "basis": "Synthetic fixture",
+      "evidence_url": "https://example.com/rights"
+    },
+    "vocabulary": {
+      "attribution": "Synthetic fixture",
+      "basis": "Synthetic fixture",
+      "evidence_url": "https://example.com/rights"
+    }
+  },
+  "extra": true
+}

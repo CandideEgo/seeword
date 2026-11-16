@@ -53,6 +53,30 @@ _MINUTES_EVENTS = {EVENT_COMPLETED_VIDEO}
 # Estimated minutes per completed video (rough heuristic)
 _ESTIMATED_VIDEO_MINUTES = 5
 
+#: ``watched_video`` is emitted at most once per user per UTC day.
+#: Claimed by the caller (see ``claim_watch_day``) so the course and the video
+#: paths share one dedupe, and the key outlives a single playback session.
+WATCH_DAY_CLAIM_TTL_SECONDS = 26 * 60 * 60
+
+
+async def claim_watch_day(db: AsyncSession, user_id: str) -> bool:
+    """Claim the ``watched_video`` slot for today; True when this caller owns it.
+
+    Shared by the video playback path and course progress: both write one
+    ``watched_video`` fact per user per UTC day. Redis is the claim store; when
+    it is unavailable the claim fails open, which can only add an extra row that
+    every consumer already collapses by distinct date.
+    """
+    from datetime import UTC, datetime
+
+    try:
+        from app.core.redis import get_redis
+
+        key = f"behavior:watchday:{user_id}:{datetime.now(UTC).date().isoformat()}"
+        return await get_redis().set(key, "1", nx=True, ex=WATCH_DAY_CLAIM_TTL_SECONDS) is not None
+    except Exception:  # pragma: no cover - Redis outage
+        return True
+
 
 async def emit_event(
     db: AsyncSession,

@@ -1,0 +1,1574 @@
+{
+  "card_id": "P0-E01-COST",
+  "status": "available_checks_completed_audio_and_human_review_pending",
+  "scope": "内部读取器／结构锚点核对及主助手文本审阅；不是独立人工审核、发行验收或学习者验收",
+  "activity_window_started_at": "2026-11-15T00:26:09+08:00",
+  "probe_started_at": "2026-11-15T00:30:24.534+08:00",
+  "probe_finished_at": "2026-11-15T00:30:32.595+08:00",
+  "probe_wall_seconds": 8.060432,
+  "input": {
+    "path": "docs/slcs/examples/welcome-to-wikisource.json",
+    "sha256": "9d72fe3a58d36c863942f914396c4205397f0d2ac705f2408fb65aa2ffd6444d",
+    "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+    "fingerprint_version": "slcs-pack-v1",
+    "segments": 12,
+    "tokens": 97,
+    "vocabulary_occurrences": 7,
+    "media_access_mode": "external_link"
+  },
+  "source_record": "docs/evidence/open-learning/p0/e01-source-review-2026-11-14.json",
+  "source_and_license_checks": {
+    "inputs_and_saved_source_hashes_verified": 5,
+    "upstream_rights_evidence": "已有 Commons 提取页与 CC 法律文本哈希匹配；未把旧证据冒充本次在线成功",
+    "provenance_sections_present": [
+      "media",
+      "transcript",
+      "translation",
+      "vocabulary"
+    ],
+    "attribution_changes_license_links_present": true,
+    "remaining_rights_gap": "包内声明未独立证明本站转录／译文／词汇的完整创作来源，也未验证实际网页所有展示面",
+    "history": "本地 git log 显示参考包最近修改为 72c7403b（2026-11-09）；未联系作者或扫描外部历史"
+  },
+  "browser": {
+    "tool": "ego-browser",
+    "task_space_id": 16,
+    "started_at": "2026-11-15T00:27:21.372+08:00",
+    "observed_at": "2026-11-15T00:27:25.493+08:00",
+    "navigation_wall_seconds": 4.121,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm",
+    "title": "Wikimedia Error",
+    "page_reported_error": 429,
+    "message": "Too many requests",
+    "media_playback_attempted": false,
+    "media_bytes_downloaded": false,
+    "audio_transcription_or_alignment_verified": false,
+    "task_finished": true,
+    "privacy": "未将错误页中的 IP 等网络信息写入证据",
+    "tool_update_notice": "Ego Lite 提示可更新；未执行升级"
+  },
+  "reader": {
+    "version": "0.1.0",
+    "origin": "backend/.venv/Lib/site-packages/slcs",
+    "execution": "explicit backend venv; Python -I -X utf8; no source path injection",
+    "module_comparison": [
+      {
+        "module": "__init__.py",
+        "installed_sha256": "a5e64a50ef87270824db77dcc5f8ac7d848d18c6285dbbc45f64359706e9c76b",
+        "workspace_sha256": "a5e64a50ef87270824db77dcc5f8ac7d848d18c6285dbbc45f64359706e9c76b",
+        "identical": true,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "__main__.py",
+        "installed_sha256": "73dd08dfdf874c3c958fc58266801269b6e1c71fe625e60f6bfa5d50cf7f7a15",
+        "workspace_sha256": "73dd08dfdf874c3c958fc58266801269b6e1c71fe625e60f6bfa5d50cf7f7a15",
+        "identical": true,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "cli.py",
+        "installed_sha256": "cdb87e82cd1cb83ed03acbe7c7041d193cc81b512ac34f3bde49b2ef12e74cd3",
+        "workspace_sha256": "cdb87e82cd1cb83ed03acbe7c7041d193cc81b512ac34f3bde49b2ef12e74cd3",
+        "identical": true,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "contract.py",
+        "installed_sha256": "ff7ab49fcba7094579e390aaf7cc4372c281f44975b0043e1514fea040936898",
+        "workspace_sha256": "291fdd13e19d8c43dfc339c9fab5c89c4112b1f67360c48338a0feb40cf117d0",
+        "identical": false,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "lookup.py",
+        "installed_sha256": "0e86d616f0c0b41262098445cfb64ae77f1eb32cef850e4cdc4d12f09dd2ac66",
+        "workspace_sha256": "0e86d616f0c0b41262098445cfb64ae77f1eb32cef850e4cdc4d12f09dd2ac66",
+        "identical": true,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "material.py",
+        "installed_sha256": "df2bf1714ef65a1f9d6bc1dd9f38b5c25d25c903a02f8b60f4ecce2742d8dca1",
+        "workspace_sha256": "3752c2a09d125d211214101f9efe0dec2076bfc86cf3bb4b7530b1fef538af96",
+        "identical": false,
+        "normalized_text_equal": true,
+        "ast_equal": true
+      },
+      {
+        "module": "stdio.py",
+        "installed_sha256": "1e0dbff2416a707bfc3af0064ed6ee22e14322e69e0251abf954231e0e09f8ee",
+        "workspace_sha256": "bc184297478f5e2d0336a550ba182be2eee989d26883a2b95a4d1f983bb6596e",
+        "identical": false,
+        "normalized_text_equal": false,
+        "ast_equal": false
+      }
+    ],
+    "boundary": "使用既有安装包；核心校验／定位／CLI 的标准化文本与工作树一致，contract/material 字节差异仅换行；stdio 有源码差异且本轮未加载或测试 MCP。未构建安装新 wheel 或重跑发行套件。"
+  },
+  "cli_runs": [
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "validate",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json"
+      ],
+      "started_at": "2026-11-15T00:30:24.571+08:00",
+      "finished_at": "2026-11-15T00:30:25.348+08:00",
+      "wall_seconds": 0.777572,
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "schema_version": "0.1.0",
+        "lesson_id": "welcome-to-wikisource"
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "fingerprint",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json"
+      ],
+      "started_at": "2026-11-15T00:30:25.348+08:00",
+      "finished_at": "2026-11-15T00:30:26.124+08:00",
+      "wall_seconds": 0.77593,
+      "exit_code": 0,
+      "result": {
+        "fingerprint_version": "slcs-pack-v1",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4"
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "digital library"
+      ],
+      "started_at": "2026-11-15T00:30:26.125+08:00",
+      "finished_at": "2026-11-15T00:30:26.862+08:00",
+      "wall_seconds": 0.735847,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "digital library",
+            "gloss": "数字图书馆，在线保存和提供数字化馆藏。",
+            "segment_id": "s02",
+            "token_ids": ["w10", "w11"],
+            "text": "digital library",
+            "start_ms": 8022,
+            "end_ms": 8942,
+            "sentence": "Wikisource volunteers from all over the world are creating digital library in many languages.",
+            "translation": "世界各地的维基文库志愿者正在建设一座多语言数字图书馆。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "digitize"
+      ],
+      "started_at": "2026-11-15T00:30:26.862+08:00",
+      "finished_at": "2026-11-15T00:30:27.566+08:00",
+      "wall_seconds": 0.705032,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "digitize",
+            "gloss": "将纸质书籍扫描并转换为数字形式。",
+            "segment_id": "s03",
+            "token_ids": ["w03"],
+            "text": "digitize",
+            "start_ms": 12942,
+            "end_ms": 13462,
+            "sentence": "We can digitize public domain books as scanned images and upload them to Commons.",
+            "translation": "我们可以把公有领域的书籍扫描成图片，再上传到维基共享资源。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "public domain"
+      ],
+      "started_at": "2026-11-15T00:30:27.566+08:00",
+      "finished_at": "2026-11-15T00:30:28.416+08:00",
+      "wall_seconds": 0.849184,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "public domain",
+            "gloss": "公有领域，此处修饰可自由使用的书籍。",
+            "segment_id": "s03",
+            "token_ids": ["w04", "w05"],
+            "text": "public domain",
+            "start_ms": 13602,
+            "end_ms": 14242,
+            "sentence": "We can digitize public domain books as scanned images and upload them to Commons.",
+            "translation": "我们可以把公有领域的书籍扫描成图片，再上传到维基共享资源。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "scanned image"
+      ],
+      "started_at": "2026-11-15T00:30:28.416+08:00",
+      "finished_at": "2026-11-15T00:30:29.208+08:00",
+      "wall_seconds": 0.792082,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "scanned image",
+            "gloss": "扫描图，由纸质书页扫描得到的图像。",
+            "segment_id": "s03",
+            "token_ids": ["w08", "w09"],
+            "text": "scanned images",
+            "start_ms": 14922,
+            "end_ms": 15782,
+            "sentence": "We can digitize public domain books as scanned images and upload them to Commons.",
+            "translation": "我们可以把公有领域的书籍扫描成图片，再上传到维基共享资源。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "searchable"
+      ],
+      "started_at": "2026-11-15T00:30:29.208+08:00",
+      "finished_at": "2026-11-15T00:30:30.118+08:00",
+      "wall_seconds": 0.909621,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "searchable",
+            "gloss": "可检索的，指可以在线搜索这些内容。",
+            "segment_id": "s07",
+            "token_ids": ["w04"],
+            "text": "searchable",
+            "start_ms": 34582,
+            "end_ms": 35022,
+            "sentence": "The content is searchable in web now.",
+            "translation": "现在可以在网上搜索这些内容了。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "reference"
+      ],
+      "started_at": "2026-11-15T00:30:30.118+08:00",
+      "finished_at": "2026-11-15T00:30:31.001+08:00",
+      "wall_seconds": 0.882572,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "reference",
+            "gloss": "参考资料，此处指可供查阅和引用的文本。",
+            "segment_id": "s09",
+            "token_ids": ["w04"],
+            "text": "reference",
+            "start_ms": 37982,
+            "end_ms": 38342,
+            "sentence": "Use them as reference.",
+            "translation": "把它们用作参考。"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "diverse community"
+      ],
+      "started_at": "2026-11-15T00:30:31.001+08:00",
+      "finished_at": "2026-11-15T00:30:31.839+08:00",
+      "wall_seconds": 0.837981,
+      "exit_code": 0,
+      "result": {
+        "lesson_id": "welcome-to-wikisource",
+        "fingerprint": "d06cd8fa05b10e71d0030fb2e1a5569639c561d565117df91c14057f2f355ab4",
+        "matches": [
+          {
+            "headword": "diverse community",
+            "gloss": "多元社群，成员来自不同背景。",
+            "segment_id": "s12",
+            "token_ids": ["w11", "w12"],
+            "text": "diverse community",
+            "start_ms": 47012,
+            "end_ms": 47752,
+            "sentence": "Why don't you join us and be part of a diverse community?",
+            "translation": "何不加入我们，成为这个多元社群的一员？"
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "backend/.venv/Scripts/python.exe",
+        "-I",
+        "-X",
+        "utf8",
+        "-m",
+        "slcs",
+        "resolve",
+        "--json",
+        "$REPO\\docs\\slcs\\examples\\welcome-to-wikisource.json",
+        "e01-nonexistent-expression"
+      ],
+      "started_at": "2026-11-15T00:30:31.839+08:00",
+      "finished_at": "2026-11-15T00:30:32.595+08:00",
+      "wall_seconds": 0.755474,
+      "exit_code": 1,
+      "result": {
+        "ok": false,
+        "diagnostics": [
+          {
+            "path": "/headword",
+            "message": "no matching vocabulary occurrence"
+          }
+        ]
+      }
+    }
+  ],
+  "anchor_api_activity": {
+    "started_at": "2026-11-15T00:30:26.124+08:00",
+    "finished_at": "2026-11-15T00:30:26.125+08:00",
+    "wall_seconds": 0.000929
+  },
+  "token_anchors": [
+    {
+      "segment_id": "s01",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 7,
+      "surface": "Welcome",
+      "start_ms": 1222,
+      "end_ms": 1562
+    },
+    {
+      "segment_id": "s01",
+      "token_id": "w02",
+      "start_char": 8,
+      "end_char": 10,
+      "surface": "to",
+      "start_ms": 1622,
+      "end_ms": 1682
+    },
+    {
+      "segment_id": "s01",
+      "token_id": "w03",
+      "start_char": 11,
+      "end_char": 21,
+      "surface": "Wikisource",
+      "start_ms": 1762,
+      "end_ms": 2302
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 10,
+      "surface": "Wikisource",
+      "start_ms": 4842,
+      "end_ms": 5382
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w02",
+      "start_char": 11,
+      "end_char": 21,
+      "surface": "volunteers",
+      "start_ms": 5462,
+      "end_ms": 6082
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w03",
+      "start_char": 22,
+      "end_char": 26,
+      "surface": "from",
+      "start_ms": 6182,
+      "end_ms": 6302
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w04",
+      "start_char": 27,
+      "end_char": 30,
+      "surface": "all",
+      "start_ms": 6462,
+      "end_ms": 6582
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w05",
+      "start_char": 31,
+      "end_char": 35,
+      "surface": "over",
+      "start_ms": 6722,
+      "end_ms": 6862
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w06",
+      "start_char": 36,
+      "end_char": 39,
+      "surface": "the",
+      "start_ms": 6922,
+      "end_ms": 7002
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w07",
+      "start_char": 40,
+      "end_char": 45,
+      "surface": "world",
+      "start_ms": 7062,
+      "end_ms": 7282
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w08",
+      "start_char": 46,
+      "end_char": 49,
+      "surface": "are",
+      "start_ms": 7422,
+      "end_ms": 7522
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w09",
+      "start_char": 50,
+      "end_char": 58,
+      "surface": "creating",
+      "start_ms": 7602,
+      "end_ms": 7942
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w10",
+      "start_char": 59,
+      "end_char": 66,
+      "surface": "digital",
+      "start_ms": 8022,
+      "end_ms": 8382
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w11",
+      "start_char": 67,
+      "end_char": 74,
+      "surface": "library",
+      "start_ms": 8442,
+      "end_ms": 8942
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w12",
+      "start_char": 75,
+      "end_char": 77,
+      "surface": "in",
+      "start_ms": 9082,
+      "end_ms": 9122
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w13",
+      "start_char": 78,
+      "end_char": 82,
+      "surface": "many",
+      "start_ms": 9222,
+      "end_ms": 9442
+    },
+    {
+      "segment_id": "s02",
+      "token_id": "w14",
+      "start_char": 83,
+      "end_char": 92,
+      "surface": "languages",
+      "start_ms": 9522,
+      "end_ms": 10102
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 2,
+      "surface": "We",
+      "start_ms": 12602,
+      "end_ms": 12682
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w02",
+      "start_char": 3,
+      "end_char": 6,
+      "surface": "can",
+      "start_ms": 12762,
+      "end_ms": 12862
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w03",
+      "start_char": 7,
+      "end_char": 15,
+      "surface": "digitize",
+      "start_ms": 12942,
+      "end_ms": 13462
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w04",
+      "start_char": 16,
+      "end_char": 22,
+      "surface": "public",
+      "start_ms": 13602,
+      "end_ms": 13882
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w05",
+      "start_char": 23,
+      "end_char": 29,
+      "surface": "domain",
+      "start_ms": 13942,
+      "end_ms": 14242
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w06",
+      "start_char": 30,
+      "end_char": 35,
+      "surface": "books",
+      "start_ms": 14322,
+      "end_ms": 14582
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w07",
+      "start_char": 36,
+      "end_char": 38,
+      "surface": "as",
+      "start_ms": 14762,
+      "end_ms": 14802
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w08",
+      "start_char": 39,
+      "end_char": 46,
+      "surface": "scanned",
+      "start_ms": 14922,
+      "end_ms": 15302
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w09",
+      "start_char": 47,
+      "end_char": 53,
+      "surface": "images",
+      "start_ms": 15462,
+      "end_ms": 15782
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w10",
+      "start_char": 54,
+      "end_char": 57,
+      "surface": "and",
+      "start_ms": 15882,
+      "end_ms": 15962
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w11",
+      "start_char": 58,
+      "end_char": 64,
+      "surface": "upload",
+      "start_ms": 16082,
+      "end_ms": 16422
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w12",
+      "start_char": 65,
+      "end_char": 69,
+      "surface": "them",
+      "start_ms": 16522,
+      "end_ms": 16622
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w13",
+      "start_char": 70,
+      "end_char": 72,
+      "surface": "to",
+      "start_ms": 16702,
+      "end_ms": 16822
+    },
+    {
+      "segment_id": "s03",
+      "token_id": "w14",
+      "start_char": 73,
+      "end_char": 80,
+      "surface": "Commons",
+      "start_ms": 16942,
+      "end_ms": 17362
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 5,
+      "surface": "These",
+      "start_ms": 19902,
+      "end_ms": 20102
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w02",
+      "start_char": 6,
+      "end_char": 11,
+      "surface": "image",
+      "start_ms": 20242,
+      "end_ms": 20462
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w03",
+      "start_char": 12,
+      "end_char": 17,
+      "surface": "files",
+      "start_ms": 20582,
+      "end_ms": 20942
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w04",
+      "start_char": 18,
+      "end_char": 21,
+      "surface": "are",
+      "start_ms": 21022,
+      "end_ms": 21082
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w05",
+      "start_char": 22,
+      "end_char": 26,
+      "surface": "then",
+      "start_ms": 21162,
+      "end_ms": 21282
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w06",
+      "start_char": 27,
+      "end_char": 36,
+      "surface": "converted",
+      "start_ms": 21362,
+      "end_ms": 21742
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w07",
+      "start_char": 37,
+      "end_char": 41,
+      "surface": "into",
+      "start_ms": 21862,
+      "end_ms": 22042
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w08",
+      "start_char": 42,
+      "end_char": 46,
+      "surface": "text",
+      "start_ms": 22122,
+      "end_ms": 22382
+    },
+    {
+      "segment_id": "s04",
+      "token_id": "w09",
+      "start_char": 47,
+      "end_char": 53,
+      "surface": "format",
+      "start_ms": 22522,
+      "end_ms": 22882
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 3,
+      "surface": "The",
+      "start_ms": 25362,
+      "end_ms": 25442
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w02",
+      "start_char": 4,
+      "end_char": 8,
+      "surface": "next",
+      "start_ms": 25522,
+      "end_ms": 25742
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w03",
+      "start_char": 9,
+      "end_char": 13,
+      "surface": "step",
+      "start_ms": 25782,
+      "end_ms": 26002
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w04",
+      "start_char": 14,
+      "end_char": 16,
+      "surface": "is",
+      "start_ms": 26142,
+      "end_ms": 26222
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w05",
+      "start_char": 17,
+      "end_char": 19,
+      "surface": "to",
+      "start_ms": 26302,
+      "end_ms": 26382
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w06",
+      "start_char": 20,
+      "end_char": 25,
+      "surface": "check",
+      "start_ms": 26462,
+      "end_ms": 26662
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w07",
+      "start_char": 26,
+      "end_char": 31,
+      "surface": "these",
+      "start_ms": 26722,
+      "end_ms": 26902
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w08",
+      "start_char": 32,
+      "end_char": 37,
+      "surface": "texts",
+      "start_ms": 27022,
+      "end_ms": 27322
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w09",
+      "start_char": 38,
+      "end_char": 40,
+      "surface": "if",
+      "start_ms": 27462,
+      "end_ms": 27502
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w10",
+      "start_char": 41,
+      "end_char": 45,
+      "surface": "they",
+      "start_ms": 27562,
+      "end_ms": 27662
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w11",
+      "start_char": 46,
+      "end_char": 51,
+      "surface": "match",
+      "start_ms": 27762,
+      "end_ms": 28002
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w12",
+      "start_char": 52,
+      "end_char": 56,
+      "surface": "with",
+      "start_ms": 28102,
+      "end_ms": 28242
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w13",
+      "start_char": 57,
+      "end_char": 58,
+      "surface": "a",
+      "start_ms": 28342,
+      "end_ms": 28362
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w14",
+      "start_char": 59,
+      "end_char": 66,
+      "surface": "scanned",
+      "start_ms": 28402,
+      "end_ms": 28782
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w15",
+      "start_char": 67,
+      "end_char": 72,
+      "surface": "image",
+      "start_ms": 28882,
+      "end_ms": 29122
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w16",
+      "start_char": 73,
+      "end_char": 76,
+      "surface": "and",
+      "start_ms": 29142,
+      "end_ms": 29222
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w17",
+      "start_char": 77,
+      "end_char": 79,
+      "surface": "to",
+      "start_ms": 29282,
+      "end_ms": 29342
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w18",
+      "start_char": 80,
+      "end_char": 87,
+      "surface": "correct",
+      "start_ms": 29402,
+      "end_ms": 29682
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w19",
+      "start_char": 88,
+      "end_char": 92,
+      "surface": "them",
+      "start_ms": 29742,
+      "end_ms": 29842
+    },
+    {
+      "segment_id": "s05",
+      "token_id": "w20",
+      "start_char": 93,
+      "end_char": 104,
+      "surface": "accordingly",
+      "start_ms": 29922,
+      "end_ms": 30542
+    },
+    {
+      "segment_id": "s06",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 5,
+      "surface": "Guess",
+      "start_ms": 32862,
+      "end_ms": 33082
+    },
+    {
+      "segment_id": "s06",
+      "token_id": "w02",
+      "start_char": 6,
+      "end_char": 10,
+      "surface": "what",
+      "start_ms": 33202,
+      "end_ms": 33382
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 3,
+      "surface": "The",
+      "start_ms": 33702,
+      "end_ms": 33782
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w02",
+      "start_char": 4,
+      "end_char": 11,
+      "surface": "content",
+      "start_ms": 33862,
+      "end_ms": 34322
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w03",
+      "start_char": 12,
+      "end_char": 14,
+      "surface": "is",
+      "start_ms": 34442,
+      "end_ms": 34482
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w04",
+      "start_char": 15,
+      "end_char": 25,
+      "surface": "searchable",
+      "start_ms": 34582,
+      "end_ms": 35022
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w05",
+      "start_char": 26,
+      "end_char": 28,
+      "surface": "in",
+      "start_ms": 35142,
+      "end_ms": 35182
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w06",
+      "start_char": 29,
+      "end_char": 32,
+      "surface": "web",
+      "start_ms": 35242,
+      "end_ms": 35382
+    },
+    {
+      "segment_id": "s07",
+      "token_id": "w07",
+      "start_char": 33,
+      "end_char": 36,
+      "surface": "now",
+      "start_ms": 35462,
+      "end_ms": 35622
+    },
+    {
+      "segment_id": "s08",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 4,
+      "surface": "Read",
+      "start_ms": 36442,
+      "end_ms": 36642
+    },
+    {
+      "segment_id": "s08",
+      "token_id": "w02",
+      "start_char": 5,
+      "end_char": 9,
+      "surface": "them",
+      "start_ms": 36742,
+      "end_ms": 36882
+    },
+    {
+      "segment_id": "s09",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 3,
+      "surface": "Use",
+      "start_ms": 37302,
+      "end_ms": 37422
+    },
+    {
+      "segment_id": "s09",
+      "token_id": "w02",
+      "start_char": 4,
+      "end_char": 8,
+      "surface": "them",
+      "start_ms": 37502,
+      "end_ms": 37622
+    },
+    {
+      "segment_id": "s09",
+      "token_id": "w03",
+      "start_char": 9,
+      "end_char": 11,
+      "surface": "as",
+      "start_ms": 37842,
+      "end_ms": 37902
+    },
+    {
+      "segment_id": "s09",
+      "token_id": "w04",
+      "start_char": 12,
+      "end_char": 21,
+      "surface": "reference",
+      "start_ms": 37982,
+      "end_ms": 38342
+    },
+    {
+      "segment_id": "s10",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 5,
+      "surface": "Share",
+      "start_ms": 38742,
+      "end_ms": 38942
+    },
+    {
+      "segment_id": "s10",
+      "token_id": "w02",
+      "start_char": 6,
+      "end_char": 10,
+      "surface": "them",
+      "start_ms": 39022,
+      "end_ms": 39122
+    },
+    {
+      "segment_id": "s10",
+      "token_id": "w03",
+      "start_char": 11,
+      "end_char": 15,
+      "surface": "with",
+      "start_ms": 39182,
+      "end_ms": 39302
+    },
+    {
+      "segment_id": "s10",
+      "token_id": "w04",
+      "start_char": 16,
+      "end_char": 22,
+      "surface": "others",
+      "start_ms": 39422,
+      "end_ms": 39662
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 2,
+      "surface": "We",
+      "start_ms": 42222,
+      "end_ms": 42322
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w02",
+      "start_char": 3,
+      "end_char": 6,
+      "surface": "are",
+      "start_ms": 42382,
+      "end_ms": 42462
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w03",
+      "start_char": 7,
+      "end_char": 15,
+      "surface": "creating",
+      "start_ms": 42542,
+      "end_ms": 42902
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w04",
+      "start_char": 16,
+      "end_char": 25,
+      "surface": "something",
+      "start_ms": 43002,
+      "end_ms": 43342
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w05",
+      "start_char": 26,
+      "end_char": 32,
+      "surface": "really",
+      "start_ms": 43402,
+      "end_ms": 43682
+    },
+    {
+      "segment_id": "s11",
+      "token_id": "w06",
+      "start_char": 33,
+      "end_char": 40,
+      "surface": "amazing",
+      "start_ms": 43782,
+      "end_ms": 44202
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w01",
+      "start_char": 0,
+      "end_char": 3,
+      "surface": "Why",
+      "start_ms": 45072,
+      "end_ms": 45232
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w02",
+      "start_char": 4,
+      "end_char": 9,
+      "surface": "don't",
+      "start_ms": 45312,
+      "end_ms": 45472
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w03",
+      "start_char": 10,
+      "end_char": 13,
+      "surface": "you",
+      "start_ms": 45512,
+      "end_ms": 45632
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w04",
+      "start_char": 14,
+      "end_char": 18,
+      "surface": "join",
+      "start_ms": 45712,
+      "end_ms": 45952
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w05",
+      "start_char": 19,
+      "end_char": 21,
+      "surface": "us",
+      "start_ms": 46072,
+      "end_ms": 46132
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w06",
+      "start_char": 22,
+      "end_char": 25,
+      "surface": "and",
+      "start_ms": 46272,
+      "end_ms": 46352
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w07",
+      "start_char": 26,
+      "end_char": 28,
+      "surface": "be",
+      "start_ms": 46392,
+      "end_ms": 46472
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w08",
+      "start_char": 29,
+      "end_char": 33,
+      "surface": "part",
+      "start_ms": 46612,
+      "end_ms": 46772
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w09",
+      "start_char": 34,
+      "end_char": 36,
+      "surface": "of",
+      "start_ms": 46832,
+      "end_ms": 46872
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w10",
+      "start_char": 37,
+      "end_char": 38,
+      "surface": "a",
+      "start_ms": 46952,
+      "end_ms": 46972
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w11",
+      "start_char": 39,
+      "end_char": 46,
+      "surface": "diverse",
+      "start_ms": 47012,
+      "end_ms": 47312
+    },
+    {
+      "segment_id": "s12",
+      "token_id": "w12",
+      "start_char": 47,
+      "end_char": 56,
+      "surface": "community",
+      "start_ms": 47352,
+      "end_ms": 47752
+    }
+  ],
+  "vocabulary_anchors": [
+    {
+      "headword": "digital library",
+      "segment_id": "s02",
+      "token_ids": ["w10", "w11"],
+      "surface": "digital library",
+      "start_ms": 8022,
+      "end_ms": 8942,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "digitize",
+      "segment_id": "s03",
+      "token_ids": ["w03"],
+      "surface": "digitize",
+      "start_ms": 12942,
+      "end_ms": 13462,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "public domain",
+      "segment_id": "s03",
+      "token_ids": ["w04", "w05"],
+      "surface": "public domain",
+      "start_ms": 13602,
+      "end_ms": 14242,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "scanned image",
+      "segment_id": "s03",
+      "token_ids": ["w08", "w09"],
+      "surface": "scanned images",
+      "start_ms": 14922,
+      "end_ms": 15782,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "searchable",
+      "segment_id": "s07",
+      "token_ids": ["w04"],
+      "surface": "searchable",
+      "start_ms": 34582,
+      "end_ms": 35022,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "reference",
+      "segment_id": "s09",
+      "token_ids": ["w04"],
+      "surface": "reference",
+      "start_ms": 37982,
+      "end_ms": 38342,
+      "status": "resolved_matches_stored_text_and_times"
+    },
+    {
+      "headword": "diverse community",
+      "segment_id": "s12",
+      "token_ids": ["w11", "w12"],
+      "surface": "diverse community",
+      "start_ms": 47012,
+      "end_ms": 47752,
+      "status": "resolved_matches_stored_text_and_times"
+    }
+  ],
+  "negative_checks": [
+    {
+      "case": "unknown_token",
+      "result": "rejected",
+      "message": "unknown token ID"
+    },
+    {
+      "case": "empty_anchor",
+      "result": "rejected",
+      "message": "expected consecutive tokens in text order"
+    },
+    {
+      "case": "nonconsecutive_anchor",
+      "result": "rejected",
+      "message": "expected consecutive tokens in text order"
+    },
+    {
+      "case": "vocabulary_outside_selected_segment",
+      "result": "no_match"
+    }
+  ],
+  "text_review": {
+    "reviewer": "本会话主助手，非独立人类审核",
+    "method": "逐段比较现有英文文本与简中译文，再逐项审阅词汇的当前语境说明；没有调用额外模型服务或改写原包；不是原声听校或人工认证",
+    "segments": [
+      {
+        "segment_id": "s01",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "欢迎语与专名对应。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s02",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "志愿者、世界各地、多语言数字图书馆均有对应；英文缺少自然的限定表达，见 E01-T01。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s03",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "扫描、公有领域书籍与 Commons 的动作和对象对应；具体书籍权利不由此句证明。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s04",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "图像文件转成文本的动作对应。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s05",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "检查文本与扫描图并修正的含义对应；英文句式不自然，见 E01-T02。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s06",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "口语引入语译法在当前上下文自然。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s07",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "在线可检索的含义对应；英文介词搭配需回原声，见 E01-T03。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s08",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "中文省略代词，承接前文内容，未见明显改义。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s09",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "用作参考的用途对应。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s10",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "与其他人分享的动作对应；不由材料中的祈使句触发系统操作。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s11",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "表达赞叹的主要含义对应。",
+        "audio_and_timing": "not_verified"
+      },
+      {
+        "segment_id": "s12",
+        "translation_review": "no_obvious_shift_in_given_text",
+        "note": "邀请加入多元社群的意图对应。",
+        "audio_and_timing": "not_verified"
+      }
+    ],
+    "vocabulary": [
+      {
+        "headword": "digital library",
+        "segment_id": "s02",
+        "review": "contextually_consistent",
+        "note": "数字图书馆的语境说明与句中对象对应。"
+      },
+      {
+        "headword": "digitize",
+        "segment_id": "s03",
+        "review": "contextually_consistent",
+        "note": "释义限定为当前纸质书扫描场景，不据此定义所有数字化方式。"
+      },
+      {
+        "headword": "public domain",
+        "segment_id": "s03",
+        "review": "qualification_needed",
+        "note": "公有领域这一译名对应；可自由使用的表述缺少适用范围限定，见 E01-G01。"
+      },
+      {
+        "headword": "scanned image",
+        "segment_id": "s03",
+        "review": "contextually_consistent",
+        "note": "锚点实际表面词形为 scanned images；词条单数与原句复数不构成定位错误，不做静默改词。"
+      },
+      {
+        "headword": "searchable",
+        "segment_id": "s07",
+        "review": "contextually_consistent",
+        "note": "可检索的形容词说明对应当前句意。"
+      },
+      {
+        "headword": "reference",
+        "segment_id": "s09",
+        "review": "contextually_consistent",
+        "note": "查阅和引用的语境说明合理。"
+      },
+      {
+        "headword": "diverse community",
+        "segment_id": "s12",
+        "review": "contextually_consistent",
+        "note": "多元社群的释义对应；不是对实际成员构成的外部事实核实。"
+      }
+    ],
+    "findings": [
+      {
+        "id": "E01-T01",
+        "segment_id": "s02",
+        "kind": "source_check_needed",
+        "observed": "are creating digital library in many languages",
+        "concern": "单数可数名词 digital library 前的限定表达不自然。",
+        "disposition": "先回原声确定是原讲话还是转录差异；不得为语法顺畅直接覆盖转录。"
+      },
+      {
+        "id": "E01-T02",
+        "segment_id": "s05",
+        "kind": "source_check_needed",
+        "observed": "check these texts if they match with a scanned image",
+        "concern": "句式不自然，不适合在未核原声时直接当作规范英文范例。",
+        "disposition": "保留原包；核原声后区分忠实转录和教学说明，不把建议措辞当作已授权改写。"
+      },
+      {
+        "id": "E01-T03",
+        "segment_id": "s07",
+        "kind": "source_check_needed",
+        "observed": "searchable in web now",
+        "concern": "web 前的介词／限定表达不自然；本轮不能判定是否转录错误。",
+        "disposition": "回原声核对，不凭常见搭配替换来源文本。"
+      },
+      {
+        "id": "E01-G01",
+        "segment_id": "s03",
+        "token_ids": ["w04", "w05"],
+        "headword": "public domain",
+        "kind": "editorial_qualification",
+        "observed": "公有领域，此处修饰可自由使用的书籍。",
+        "concern": "可自由使用易被理解为任何地区、任何权利和任何用途都无限制；本句不核实具体书籍权利。",
+        "disposition": "内容复核时补清版权层面的语境边界，避免无限制权利承诺；原包本轮不改写。"
+      }
+    ],
+    "conclusion": "已审阅 12 段文本对应和 7 个词汇；未发现明显英中改义，记录 3 处需原声确认的英文表达与 1 处释义限定建议。不等同全部内容准确或人工审核通过。"
+  },
+  "effort": {
+    "human_active_minutes": null,
+    "human_waiting_minutes": null,
+    "human_rework_minutes": null,
+    "reason": "没有人类审核者在本次活动中提交计时；未将助手／命令墙钟耗时换算为人工工时",
+    "throughput_estimate": null
+  },
+  "not_verified": [
+    "原声音词一致性与真实时间轴",
+    "本站新增部分的完整创作来源",
+    "独立人工内容审核与实际工时",
+    "网站播放／点词／收词／复习／恢复及账号生命周期",
+    "九场景材料适配、学习效果和参与者结果",
+    "新 wheel 发行与跨平台／第三方接入",
+    "正式发布或任何生产状态"
+  ],
+  "changes": "原包、schema、业务代码、业务库、根许可、依赖、功能开关、生产、远端仓库均未修改；未调用额外模型／转录服务",
+  "record_finalized_at": "2026-11-15T00:35:14+08:00"
+}

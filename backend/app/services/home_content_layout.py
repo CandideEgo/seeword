@@ -1,6 +1,6 @@
 """首页编排的布局读写与公共读取（A15 业务边界拆分）。
 
-契约见 ``docs/home-editorial-content-implementation-2026-10.md`` §2 / §5。这一层管
+契约见 ``backend/app/schemas/home_content.py``。这一层管
 「哪些内容版本放在哪四个位置」以及「线上首页现在长什么样」：
 
 - ``HomePageConfig`` 单例行（draft / published / previous 三份布局）、版本号与 CAS；

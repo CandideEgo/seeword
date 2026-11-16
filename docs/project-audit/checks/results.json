@@ -1,0 +1,208 @@
+{
+  "date_beijing": "2026-11-14",
+  "baseline": "a93979c34dab7b8fb7a5493f76b63a28e58d48ac",
+  "results": [
+    {
+      "id": "backend_nonintegration",
+      "result": {
+        "passed": 1790,
+        "integration_deselected": 68,
+        "warnings": 64,
+        "seconds": 2036.19
+      },
+      "local_log": "tmp/project-audit/backend-pytest.log",
+      "sha256": "c28872b3cd84a6ac7c1e63327964e381850aa51eac2f1f44515230b1d83e8691"
+    },
+    {
+      "id": "backend_final_targeted",
+      "result": {
+        "passed": 133,
+        "warnings": 4,
+        "seconds": 91.03,
+        "overlaps_full_suite": true
+      },
+      "local_log": "tmp/project-audit/backend-final-targeted.log",
+      "sha256": "575adcf8f340c39caf0f03b4c4baff6537b12ebf1a2abc59a7b5727b7c8aa181"
+    },
+    {
+      "id": "backend_lint_app_tests_scripts",
+      "result": {
+        "exit_code": 0
+      },
+      "local_log": "tmp/project-audit/backend-final-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "id": "backend_format_app_tests",
+      "result": {
+        "exit_code": 0,
+        "files": 418
+      },
+      "local_log": "tmp/project-audit/backend-final-format.log",
+      "sha256": "20a82fd730dc990355ad53096b7819b571a393eb1524bddb3f70bb7332464c77"
+    },
+    {
+      "id": "frontend_postreview_check",
+      "result": {
+        "exit_code": 0
+      },
+      "local_log": "tmp/project-audit/frontend-postreview-check.log",
+      "sha256": "6bf9e5f3cdd8eae258abc756ebbe51cfcdbde2f039716f0f181e9a0c6aee8f5f"
+    },
+    {
+      "id": "frontend_unit",
+      "result": {
+        "passed": 393,
+        "test_files": 42
+      },
+      "local_log": "tmp/project-audit/frontend-final-unit.log",
+      "sha256": "99076810700c7bb7e5460652e0a6e7c59d078d20aaefe93803e89deaa8270051"
+    },
+    {
+      "id": "frontend_production_build",
+      "result": {
+        "exit_code": 0,
+        "next_version": "16.4.3",
+        "static_items": 44
+      },
+      "local_log": "tmp/project-audit/frontend-build.log",
+      "sha256": "7e10a33dc159fea960a12e45e5eab55eb892f9c9f3db472c5a7ad3d702c3e5b6"
+    },
+    {
+      "id": "playwright_collection_only",
+      "result": {
+        "exit_code": 0,
+        "tests_collected": 779,
+        "test_files": 45,
+        "tests_executed": 0
+      },
+      "local_log": "tmp/project-audit/e2e-list.log",
+      "sha256": "f97583a0aa8cfb7bd309d09b3e3d6536c9581266b2d069ebbda58dc2ea32f3b3"
+    },
+    {
+      "id": "gpu_lint",
+      "result": {
+        "exit_code": 0
+      },
+      "local_log": "tmp/project-audit/gpu-final-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "id": "gpu_format",
+      "result": {
+        "exit_code": 0,
+        "files": 26
+      },
+      "local_log": "tmp/project-audit/gpu-final-format.log",
+      "sha256": "cdd24684b33e5200a213c89093e8da4cb81a0de0085a4684d20923e852610123"
+    },
+    {
+      "id": "gpu_mock_tests",
+      "result": {
+        "passed": 68,
+        "real_gpu": false,
+        "runtime": "backend/.venv/Scripts/python.exe reused for compatible lightweight CI dependencies"
+      },
+      "local_log": "tmp/project-audit/gpu-final-tests.log",
+      "sha256": "53da50fee78a79dc6ab4cb7b7fb34ea0df9f4478b9d879230451ee38884c7e55"
+    },
+    {
+      "id": "gateway_adapter_tests",
+      "result": {
+        "passed": 27
+      },
+      "local_log": "tmp/project-audit/gateway-unit.log",
+      "sha256": "523a631afb4b7b98b4cd04aabbe99d2c0d4540d9f94149b75ef34d98d838c226"
+    },
+    {
+      "id": "gateway_loopback_receipts",
+      "result": {
+        "exit_code": 0,
+        "asserted_pass_lines": 2,
+        "real_provider": false
+      },
+      "local_log": "tmp/project-audit/gateway-http.log",
+      "sha256": "fd90261d2a903859fa027dfdb513483fe82dba8030ac49614c4d98c3ac59ea94"
+    },
+    {
+      "id": "slcs_build_install_pipcheck",
+      "result": {
+        "exit_code": 0,
+        "environment": "isolated tmp/project-audit/slcs-env",
+        "installed_distribution": "site-packages/slcs"
+      },
+      "local_log": "tmp/project-audit/slcs-build.log",
+      "sha256": "9faddefa48e4e396f0828e3d82e0b658eb3818b6b8cbc86b61b921abe5a60f0d"
+    },
+    {
+      "id": "slcs_installed_wheel_suite",
+      "result": {
+        "passed": 11,
+        "skipped": 1,
+        "skip_reason": "published-tree-only installation assertion; separate released tree covers it"
+      },
+      "local_log": "tmp/project-audit/slcs-tests.log",
+      "sha256": "0b603afb3770e071f54a1218a73ec0f887788f32146044e78b55caf2e05ee8d4"
+    },
+    {
+      "id": "slcs_release_build",
+      "result": {
+        "exit_code": 0,
+        "checksum_files": 28
+      },
+      "local_log": "tmp/project-audit/slcs-release.log",
+      "sha256": "9ede7e91314e358d81c570e018a892be12fb0d4ee05b522c8b8784a88b37821a"
+    },
+    {
+      "id": "slcs_released_tree_suite",
+      "result": {
+        "passed": 12,
+        "skipped": 0
+      },
+      "local_log": "tmp/project-audit/slcs-release-tests.log",
+      "sha256": "d7608375b62b97f249b50d6e67f6e8c86845a54a77dccbeb312413476d455cee"
+    },
+    {
+      "id": "mypy",
+      "result": {
+        "exit_code": 1,
+        "found_pairs": 33,
+        "baseline_pairs": 36,
+        "new_pairs": [],
+        "passed": true
+      },
+      "local_log": "tmp/project-audit/mypy.log",
+      "sha256": "766dd7503d5040ad57731aa61767b70a2785b1c08df74c891e89b5334686bd63"
+    },
+    {
+      "id": "bandit",
+      "result": {
+        "exit_code": 0,
+        "passed": true
+      },
+      "local_log": "tmp/project-audit/bandit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "review": {
+    "independent_model_family": "Opus",
+    "read_only_passes": 1,
+    "verified_delivery_findings": 3,
+    "resolved": [
+      "component-root bare import indexing",
+      "remaining e2e legacy output paths",
+      "binary/Next metadata icon classification"
+    ],
+    "business_risks_not_fixed": true
+  },
+  "not_run": [
+    "PostgreSQL integration/migrations/concurrency",
+    "full Playwright execution/manual visual inspection (no changed product UI AST)",
+    "real GPU/provider/remote gateway acceptance",
+    "online pip-audit and legal re-verification",
+    "CI coverage threshold calculation",
+    "production operations"
+  ],
+  "permanent_deletion": false,
+  "git_commit_or_push": false
+}

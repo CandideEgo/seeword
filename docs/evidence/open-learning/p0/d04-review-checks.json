@@ -1,0 +1,295 @@
+{
+  "status": "passed",
+  "scope": "Documentation and evidence consistency only, not legal or release approval",
+  "checked_at": "2026-11-13T13:42:31.285250+00:00",
+  "hash_or_presence_checks": 508,
+  "relative_link_occurrences": 53,
+  "local_links": [
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "d04-license-inventory.md",
+      "target": "docs/open-learning/p0/d04-license-inventory.md"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-local-license-evidence.json",
+      "target": "docs/evidence/open-learning/p0/d04-local-license-evidence.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-python-registry.json",
+      "target": "docs/evidence/open-learning/p0/d04-python-registry.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-wheel-license-evidence.json",
+      "target": "docs/evidence/open-learning/p0/d04-wheel-license-evidence.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-upstream-source-checks.json",
+      "target": "docs/evidence/open-learning/p0/d04-upstream-source-checks.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-version-matrix.json",
+      "target": "docs/evidence/open-learning/p0/d04-version-matrix.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-consumer-evidence.json",
+      "target": "docs/evidence/open-learning/p0/d04-consumer-evidence.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../frontend/package.json",
+      "target": "frontend/package.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../frontend/src/components/common/PageTransition.tsx",
+      "target": "frontend/src/components/common/PageTransition.tsx"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../frontend/next.config.js",
+      "target": "frontend/next.config.js"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../frontend/Dockerfile.prod",
+      "target": "frontend/Dockerfile.prod"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../frontend/postcss.config.js",
+      "target": "frontend/postcss.config.js"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../backend/requirements-cloud.txt",
+      "target": "backend/requirements-cloud.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../gpu-worker/gpu_worker/config.py",
+      "target": "gpu-worker/gpu_worker/config.py"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../gpu-worker/gpu_worker/transcription/whisper_model.py",
+      "target": "gpu-worker/gpu_worker/transcription/whisper_model.py"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../backend/Dockerfile.cloud",
+      "target": "backend/Dockerfile.cloud"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../../deploy/v2-gateway/image-lock.json",
+      "target": "deploy/v2-gateway/image-lock.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-review-2026-11-13.md",
+      "href": "../../evidence/open-learning/p0/d04-review-checks.json",
+      "target": "docs/evidence/open-learning/p0/d04-review-checks.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "d04-license-review-2026-11-13.md",
+      "target": "docs/open-learning/p0/d04-license-review-2026-11-13.md"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../p0-worklog.md",
+      "target": "docs/open-learning/p0-worklog.md"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../evidence/open-learning/p0/inventory.json",
+      "target": "docs/evidence/open-learning/p0/inventory.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../frontend/package.json",
+      "target": "frontend/package.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../frontend/package-lock.json",
+      "target": "frontend/package-lock.json"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/requirements-cloud.txt",
+      "target": "backend/requirements-cloud.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/requirements-dev.txt",
+      "target": "backend/requirements-dev.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/slcs/requirements-mcp.lock",
+      "target": "backend/slcs/requirements-mcp.lock"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements.txt",
+      "target": "gpu-worker/requirements.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements-dev.txt",
+      "target": "gpu-worker/requirements-dev.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements-ci.txt",
+      "target": "gpu-worker/requirements-ci.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements.lock.txt",
+      "target": "gpu-worker/requirements.lock.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "target": "deploy/v2-gateway/adapter/requirements-runtime.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../deploy/v2-gateway/adapter/requirements.txt",
+      "target": "deploy/v2-gateway/adapter/requirements.txt"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../LICENSE",
+      "target": "LICENSE"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../slcs/LICENSES.md",
+      "target": "docs/slcs/LICENSES.md"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/scripts/download_ecdict.py",
+      "target": "backend/scripts/download_ecdict.py"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/gpu_worker/config.py",
+      "target": "gpu-worker/gpu_worker/config.py"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../seeword-open-source-development-outline-2026-11-13.md",
+      "target": "docs/seeword-open-source-development-outline-2026-11-13.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "content-access-matrix.md",
+      "target": "docs/open-learning/content-access-matrix.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/acceptance-cards.md",
+      "target": "docs/evidence/open-learning/acceptance-cards.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/d04-license-inventory.md",
+      "target": "docs/open-learning/p0/d04-license-inventory.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/d04-license-review-2026-11-13.md",
+      "target": "docs/open-learning/p0/d04-license-review-2026-11-13.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/source-evidence-ledger.md",
+      "target": "docs/open-learning/p0/source-evidence-ledger.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/p0/inventory.json",
+      "target": "docs/evidence/open-learning/p0/inventory.json"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/acceptance.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/p0/document-checks.json",
+      "target": "docs/evidence/open-learning/p0/document-checks.json"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/d04-license-review-2026-11-13.md",
+      "target": "docs/open-learning/p0/d04-license-review-2026-11-13.md"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/slcs/pyproject.toml",
+      "target": "backend/slcs/pyproject.toml"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/slcs/stdio.py",
+      "target": "backend/slcs/stdio.py"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/lessons.py",
+      "target": "backend/app/services/lessons.py"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../frontend/src/components/lessons/LessonReader.tsx",
+      "target": "frontend/src/components/lessons/LessonReader.tsx"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/lesson_learning.py",
+      "target": "backend/app/services/lesson_learning.py"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/account_data.py",
+      "target": "backend/app/services/account_data.py"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/external_connection_service.py",
+      "target": "backend/app/services/external_connection_service.py"
+    }
+  ],
+  "asserted_counts": {
+    "frontend_lock_entries": 319,
+    "matching_local_frontend_versions": 236,
+    "frontend_with_license_files": 222,
+    "local_python_names_with_license_files": 99,
+    "pypi_coordinates": 81,
+    "wheels": 13,
+    "wheel_license_documents": 14
+  },
+  "excluded_error_pages": [
+    "https://raw.githubusercontent.com/BerriAI/litellm/61c6ab78393ef45683dd7d963d2a315bd845e20b/enterprise/LICENSE",
+    "https://raw.githubusercontent.com/libvips/libvips/v8.18.7/COPYING"
+  ],
+  "root_license_unchanged": true,
+  "not_executed": [
+    "Business tests and browser acceptance",
+    "New production image build or image-layer audit",
+    "GPU host, CUDA, model weights and business database inspection",
+    "Full legal audit, external rights-holder contact or new contribution approval",
+    "Dependency cleanup, root license change, commit, push or deploy"
+  ]
+}

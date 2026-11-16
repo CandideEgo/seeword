@@ -1,0 +1,438 @@
+{
+  "status": "passed",
+  "scope": "documentation_and_snapshot_only",
+  "checked_at": "2026-11-13T12:56:02.226137+00:00",
+  "markdown_files": [
+    "docs/seeword-open-source-development-outline-2026-11-13.md",
+    "docs/open-learning/content-access-matrix.md",
+    "docs/open-learning/p0/d04-license-inventory.md",
+    "docs/open-learning/p0/source-evidence-ledger.md",
+    "docs/open-learning/p0-worklog.md",
+    "docs/evidence/open-learning/acceptance-cards.md"
+  ],
+  "local_link_occurrences": 56,
+  "unique_local_targets": 37,
+  "local_links": [
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "open-learning/p0-worklog.md",
+      "target": "docs/open-learning/p0-worklog.md",
+      "bytes": 11686,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/acceptance.md",
+      "bytes": 8298,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "open-learning/p0-worklog.md",
+      "target": "docs/open-learning/p0-worklog.md",
+      "bytes": 11686,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "open-learning/content-access-matrix.md",
+      "target": "docs/open-learning/content-access-matrix.md",
+      "bytes": 5399,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "open-learning/p0/source-evidence-ledger.md",
+      "target": "docs/open-learning/p0/source-evidence-ledger.md",
+      "bytes": 4941,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "evidence/open-learning/acceptance-cards.md",
+      "target": "docs/evidence/open-learning/acceptance-cards.md",
+      "bytes": 6217,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "../refactor-blueprint/README.md",
+      "target": "refactor-blueprint/README.md",
+      "bytes": 4076,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "slcs/README.md",
+      "target": "docs/slcs/README.md",
+      "bytes": 8837,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "slcs/05-community-governance.md",
+      "target": "docs/slcs/05-community-governance.md",
+      "bytes": 6190,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "../DESIGN.md",
+      "target": "DESIGN.md",
+      "bytes": 3602,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "../frontend/DESIGN.md",
+      "target": "frontend/DESIGN.md",
+      "bytes": 7003,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/acceptance.md",
+      "bytes": 8298,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "../LICENSE",
+      "target": "LICENSE",
+      "bytes": 828,
+      "status": "readable"
+    },
+    {
+      "source": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "href": "slcs/LICENSES.md",
+      "target": "docs/slcs/LICENSES.md",
+      "bytes": 877,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/content-access-matrix.md",
+      "href": "../seeword-open-source-development-outline-2026-11-13.md",
+      "target": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "bytes": 37770,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/content-access-matrix.md",
+      "href": "p0/source-evidence-ledger.md",
+      "target": "docs/open-learning/p0/source-evidence-ledger.md",
+      "bytes": 4941,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/content-access-matrix.md",
+      "href": "../slcs/05-community-governance.md",
+      "target": "docs/slcs/05-community-governance.md",
+      "bytes": 6190,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../p0-worklog.md",
+      "target": "docs/open-learning/p0-worklog.md",
+      "bytes": 11686,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../evidence/open-learning/p0/inventory.json",
+      "target": "docs/evidence/open-learning/p0/inventory.json",
+      "bytes": 278305,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../frontend/package.json",
+      "target": "frontend/package.json",
+      "bytes": 1578,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../frontend/package-lock.json",
+      "target": "frontend/package-lock.json",
+      "bytes": 165625,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/requirements-cloud.txt",
+      "target": "backend/requirements-cloud.txt",
+      "bytes": 1335,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/requirements-dev.txt",
+      "target": "backend/requirements-dev.txt",
+      "bytes": 2125,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/slcs/requirements-mcp.lock",
+      "target": "backend/slcs/requirements-mcp.lock",
+      "bytes": 684,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements.txt",
+      "target": "gpu-worker/requirements.txt",
+      "bytes": 1724,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements-dev.txt",
+      "target": "gpu-worker/requirements-dev.txt",
+      "bytes": 353,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements-ci.txt",
+      "target": "gpu-worker/requirements-ci.txt",
+      "bytes": 790,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/requirements.lock.txt",
+      "target": "gpu-worker/requirements.lock.txt",
+      "bytes": 3292,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "target": "deploy/v2-gateway/adapter/requirements-runtime.txt",
+      "bytes": 116,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../deploy/v2-gateway/adapter/requirements.txt",
+      "target": "deploy/v2-gateway/adapter/requirements.txt",
+      "bytes": 41,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../LICENSE",
+      "target": "LICENSE",
+      "bytes": 828,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../slcs/LICENSES.md",
+      "target": "docs/slcs/LICENSES.md",
+      "bytes": 877,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../backend/scripts/download_ecdict.py",
+      "target": "backend/scripts/download_ecdict.py",
+      "bytes": 2745,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/d04-license-inventory.md",
+      "href": "../../../gpu-worker/gpu_worker/config.py",
+      "target": "gpu-worker/gpu_worker/config.py",
+      "bytes": 3007,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "../../seeword-open-source-development-outline-2026-11-13.md",
+      "target": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "bytes": 37770,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "../content-access-matrix.md",
+      "target": "docs/open-learning/content-access-matrix.md",
+      "bytes": 5399,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "../../slcs/05-community-governance.md",
+      "target": "docs/slcs/05-community-governance.md",
+      "bytes": 6190,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "../../slcs/examples/welcome-to-wikisource.json",
+      "target": "docs/slcs/examples/welcome-to-wikisource.json",
+      "bytes": 24583,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "../../slcs/LICENSES.md",
+      "target": "docs/slcs/LICENSES.md",
+      "bytes": 877,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../seeword-open-source-development-outline-2026-11-13.md",
+      "target": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "bytes": 37770,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "content-access-matrix.md",
+      "target": "docs/open-learning/content-access-matrix.md",
+      "bytes": 5399,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/acceptance-cards.md",
+      "target": "docs/evidence/open-learning/acceptance-cards.md",
+      "bytes": 6217,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/d04-license-inventory.md",
+      "target": "docs/open-learning/p0/d04-license-inventory.md",
+      "bytes": 12066,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "p0/source-evidence-ledger.md",
+      "target": "docs/open-learning/p0/source-evidence-ledger.md",
+      "bytes": 4941,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/p0/inventory.json",
+      "target": "docs/evidence/open-learning/p0/inventory.json",
+      "bytes": 278305,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/astryx-integration/acceptance.md",
+      "target": "docs/evidence/astryx-integration/acceptance.md",
+      "bytes": 8298,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../evidence/open-learning/p0/document-checks.json",
+      "target": "docs/evidence/open-learning/p0/document-checks.json",
+      "bytes": 71,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/slcs/pyproject.toml",
+      "target": "backend/slcs/pyproject.toml",
+      "bytes": 572,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/slcs/stdio.py",
+      "target": "backend/slcs/stdio.py",
+      "bytes": 2173,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/lessons.py",
+      "target": "backend/app/services/lessons.py",
+      "bytes": 15632,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../frontend/src/components/lessons/LessonReader.tsx",
+      "target": "frontend/src/components/lessons/LessonReader.tsx",
+      "bytes": 26693,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/lesson_learning.py",
+      "target": "backend/app/services/lesson_learning.py",
+      "bytes": 10652,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/account_data.py",
+      "target": "backend/app/services/account_data.py",
+      "bytes": 24677,
+      "status": "readable"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "../../backend/app/services/external_connection_service.py",
+      "target": "backend/app/services/external_connection_service.py",
+      "bytes": 5585,
+      "status": "readable"
+    },
+    {
+      "source": "docs/evidence/open-learning/acceptance-cards.md",
+      "href": "../../seeword-open-source-development-outline-2026-11-13.md",
+      "target": "docs/seeword-open-source-development-outline-2026-11-13.md",
+      "bytes": 37770,
+      "status": "readable"
+    },
+    {
+      "source": "docs/evidence/open-learning/acceptance-cards.md",
+      "href": "../../open-learning/p0-worklog.md",
+      "target": "docs/open-learning/p0-worklog.md",
+      "bytes": 11686,
+      "status": "readable"
+    }
+  ],
+  "external_links": [
+    {
+      "source": "docs/open-learning/p0/source-evidence-ledger.md",
+      "href": "https://commons.wikimedia.org/wiki/File:Welcome_to_Wikisource_-_short_explanatory_video.webm",
+      "status": "not_revalidated_online"
+    },
+    {
+      "source": "docs/open-learning/p0-worklog.md",
+      "href": "https://github.com/meta/astryx/blob/07c77c0087b719858a6d36795d454a7307c8a0ac/README.md",
+      "status": "not_revalidated_online"
+    }
+  ],
+  "snapshot_inputs_checked": 14,
+  "checks": [
+    "v0.2 baseline and 10 chapters",
+    "matrix and numeric candidates removed from outline",
+    "local link targets opened and read",
+    "snapshot input hashes and counts consistent",
+    "one candidate and reference-pack counts consistent"
+  ],
+  "not_executed": [
+    "External URL live checks",
+    "Original dependency license-text and legal compatibility audit",
+    "Business tests, services, browsers, DB and production",
+    "P0 decisions and P1-P5 implementation or acceptance"
+  ],
+  "check_script_notes": [
+    "Initial JavaScript link-check attempt failed to parse before execution; this Python run executed successfully."
+  ]
+}

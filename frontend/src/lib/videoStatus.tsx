@@ -11,7 +11,7 @@
  * All consumers now import from this module.
  */
 
-import { CheckCircle2, AlertCircle, Loader2, Clock, FileEdit, Eye, Ban } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Processing step labels (backend step key → Chinese label)
@@ -22,7 +22,6 @@ import { CheckCircle2, AlertCircle, Loader2, Clock, FileEdit, Eye, Ban } from "l
 export const STEP_LABELS: Record<string, string> = {
   extracting: "提取视频信息…",
   transcribing: "语音转录…",
-  splitting: "说话人识别…",
   translating: "字幕翻译…",
   annotating: "标注考试词汇…",
   prewarm_notes: "预热词注释…",
@@ -36,7 +35,6 @@ export const STEP_LABELS: Record<string, string> = {
 export const STEP_LABELS_SHORT: Record<string, string> = {
   extracting: "提取视频信息",
   transcribing: "语音转录",
-  splitting: "说话人识别",
   translating: "字幕翻译",
   annotating: "标注考级",
   prewarm_notes: "预热笔记",
@@ -86,58 +84,11 @@ export const PROCESSING_STATUS_CONFIG: Record<string, StatusBadgeConfig> = {
 };
 
 // ---------------------------------------------------------------------------
-// Review status badges (UGC lifecycle)
+// Review status badges are NOT defined here: the only place the UI renders a
+// review-status badge is the admin video list, which owns its own
+// `REVIEW_BADGE` tone map (components/admin/ui Badge). A duplicate config here
+// had zero references in either app or e2e.
 // ---------------------------------------------------------------------------
-
-/** Badge config for review workflow statuses. Merges STATUS_META keys
- *  that PROCESSING_STATUS_CONFIG doesn't cover. */
-export const REVIEW_STATUS_CONFIG: Record<string, StatusBadgeConfig> = {
-  draft: {
-    label: "草稿",
-    className: "bg-surface-card text-muted",
-    icon: FileEdit,
-  },
-  pending_review: {
-    label: "待审核",
-    className: "bg-warning-soft text-warning",
-    icon: Eye,
-  },
-  published: {
-    label: "已发布",
-    className: "bg-success-soft text-success",
-    icon: CheckCircle2,
-  },
-  rejected: {
-    label: "已驳回",
-    className: "bg-red-soft text-red",
-    icon: Ban,
-  },
-};
-
-// ---------------------------------------------------------------------------
-// Combined lookup: processing status → review status → fallback
-// ---------------------------------------------------------------------------
-
-/** Full badge config covering both processing and review statuses.
- *  Processing statuses take precedence (they're the raw DB value). */
-export const VIDEO_STATUS_CONFIG: Record<string, StatusBadgeConfig> = {
-  ...PROCESSING_STATUS_CONFIG,
-  ...REVIEW_STATUS_CONFIG,
-};
-
-// ---------------------------------------------------------------------------
-// Status helper functions
-// ---------------------------------------------------------------------------
-
-/** Determine the display status key for a video.
- *  Maps raw processing statuses into a stable key, then falls back to
- *  review_status for ready videos. */
-export function displayStatusOf(video: { status: string; review_status: string }): string {
-  if (video.status === "pending_processing") return "pending_processing";
-  if (video.status === "processing" || video.status === "ready_subtitles") return "processing";
-  if (video.status === "error") return "error";
-  return video.review_status;
-}
 
 // ---------------------------------------------------------------------------
 // Polling-active statuses — the set that triggers 3s status polling

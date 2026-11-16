@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.capabilities import require_content_production
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.limiter import rate_limit
@@ -85,6 +86,7 @@ async def transcription_callback(
     acknowledged but ignored — this prevents both double-enqueuing the tail and
     wiping already-translated subtitles.
     """
+    require_content_production(model=True)
     settings = get_settings()
     expected = settings.transcription_callback_secret
     # 常量时间比较必须比 **bytes**：``secrets.compare_digest`` 对非 ASCII 的
@@ -95,7 +97,7 @@ async def transcription_callback(
     if not expected or not secrets.compare_digest(x_callback_secret.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid callback secret")
 
-    result = await db.execute(select(Video).where(Video.id == payload.video_id))
+    result = await db.execute(select(Video).where(Video.id == payload.video_id).with_for_update())
     video = result.scalar_one_or_none()
     if not video:
         # Acknowledge so the GPU worker stops retrying a callback for a deleted video.
@@ -103,7 +105,7 @@ async def transcription_callback(
 
     # Only act while transcription is still pending. Once the tail has started
     # (status != processing) the video is past this stage — ignore duplicates.
-    if video.status != VideoStatus.processing:
+    if video.status != VideoStatus.processing or video.processing_generation != payload.processing_generation:
         return {"acknowledged": True}
 
     # Acquire a Redis dedup lock to prevent two concurrent callbacks from both
@@ -118,8 +120,8 @@ async def transcription_callback(
     # The lock serialises callbacks, it does not re-validate state: a previous
     # callback may have completed the tail between the status read above and
     # here, so re-read the row under the lock before acting on it.
-    await db.refresh(video)
-    if video.status != VideoStatus.processing:
+    await db.refresh(video, with_for_update=True)
+    if video.status != VideoStatus.processing or video.processing_generation != payload.processing_generation:
         await _release_callback_lock(payload.video_id)
         return {"acknowledged": True}
 

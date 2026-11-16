@@ -86,7 +86,7 @@ async def test_translating_stamps_step_started_at_before_llm_work(monkeypatch):
     monkeypatch.setattr(vp, "_translate_subtitles", fake_translate)
     monkeypatch.setattr(vp, "update_progress", fake_update_progress)
 
-    ctx = SimpleNamespace(
+    ctx = ph.PipelineCtx(
         db=_FakeDB([subtitle]),
         video=SimpleNamespace(
             id="video-3",
@@ -97,7 +97,6 @@ async def test_translating_stamps_step_started_at_before_llm_work(monkeypatch):
         ),
         video_id="video-3",
         engine=None,
-        stop=lambda: None,
     )
 
     await vp._run_translating(ctx)

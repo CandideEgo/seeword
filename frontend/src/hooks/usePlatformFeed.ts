@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { toastApiError } from "@/lib/errors";
 import { api } from "@/lib/api";
 import { isCefrLevel } from "@/lib/cefrLevels";
 import { TOPIC_CATEGORY_LABELS } from "@/lib/topicCategories";
@@ -133,7 +132,6 @@ export function usePlatformFeed() {
   const searchParams = useSearchParams();
 
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
-  const [addingId, setAddingId] = useState<string | null>(null);
 
   // 读取即派生，不做 state↔URL 双向同步 —— 那会竞态。返回时 URL 上带着来时的
   // 筛选，列表、滚动位置、返回按钮三者才对得上。
@@ -273,29 +271,10 @@ export function usePlatformFeed() {
     };
   }, []);
 
-  // Start learning: add video then navigate
-  // For feed videos (already in DB with `id`), navigate directly
-  const startLearning = useCallback(
-    async (item: VideoItem) => {
-      // Feed videos already have a database ID - navigate directly
-      if (item.id) {
-        router.push(`/watch/${item.id}`);
-        return;
-      }
-      setAddingId(item.video_id);
-      try {
-        const video = await api<{ id: string }>("/api/v1/videos", {
-          method: "POST",
-          body: JSON.stringify({ source_url: item.url }),
-        });
-        router.push(`/watch/${video.id}`);
-      } catch (err) {
-        toastApiError(err, "添加失败");
-        setAddingId(null);
-      }
-    },
-    [router]
-  );
+  // There is no "import this video" action: the feed only ever returns videos
+  // already in the DB (every row has `id`), the old POST /api/v1/videos submit
+  // path is gone (INV-003 — no user submissions), and no consumer used the
+  // callback that tried it.
 
   return {
     categories,
@@ -318,7 +297,5 @@ export function usePlatformFeed() {
     retry: reload,
     loadMore,
     loaderRef,
-    addingId,
-    startLearning,
   };
 }

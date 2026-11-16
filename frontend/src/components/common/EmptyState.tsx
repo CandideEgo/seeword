@@ -11,16 +11,13 @@ interface EmptyStateProps {
 }
 
 /**
- * Empty-state placeholder with a staggered children fade-in.
- *
- * Previously animated with GSAP; now uses the CSS `stagger-container`
- * keyframes so the widely-mounted component adds no JS to the bundle.
+ * Empty state keeps a clear next action without playing a decorative entrance.
  */
 export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "stagger-container flex flex-col items-center justify-center py-20 text-center",
+        "sw-empty flex flex-col items-center justify-center px-4 py-16 text-center",
         className
       )}
     >

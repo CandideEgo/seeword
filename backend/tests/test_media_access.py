@@ -1,6 +1,7 @@
 """Media access control — shadowing recordings are owner-only (?token= JWT)."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -493,3 +494,99 @@ async def test_shadowing_dotdot_cannot_bypass_publish_gate(client, video_media_d
     # resolved file, so the two URL spellings cannot disagree.
     direct = await client.get(f"/media/{v.id}_720p.mp4?token={token}")
     assert direct.status_code == 404
+
+
+@pytest.mark.parametrize("suffix", [".mp4", "_raw.webm", "_480p.mp4", "_720p.mp4", "_1080p.mp4"])
+async def test_generation_artifacts_keep_draft_auth_gates(client, video_media_dir, suffix):
+    from app.services.processing_generation import artifact_identity
+
+    video = video_media_dir["ugc_draft"]
+    artifact_id = artifact_identity(video.id, "22222222-2222-4222-8222-222222222222")
+    filename = f"{artifact_id}{suffix}"
+    (Path(get_settings().local_media_path) / filename).write_bytes(b"generation media")
+    assert (await client.get(f"/media/{filename}")).status_code == 404
+    owner_url = f"/media/{filename}?token={create_token('owner-1')}"
+    owner = await client.get(owner_url)
+    assert owner.status_code == 200 and owner.content == b"generation media"
+    assert (await client.head(owner_url)).status_code == 200
+    # A cached owner preview must never unlock a different valid account.
+    assert (await client.get(f"/media/{filename}?token={create_token('owner-2')}")).status_code == 404
+    assert (await client.get(f"/media/{filename}")).status_code == 404
+    bypass = f"/media/shadowing/owner-2/%2e%2e/%2e%2e/{filename}?token={create_token('owner-2')}"
+    assert (await client.get(bypass)).status_code == 404
+
+
+async def test_generation_public_artifact_preserves_login_wall_and_range(client, video_media_dir):
+    from app.services.processing_generation import artifact_identity
+
+    video = video_media_dir["official"]
+    artifact_id = artifact_identity(video.id, "22222222-2222-4222-8222-222222222222")
+    filename = f"{artifact_id}_720p.mp4"
+    (Path(get_settings().local_media_path) / filename).write_bytes(b"generation media")
+    assert (await client.get(f"/media/{filename}")).status_code == 403
+    allowed = await client.get(f"/media/{filename}?token={create_token('owner-1')}", headers={"Range": "bytes=0-3"})
+    assert allowed.status_code == 206 and allowed.content == b"gene"
+    assert allowed.headers["content-range"] == "bytes 0-3/16"
+
+
+async def test_generation_staged_upload_without_video_row_is_private(client, video_media_dir):
+    filename = "12345678-1234-1234-1234-123456789012_g22222222222242228222222222222222_raw.mp4"
+    (Path(get_settings().local_media_path) / filename).write_bytes(b"staged generation upload")
+    assert (await client.get(f"/media/{filename}")).status_code == 404
+    assert (await client.get(f"/media/{filename}?token={create_token('owner-1')}")).status_code == 404
+
+
+async def test_takedown_rechecks_cached_public_state_for_late_generation_artifact(client, video_media_dir, db_session):
+    from app.services.processing_generation import artifact_identity
+    from app.services.video_service import takedown_video
+
+    video = video_media_dir["official"]
+    video.is_demo = True
+    video.processing_generation = "22222222-2222-4222-8222-222222222222"
+    await db_session.commit()
+    filename = f"{artifact_identity(video.id, video.processing_generation)}_720p.mp4"
+    path = Path(get_settings().local_media_path) / filename
+    path.write_bytes(b"old generation output")
+    user_url = f"/media/{filename}?token={create_token('owner-1')}"
+    assert (await client.get(user_url)).status_code == 200
+    assert (await client.get(f"/media/{filename}")).status_code == 200
+    await takedown_video(db_session, video.id)
+    assert not path.exists()
+    # A late ffmpeg can still finish its filesystem work after the row fence
+    # changed. Neither a public-state cache nor is_demo may reopen that stream.
+    path.write_bytes(b"late old generation output")
+    assert (await client.get(user_url)).status_code == 404
+    assert (await client.get(f"/media/{filename}")).status_code == 404
+
+
+@pytest.mark.parametrize("generation", [None, "22222222-2222-4222-8222-222222222222"])
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "_720p.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.part.mp4",
+        "_raw.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.part.webm",
+        "_thumb.probe",
+        "_thumb.probe.part",
+    ],
+)
+async def test_atomic_media_temporary_files_are_never_servable(client, video_media_dir, generation, suffix):
+    from app.services.processing_generation import artifact_identity
+
+    video = video_media_dir["official"]
+    filename = f"{artifact_identity(video.id, generation)}{suffix}"
+    (Path(get_settings().local_media_path) / filename).write_bytes(b"incomplete temporary bytes")
+    assert (await client.get(f"/media/{filename}")).status_code == 404
+    assert (await client.get(f"/media/{filename}?token={create_token('owner-1')}")).status_code == 404
+    assert (await client.head(f"/media/{filename}?token={create_token('owner-1')}")).status_code == 404
+
+
+def test_generation_video_regex_is_exact_and_keeps_thumbnail_public():
+    from app.api.v1.media import _VIDEO_FILE_RE
+
+    video_id = "11111111-1111-4111-8111-111111111111"
+    identity = f"{video_id}_g22222222222242228222222222222222"
+    for suffix in ("", "_raw", "_480p", "_720p", "_1080p"):
+        assert _VIDEO_FILE_RE.fullmatch(f"{video_id}{suffix}").group("vid") == video_id
+        assert _VIDEO_FILE_RE.fullmatch(f"{identity}{suffix}").group("vid") == video_id
+    for stem in (f"{identity}_thumb", f"{identity}f_720p", f"{identity[:-1]}_720p", f"{identity}_720p_extra"):
+        assert _VIDEO_FILE_RE.fullmatch(stem) is None

@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: "html",
   // 60s gives headroom for Next dev on-demand compilation of the first
   // page visit (CI e2e runs against `next dev` so the /api rewrite proxy is
-  // active - see .github/workflows/ci.yml and next.config.ts rewrites).
+  // active - see .github/workflows/ci.yml and next.config.js rewrites).
   timeout: 60000,
   // CI runners are slower than local machines; 5s (Playwright's default) is
   // tight for Next dev's on-demand compilation and for media readiness.

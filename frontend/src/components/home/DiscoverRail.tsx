@@ -157,7 +157,7 @@ export function DiscoverRail({ initialDue = 0 }: { initialDue?: number }) {
           <span className="text-meta text-muted">个单词</span>
         </p>
         <p className="mt-2 text-meta leading-relaxed text-muted">
-          {due > 0 ? "趁记忆还新鲜，再见一面。" : "已全部复习，去发现新的表达吧。"}
+          {due > 0 ? "复习已到期的词汇" : "当前没有到期词汇"}
         </p>
         <Link
           href={due > 0 ? "/vocabulary/review" : "/vocabulary"}

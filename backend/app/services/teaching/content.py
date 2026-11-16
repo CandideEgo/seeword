@@ -19,6 +19,7 @@ from app.models.exam_test import ExamPaper, ExamQuestion
 from app.models.teaching import ExamAnalysisRevision, ExamEvidence
 from app.services.question_exposure_service import question_key_from_identity
 from app.services.teaching.principal import require_scope
+from slcs.material import stable_hash as stable_hash
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,12 +32,6 @@ VERIFICATION_POLICY = "automatic-consensus-v1"
 
 def normalize_text(value: str) -> str:
     return unicodedata.normalize("NFC", value.replace("\r\n", "\n").replace("\r", "\n")).strip()
-
-
-def stable_hash(value) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
-    ).hexdigest()
 
 
 def normalized_question(payload: dict) -> dict:

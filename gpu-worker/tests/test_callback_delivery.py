@@ -71,6 +71,13 @@ def fake_httpx(monkeypatch):
 
 
 class TestCallbackDelivery:
+    def test_generation_is_forwarded_in_callback_payload(self, monkeypatch, fake_httpx):
+        _callback_settings(monkeypatch)
+        fake_httpx.responses = [_Resp(200)]
+        generation = "571a32fc-57cc-4b58-83fa-03f0a285d6d9"
+        assert _post_transcription_callback("vid", status="error", error="failed", processing_generation=generation)
+        assert fake_httpx.calls[0]["json"]["processing_generation"] == generation
+
     def test_rate_limited_callback_is_retried(self, monkeypatch, fake_httpx):
         _callback_settings(monkeypatch)
         fake_httpx.responses = [_Resp(429), _Resp(200)]
@@ -91,6 +98,26 @@ class TestCallbackDelivery:
 
         assert not _post_transcription_callback("vid-3", status="ok", segments=[])
         assert len(fake_httpx.calls) == 3
+
+    def test_payload_reports_measured_audio_duration(self, monkeypatch, fake_httpx):
+        """The cloud's duration sanity check needs the REAL audio length.
+
+        It compares the measured length against the subtitles; when the payload
+        carried ``segments[-1].end`` instead, `last_end > duration * 1.5` could
+        never fire and the check passed on every input.
+        """
+        _callback_settings(monkeypatch)
+        fake_httpx.responses = [_Resp(200)]
+        segments = [{"start": 0, "end": 1, "text": "Hi"}]
+
+        assert _post_transcription_callback("vid-4", status="ok", segments=segments, audio_duration=12.5)
+        assert fake_httpx.calls[0]["json"]["audio_duration"] == 12.5
+
+        # Without a measured duration the field stays null — never the last
+        # subtitle's end, which would re-introduce the tautology.
+        fake_httpx.responses = [_Resp(200)]
+        assert _post_transcription_callback("vid-5", status="ok", segments=segments)
+        assert fake_httpx.calls[1]["json"]["audio_duration"] is None
 
 
 class _RetryError(Exception):
@@ -129,6 +156,15 @@ def fake_transcription(monkeypatch):
 
 
 class TestGpuTaskRetry:
+    def test_success_passes_generation_unchanged(self, monkeypatch, fake_transcription):
+        calls = []
+        monkeypatch.setattr(video_processing, "_post_transcription_callback", lambda *a, **k: calls.append(k) or True)
+        generation = "571a32fc-57cc-4b58-83fa-03f0a285d6d9"
+        transcribe_video_gpu.run.__func__(
+            _FakeTaskSelf(), "vid", "https://example.com/fixture", "local", None, generation
+        )
+        assert calls[0]["processing_generation"] == generation
+
     def test_failed_delivery_retries_the_task(self, monkeypatch, fake_transcription):
         monkeypatch.setattr(video_processing, "_post_transcription_callback", lambda *a, **k: False)
         fake_self = _FakeTaskSelf()

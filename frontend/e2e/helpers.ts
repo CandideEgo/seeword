@@ -1,4 +1,4 @@
-import type { Locator, Page, APIRequestContext } from "@playwright/test";
+import { expect, type Locator, type Page, type APIRequestContext } from "@playwright/test";
 
 /**
  * Shared helpers for the e2e suite.
@@ -40,7 +40,15 @@ export async function chooseSelectMenu(
   option: string | RegExp
 ): Promise<void> {
   await trigger.click();
-  const listbox = page.getByRole("listbox").last();
+  // The popup mounts asynchronously — measured in a real browser: right after
+  // the click `aria-expanded` is still "false" and no listbox is visible yet,
+  // and it only settles over a second later. Reading the listbox immediately
+  // resolves to an empty set and the click then waits out the whole timeout.
+  // So wait for the trigger to report itself expanded first.
+  await expect(trigger).toHaveAttribute("aria-expanded", "true", { timeout: 15000 });
+  // Two SelectMenus keep their listboxes mounted at once (Base UI keeps the
+  // closed one in the DOM), so take the visible one rather than merely the last.
+  const listbox = page.getByRole("listbox").filter({ visible: true }).last();
   await listbox.getByRole("option", { name: option, exact: typeof option === "string" }).click();
 }
 

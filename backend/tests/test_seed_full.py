@@ -3,8 +3,11 @@
 from unittest.mock import AsyncMock, patch
 
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.models.pipeline_dispatch import DISPATCH_STATUS_DISPATCHED, DISPATCH_STATUS_PENDING, PipelineDispatch
 from app.models.video import Video, VideoStatus
+from app.services.pipeline_dispatch import PROCESS_VIDEO_TASK
 from tests.conftest import TestSessionLocal
 
 
@@ -66,7 +69,7 @@ class TestSeedFull:
                 "app.services.youtube_cookies_service.ensure_cookies",
                 new=AsyncMock(return_value="ok"),
             ),
-            patch("app.tasks.video_processing.process_video") as pv,
+            patch("app.services.pipeline_dispatch._send_task") as send,
         ):
             resp = await client.post(
                 "/api/v1/videos/seed-full",
@@ -75,16 +78,25 @@ class TestSeedFull:
             )
         assert resp.status_code == 201
         vid = resp.json()["id"]
-        # process_video.delay must have been called (head task dispatched).
-        pv.delay.assert_called_once_with(vid)
-        # auto_publish flag set on the DB row.
+        # auto_publish 与持久 head 意图同一事务落库。
         async with TestSessionLocal() as db:
-            from sqlalchemy import select
-
             v = (await db.execute(select(Video).where(Video.id == vid))).scalar_one()
             assert v.is_official is True
             assert v.is_published is False  # draft until finalize publishes
             assert v.auto_publish is True
+            assert v.status == VideoStatus.processing
+            assert v.processing_generation
+            (row,) = (await db.scalars(select(PipelineDispatch).where(PipelineDispatch.video_id == vid))).all()
+            assert row.task_name == PROCESS_VIDEO_TASK
+            assert row.processing_generation == v.processing_generation
+            assert row.args == [vid, v.processing_generation]
+            assert row.queue is None
+            assert row.status == DISPATCH_STATUS_DISPATCHED
+            assert row.attempts == 1
+            assert row.last_error is None
+            assert row.next_attempt_at is None
+            assert row.dispatched_at is not None
+            send.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
 
     async def test_dedup_returns_existing_ready_video(self, client: AsyncClient, admin_headers: dict):
         """Re-seeding an already-ready URL returns the existing row (no new row, no re-process)."""
@@ -95,7 +107,7 @@ class TestSeedFull:
                 "app.services.youtube_cookies_service.ensure_cookies",
                 new=AsyncMock(return_value="ok"),
             ),
-            patch("app.tasks.video_processing.process_video") as pv,
+            patch("app.services.pipeline_dispatch._send_task") as send,
         ):
             resp = await client.post(
                 "/api/v1/videos/seed-full",
@@ -105,4 +117,42 @@ class TestSeedFull:
         assert resp.status_code == 201
         assert resp.json()["id"] == existing_id
         # No new processing dispatched — dedup hit.
-        pv.delay.assert_not_called()
+        send.assert_not_called()
+        async with TestSessionLocal() as db:
+            assert (await db.scalars(select(Video).where(Video.source_url == url))).one().id == existing_id
+            assert (
+                await db.scalars(select(PipelineDispatch).where(PipelineDispatch.video_id == existing_id))
+            ).all() == []
+
+    async def test_broker_failure_keeps_auto_publish_and_pending_head(self, client: AsyncClient, admin_headers: dict):
+        """cookies 已通过而 broker 失败时，201 + 持久意图，不回退成 error。"""
+        with (
+            patch("app.services.youtube_cookies_service.ensure_cookies", new=AsyncMock(return_value="ok")),
+            patch("app.services.pipeline_dispatch._send_task", side_effect=RuntimeError("broker down")) as send,
+        ):
+            resp = await client.post(
+                "/api/v1/videos/seed-full",
+                headers=admin_headers,
+                json={"source_url": "https://www.youtube.com/watch?v=brokerfail001"},
+            )
+        assert resp.status_code == 201, resp.text
+        vid = resp.json()["id"]
+        async with TestSessionLocal() as db:
+            video = await db.get(Video, vid)
+            assert video.status == VideoStatus.processing
+            assert video.auto_publish is True
+            assert video.is_official is True
+            assert video.is_published is False
+            assert video.error_message is None
+            assert video.processing_generation
+            (row,) = (await db.scalars(select(PipelineDispatch).where(PipelineDispatch.video_id == vid))).all()
+            assert row.task_name == PROCESS_VIDEO_TASK
+            assert row.args == [vid, video.processing_generation]
+            assert row.processing_generation == video.processing_generation
+            assert row.queue is None
+            assert row.status == DISPATCH_STATUS_PENDING
+            assert row.attempts == 1
+            assert row.last_error == "broker down"
+            assert row.next_attempt_at is not None
+            assert row.dispatched_at is None
+            send.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)

@@ -1,0 +1,276 @@
+{
+  "checked_at": "2026-11-13T13:29:48.463826+00:00",
+  "sources": [
+    {
+      "url": "https://gsap.com/standard-license/",
+      "source_file": ".references/d04-terms-20261113-l7RMED/sources.json",
+      "source_sha256": "fa8ee766e5d50cdf87392ed9cdd4b1e3ac270b85da249386449e6324f8f9ec44",
+      "status": "content_retrieved",
+      "content_sha256": "493e625fbee6a179f1bc7e206bc29271f3e76fef41086a3f50e884748bdc5161",
+      "characters": 5242,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://www.mozilla.org/en-US/MPL/2.0/",
+      "source_file": ".references/d04-terms-20261113-l7RMED/sources.json",
+      "source_sha256": "fa8ee766e5d50cdf87392ed9cdd4b1e3ac270b85da249386449e6324f8f9ec44",
+      "status": "content_retrieved",
+      "content_sha256": "ff8481708afab1704599e9cd238d322fde4f5e2e7f0fca1a5d8c33eeb2875be5",
+      "characters": 14957,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://www.gnu.org/licenses/lgpl-3.0.html",
+      "source_file": ".references/d04-terms-20261113-l7RMED/sources.json",
+      "source_sha256": "fa8ee766e5d50cdf87392ed9cdd4b1e3ac270b85da249386449e6324f8f9ec44",
+      "status": "content_retrieved",
+      "content_sha256": "31bf34bac36396bc81727b9ef4be2379899c7376460c56a00fd45f79d062dec3",
+      "characters": 12621,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BerriAI/litellm/61c6ab78393ef45683dd7d963d2a315bd845e20b/LICENSE",
+      "source_file": ".references/d04-upstream-20261113-hO9pld/sources.json",
+      "source_sha256": "d44f9f24883c36cfbf4d5bcc578bb4815914e102efecbf2bae858e5258fbebff",
+      "status": "content_retrieved",
+      "content_sha256": "4700ccb12a3c4f68a8461b0fa704ca99d15a4a531e012f4a4ff6c021ff9eb482",
+      "characters": 1418,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BerriAI/litellm/61c6ab78393ef45683dd7d963d2a315bd845e20b/enterprise/LICENSE",
+      "source_file": ".references/d04-upstream-20261113-hO9pld/sources.json",
+      "source_sha256": "d44f9f24883c36cfbf4d5bcc578bb4815914e102efecbf2bae858e5258fbebff",
+      "status": "error_page_not_license",
+      "content_sha256": "085299fa63d15c9a18a8dd8b2909663e0e329d2869b53da661ff1ad9d1a40555",
+      "characters": 232,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/libvips/libvips/v8.18.7/COPYING",
+      "source_file": ".references/d04-upstream-20261113-hO9pld/sources.json",
+      "source_sha256": "d44f9f24883c36cfbf4d5bcc578bb4815914e102efecbf2bae858e5258fbebff",
+      "status": "error_page_not_license",
+      "content_sha256": "085299fa63d15c9a18a8dd8b2909663e0e329d2869b53da661ff1ad9d1a40555",
+      "characters": 232,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://sharp.pixelplumbing.com/install/",
+      "source_file": ".references/d04-upstream-20261113-hO9pld/sources.json",
+      "source_sha256": "d44f9f24883c36cfbf4d5bcc578bb4815914e102efecbf2bae858e5258fbebff",
+      "status": "content_retrieved",
+      "content_sha256": "f345c3be15c8d11159df52ebf42548a0917fe1938f858c280a1c8e6619e4dc9e",
+      "characters": 11777,
+      "transport": "web-search extract; do not infer HTTP success from empty failed list"
+    },
+    {
+      "url": "https://api.github.com/repos/BerriAI/litellm/contents/enterprise?ref=61c6ab78393ef45683dd7d963d2a315bd845e20b",
+      "transport": "public GitHub contents API; one targeted path check",
+      "status": "retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-targeted-source-check-3_y1jz4k/0/response.json",
+      "source_sha256": "67c707227a61f3e32c65ad6b4018550f06827e631382c34f2827b258f648350b",
+      "entries": [
+        {
+          "name": "LICENSE.md",
+          "type": "file"
+        },
+        {
+          "name": "README.md",
+          "type": "file"
+        },
+        {
+          "name": "__init__.py",
+          "type": "file"
+        },
+        {
+          "name": "cloudformation_stack",
+          "type": "dir"
+        },
+        {
+          "name": "dist",
+          "type": "dir"
+        },
+        {
+          "name": "enterprise_hooks",
+          "type": "dir"
+        },
+        {
+          "name": "enterprise_ui",
+          "type": "dir"
+        },
+        {
+          "name": "litellm_enterprise",
+          "type": "dir"
+        },
+        {
+          "name": "pyproject.toml",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "url": "https://api.github.com/repos/libvips/libvips/contents/?ref=v8.18.7",
+      "transport": "public GitHub contents API; one targeted path check",
+      "status": "retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-targeted-source-check-3_y1jz4k/1/response.json",
+      "source_sha256": "ce57d51d55d6e8bd5fdbc784981e362a6c2c6b16abd6181f3eedd86db304c5e1",
+      "entries": [
+        {
+          "name": ".clang-format",
+          "type": "file"
+        },
+        {
+          "name": ".codespellrc",
+          "type": "file"
+        },
+        {
+          "name": ".editorconfig",
+          "type": "file"
+        },
+        {
+          "name": ".git-blame-ignore-revs",
+          "type": "file"
+        },
+        {
+          "name": ".gitattributes",
+          "type": "file"
+        },
+        {
+          "name": ".github",
+          "type": "dir"
+        },
+        {
+          "name": ".gitignore",
+          "type": "file"
+        },
+        {
+          "name": "CITATION.cff",
+          "type": "file"
+        },
+        {
+          "name": "CODE_OF_CONDUCT.md",
+          "type": "file"
+        },
+        {
+          "name": "CONTRIBUTING.md",
+          "type": "file"
+        },
+        {
+          "name": "ChangeLog",
+          "type": "file"
+        },
+        {
+          "name": "LICENSE",
+          "type": "file"
+        },
+        {
+          "name": "README.md",
+          "type": "file"
+        },
+        {
+          "name": "completions",
+          "type": "dir"
+        },
+        {
+          "name": "cplusplus",
+          "type": "dir"
+        },
+        {
+          "name": "doc",
+          "type": "dir"
+        },
+        {
+          "name": "examples",
+          "type": "dir"
+        },
+        {
+          "name": "fuzz",
+          "type": "dir"
+        },
+        {
+          "name": "libvips",
+          "type": "dir"
+        },
+        {
+          "name": "man",
+          "type": "dir"
+        },
+        {
+          "name": "meson.build",
+          "type": "file"
+        },
+        {
+          "name": "meson_options.txt",
+          "type": "file"
+        },
+        {
+          "name": "po",
+          "type": "dir"
+        },
+        {
+          "name": "suppressions",
+          "type": "dir"
+        },
+        {
+          "name": "test",
+          "type": "dir"
+        },
+        {
+          "name": "tools",
+          "type": "dir"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BerriAI/litellm/61c6ab78393ef45683dd7d963d2a315bd845e20b/enterprise/LICENSE.md",
+      "transport": "HTTPS; exact revision or tag; no source execution",
+      "status": "content_retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-corrected-sources-t0crrpop/0/license.txt",
+      "source_sha256": "a3160d1176cb556447255ca8652855486d681f8025550291828796a439e1b2f9",
+      "characters": 2223
+    },
+    {
+      "url": "https://raw.githubusercontent.com/libvips/libvips/v8.18.7/LICENSE",
+      "transport": "HTTPS; exact revision or tag; no source execution",
+      "status": "content_retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-corrected-sources-t0crrpop/1/license.txt",
+      "source_sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+      "characters": 26530
+    },
+    {
+      "url": "https://raw.githubusercontent.com/parcel-bundler/lightningcss/v1.32.0/LICENSE",
+      "transport": "HTTPS; exact revision or tag; no source execution",
+      "status": "content_retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-corrected-sources-t0crrpop/2/license.txt",
+      "source_sha256": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
+      "characters": 15648
+    },
+    {
+      "url": "https://raw.githubusercontent.com/parcel-bundler/lightningcss/v1.33.0/LICENSE",
+      "transport": "HTTPS; exact revision or tag; no source execution",
+      "status": "content_retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-corrected-sources-t0crrpop/3/license.txt",
+      "source_sha256": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
+      "characters": 15648
+    },
+    {
+      "url": "https://developercertificate.org/",
+      "status": "content_retrieved",
+      "http_status": 200,
+      "source_file": ".references/d04-dco-source-2nogb9m1/source.html",
+      "source_sha256": "c9242de9ab4d43ca1c97d7056f23f8a157eab0f5bb97455088c7bd226d7e21e9",
+      "transport": "official DCO website; no third-party submission"
+    }
+  ],
+  "limitations": [
+    "Live terms are not a historical license acceptance record.",
+    "Error pages are not valid license evidence; unknown pinned paths remain blockers."
+  ]
+}

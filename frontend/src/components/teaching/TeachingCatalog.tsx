@@ -5,12 +5,12 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { teachingHref } from "@/lib/teaching";
-import type { TeachingContent, TeachingSession } from "@/types/teaching";
+import type { TeachingContent, TeachingSession, TeachingSessionSummary } from "@/types/teaching";
 
 /** Closed gates omit the private entry; existing practice stays available. */
 export function TeachingCatalog() {
   const [contents, setContents] = useState<TeachingContent[]>([]);
-  const [sessions, setSessions] = useState<TeachingSession[]>([]);
+  const [sessions, setSessions] = useState<TeachingSessionSummary[]>([]);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState<string | null>(null);
   // A quiz is built from one paper's verified questions; grouping the catalog by
@@ -49,7 +49,9 @@ export function TeachingCatalog() {
     const controller = new AbortController();
     void Promise.all([
       api<{ items: TeachingContent[] }>("/api/v1/teaching/content", { signal: controller.signal }),
-      api<{ items: TeachingSession[] }>("/api/v1/teaching/sessions", { signal: controller.signal }),
+      api<{ items: TeachingSessionSummary[] }>("/api/v1/teaching/sessions", {
+        signal: controller.signal,
+      }),
     ])
       .then(([catalog, recent]) => {
         setContents(catalog.items);
@@ -91,7 +93,7 @@ export function TeachingCatalog() {
                 href={teachingHref(null, session.id, session.current_item_id)}
                 className="text-copy font-semibold text-brand-700 underline underline-offset-4"
               >
-                继续教学 · {session.items?.[0]?.question_key ?? session.id.slice(0, 8)}
+                继续教学 · {session.id.slice(0, 8)}
               </Link>
             </li>
           ))}

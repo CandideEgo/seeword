@@ -56,6 +56,7 @@ class PipelineDispatch(Base):
     # Positional args for ``send_task``. Rewritten by every re-enqueue: a fresh
     # intent may carry a fresh signed URL, a retry of the same intent reuses it.
     args: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    processing_generation: Mapped[str | None] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=DISPATCH_STATUS_PENDING)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)

@@ -1,0 +1,214 @@
+{
+  "recorded_at_beijing": "2026-11-16T23:34:05.406659+08:00",
+  "baseline_commit": "0bb7e7e2c78fdbcd3726deb0869e264751ac6914",
+  "state": "uncommitted-local-engineering; manual-walk-complete-for-declared-routes",
+  "backend": {
+    "complete_regression_before_final_review_fixes": {
+      "unique_cases": 2095,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "serial_shards": 30,
+      "failed_shard_07_full_rerun_cases": 80,
+      "generated_uuid_parameter_slots_explicitly_reconciled": 2
+    },
+    "post_review_affected_regression": {
+      "tests": 88,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "review": {
+      "independent_frontend_confirmed_findings": 0,
+      "independent_backend_confirmed_findings": 2,
+      "verified_and_fixed": [
+        "normal session exit must not delete successor lock in same generation",
+        "ready tail replay resumes terminal publication, not translation/transcoding"
+      ]
+    },
+    "mypy": {
+      "existing_errors": 50,
+      "observed_file_code_pairs": 32,
+      "baseline_pairs": 36,
+      "new_pairs": 0,
+      "baseline_modified": false
+    },
+    "migration": {
+      "head": "d7e21b4c9f84",
+      "roundtrip": [
+        "d7e21b4c9f83",
+        "d7e21b4c9f84",
+        "d7e21b4c9f83",
+        "d7e21b4c9f84"
+      ],
+      "disposable_database_only": true,
+      "schema_revision_gate_passed": true,
+      "schema_drift_known": 0,
+      "schema_drift_new": 0
+    }
+  },
+  "frontend": {
+    "check_passed": true,
+    "unit_files": 49,
+    "unit_passed": 450,
+    "production_static_pages": 44,
+    "build_cpus": 1,
+    "course_real_http_e2e": {
+      "chromium": 5,
+      "mobile_chrome": 5,
+      "retries": 0
+    },
+    "astryx_real_http_e2e": {
+      "chromium": 4,
+      "mobile_chrome": 4,
+      "retries": 0
+    },
+    "other_chromium_e2e_unique_passed": 29,
+    "e2e_failures_preserved": [
+      "reused completed course actors; rerun with fresh synthetic actors",
+      "old Astryx RGB/provider-scope assertions; updated exact current design contract then full spec rerun"
+    ],
+    "manual_walk_2026_11_16": {
+      "learner_routes": [
+        "/channels",
+        "/channels/e2e-channel",
+        "/search",
+        "/favorites",
+        "/history",
+        "/notifications",
+        "/rankings"
+      ],
+      "profile_panels": [
+        "我的内容",
+        "个人资料",
+        "学习进度",
+        "账号",
+        "学习设置"
+      ],
+      "admin_routes": [
+        "/admin",
+        "/admin/videos/a0d48b5e-3002-447e-9c3f-26ff7e59d74a",
+        "/admin/channels",
+        "/admin/home-editorial",
+        "/admin/users",
+        "/admin/feedback",
+        "/admin/stats",
+        "/admin/settings"
+      ],
+      "player": "desktop 1080px and 390px both played a real synthetic 16s video to >0.2s; mobile word sheet bottom == watch controls top; Escape restored focus to the word",
+      "admin_keyboard": "menu open, arrow focus, Escape restores trigger; empty signed-receipt blocked publish with 0 requests; delete confirm cancelled with focus restored and 0 mutations",
+      "admin_fix_found_by_walk": "expanded table editor rendered past the phone fold; pinned to viewport with max-width, retested 390px labels in view; check/unit/build rerun",
+      "not_walked": [
+        "contact/terms/privacy text pages beyond render",
+        "every filter/sort combination",
+        "model-backed admin generation actions",
+        "destructive confirm actions (not executed)"
+      ]
+    }
+  },
+  "gpu": {
+    "lightweight_contract_tests_passed": 26,
+    "real_gpu_or_model_run": false,
+    "task_name_unchanged": true
+  },
+  "unverified": [
+    "further Ego player interaction denied by permission classifier; not retried via another tool",
+    "new interactive sign-in input denied; automated auth tests recorded separately",
+    "authenticated admin workspace menu and key actions not walked in this redesign",
+    "not every active page/state individually walked",
+    "real learners, content rights, E01 listening/human timing, independent integrator acceptance",
+    "production deployment and business database migration"
+  ],
+  "screenshot_sha256": {
+    "tmp/redesign-20261115/home-final-1440.png": "a4cffc1c77ee56bb06e700898fedc31ba82a868fb758e9979b959b4bd71718c4",
+    "tmp/redesign-20261115/reader-final-1440.png": "c1b24cf90b9eb323d43d1089efe39d737aee51702ef44204f6e85016bf494a5f",
+    "tmp/redesign-20261115/reader-mobile-dark.png": "f0468f49664cd988f4dc58ff7151fe669deb1ff33f8d1594c6d103064fe6e289",
+    "tmp/redesign-20261115/watch-mobile-word.png": "171608527d7615c7f174caa24bca472bb21dae47c0ce476a254c3340bf608f3f",
+    "tmp/redesign-20261115/watch-desktop-word.png": "23564926d38b3418598d07b19a15ef7ed369e333ace59cca2f265d50b2b188b2",
+    "tmp/redesign-20261115/admin-lesson-diff.png": "d98822665e746718e883f9f11f85cd73f53a019c64eb671b38611d187abdcdc8",
+    "tmp/redesign-20261115/admin-videos-mobile.png": "44c910dd15d75965001fb81f08dc73b644cf111af0f5e994b48a098d72a4f97e"
+  },
+  "source_sha256": {
+    "backend/app/api/v1/auth.py": "ff330e38b7cf971ffcca0bc0357d4065b27f8526f0ca4ab4d6a4b5dcd80a015b",
+    "backend/app/api/v1/internal.py": "8f42ecdd7bf0d77cc6a4a926ae033fc2ca97d83e4cf44bf213d12f14c21ae024",
+    "backend/app/api/v1/media.py": "4ba7fc28333d4761ccc8daef8d6226e5bea0816821aac5698e12012e2ca7b6a6",
+    "backend/app/core/token_blacklist.py": "ee92d0f874bbc65f635bd3d60cd5dda0cf73351d6d7b03b403bb7f445dfd9f59",
+    "backend/app/models/pipeline_dispatch.py": "24380412b218e634c1e9c4a6212e9a17618fade60691405f21e9f2df43eca67f",
+    "backend/app/models/video.py": "f00695d30431f1e3a5a4f0140f9e7c5d9f46fe7326c1bc07687d6bd8dcf986ac",
+    "backend/app/schemas/video.py": "44518fba0804949fb00ab446ae8bce44cffbf18493f09961a41548a6a2cd890b",
+    "backend/app/services/pipeline_dispatch.py": "58c03125a3869689c09ebbe4597dd15b61b150d641c9078a8f9a4ba25ec9a94f",
+    "backend/app/services/processing_generation.py": "a27c5b525ca75e1e999126c2b5af7299bec2c8a0283cca4f1e3fc22c20b0d18d",
+    "backend/app/services/thumbnail_service.py": "39eca4fd00a414b382acbcd78a2fc7b6f60bda80dcf9255fa5c70388c8a77cd7",
+    "backend/app/services/video_media.py": "641a42fd021c8daef1c238b70fccf47629fca53819f1402e108907e5cff15911",
+    "backend/app/services/video_seed_service.py": "e8d05d0b0a5e5ae0a18afd94d2a42975c3cedb0333b0cf8e2c5b483393a2ac5e",
+    "backend/app/services/video_service.py": "cdbc377161e636433657df2b45c6d6a00d2c40b0f09767237f10e8888edf0b8c",
+    "backend/app/tasks/pipeline_helpers.py": "851eabb30f92fa2376210df42cb3a642fff24bf52edfb996e66c434ea3af5e3a",
+    "backend/app/tasks/video_processing.py": "41b3f101ab084b28c679bcbc61e8d9cd40a4c6f849867fe3170d954e5201089b",
+    "backend/migrations/versions/d7e21b4c9f84_processing_generation.py": "ee8f4efb334442c82b2769778a403c43f31e19b80fcbbf87d84a57ee1bca984a",
+    "backend/tests/test_admin_subtitle_pipeline.py": "353571a22e39abc083818ef7d9e76aa5389dcfaf818fd1c836df8f60fc90fb18",
+    "backend/tests/test_auth_redis_outage.py": "2eff0fd1fa13970697db6ae3e3c5721d7e44ca8f8ddbef77159c463337d71521",
+    "backend/tests/test_download_retry.py": "55864c3e12653e7bf6fa77a745e255e6b69ab7e14102893a34d8595283d39359",
+    "backend/tests/test_internal_callback.py": "54f859dad857d3a7a6be7f5edd0ab5d2fb49f9db6203f605fbed7d8fbe076a2e",
+    "backend/tests/test_media_access.py": "1b79009d656d6aa630261600e534ba63020b6c1d995a52606f198315f47047ce",
+    "backend/tests/test_media_generation.py": "bf330c1d43da7af8a13f2cacbd3717d093b634b56772ef4334d0a4c62ec74437",
+    "backend/tests/test_pending_processing.py": "f43a9ab63f71370107b916b2b2ab5efbe636ee0e1c3186a6791cab3f38939c8e",
+    "backend/tests/test_pipeline_lock_ttl.py": "5572c3664a0f0405c77bc979d8c7418b38c426f8353740aff58d8987f852624c",
+    "backend/tests/test_pipeline_recovery_contract.py": "6e1c91a56509aeff1eb9d019bfd1c432c5e1cfec6623dcf63394e40d2b84c37d",
+    "backend/tests/test_pipeline_resume.py": "b46eb0b65e1c487716513dbdf2940c75dfadea7d1f64666b1b187b5fd25e7c67",
+    "backend/tests/test_processing_generation.py": "10ad83d8636e961c17b5d569bb6d76533544265104c5071017fb8264bb6ba403",
+    "backend/tests/test_seed_full.py": "f041263ae724ca09f15d2794c8030c73cd6226af098f4f6c383b31d8df9076c7",
+    "backend/tests/test_thumbnail_service.py": "01c9568e2021849c4fb6f0fba99e3a284a25de6fd3af5f226696998c8a512321",
+    "backend/tests/test_translation_quality_block.py": "e4efc143eae6534aa02b09c44426e8e26d10d0ce0cd215f1dd8b9efe8dabc945",
+    "backend/tests/test_video_localization_pg.py": "00df06b00d339a1c8401dafdde0606f174182b83361fb11a7bbc9ab01628c95e",
+    "backend/tests/test_video_media.py": "d2659a2513c22032c94737875930fdf845af0c9eeef91a7737457dbf6d6e5933",
+    "backend/tests/test_video_playback.py": "26e6133cdc6a9b5187aafcec6f64be0c96bed4f086804a3a0b6c32c1145c816b",
+    "backend/tests/test_video_takedown.py": "4572c58dccc00f018fcf9ae01d7574965785911a44eba35e862d62744ae9308c",
+    "backend/tests/test_videos.py": "e52d92a7ed6ff4d075b5c43c410d71a2dfeeb931d035d6048ab7dbe1d45781c3",
+    "frontend/e2e/astryx-vocabulary.spec.ts": "ec470abb74396f754a750e3702d27f01c9d203d22d786e94f31c96f7d03cecff",
+    "frontend/src/app/(admin)/admin/(shell)/layout.tsx": "50680ef380b76f8608e3cc21efead114b75b53a1ed411f5f83aa2315b55bf218",
+    "frontend/src/app/(admin)/admin/login/page.tsx": "0688de4bca6b878ff8d5a7e63c961691e8e7c10a611802b7dd4c79a0be369458",
+    "frontend/src/app/(main)/MainLayoutInner.tsx": "ada68983c3c93189d9a1d3bc57d4e807c43976b7b0e228376840fdb4917d76ca",
+    "frontend/src/app/(main)/page.tsx": "ae275dbebc6918279f3250554d6d0f8f4cfba44d136777e078ac7a70d1c5b6af",
+    "frontend/src/app/(main)/practice/page.tsx": "17ea0904b8b1b8b572b230b08109d8c66968bb614c44800a344f50e49efbf0d2",
+    "frontend/src/app/(main)/vocabulary/layout.tsx": "7df27e894799d6fd0fdc62ec5c1376578069c86ef0d04d4eee5ffd0d886bd4ff",
+    "frontend/src/app/globals.css": "321d3f2543f15fc12d74af34d2196c5eb0beffeadcabb558ade906196258d3a9",
+    "frontend/src/app/user-ui.css": "b077531965795d3da7a6ce0c2b43f899c7fcc2b11e4188337d39115550085f4f",
+    "frontend/src/components/admin/AdminSidebar.tsx": "1776184749c92b834ef7e660009876df48744022c8805470a9989fb403739ef2",
+    "frontend/src/components/admin/AdminTopbar.tsx": "1aa6f42eb36ffd5041bcef5d50e83707dfe806f042d0f07d19f19935c989eebd",
+    "frontend/src/components/admin/DataTable.tsx": "668aef33863acbeac68dda5a1c673f6b39457cf200a77a41c3c52384fd79ee55",
+    "frontend/src/components/admin/ui/AdminPageHeader.tsx": "5e80449cb02408bcef5ca63b12998ef1dae50484b4a8561ae739ed81dc3cf3ad",
+    "frontend/src/components/auth/AuthCard.tsx": "caf0e3259e70657e67fea5eaad5ce9f7246a3350df4fba27f7bba184bdb3ac49",
+    "frontend/src/components/auth/LogoutNotice.tsx": "d855f47ad2635c86a460c06d831374016f9bbb53d1e4575920689ecf36324047",
+    "frontend/src/components/common/EmptyState.tsx": "525fe9de75b0b3bafd54171bdfb01323e32a436f41e6eb65eef16bab94148fb9",
+    "frontend/src/components/common/ErrorState.tsx": "165396854cf3b8e79a22f6fe5912e2da9a3dfc639ed119de8dbe537a7106788b",
+    "frontend/src/components/exam/ExamAnswerOptions.tsx": "1a027b9127d951e347a8c45923c57aecddcded311d1102141b4f8ce8209c9779",
+    "frontend/src/components/home/DiscoverRail.tsx": "f9ce8aa772a13a0fd56e1bc4da702004e703a4712257e0b1a498a624b0d961ec",
+    "frontend/src/components/home/HomeEditorialHero.tsx": "f54e3c3b00a19e271cd8520eb0f3c0a451d0f2586cf2b6fd4f94c5e794b36840",
+    "frontend/src/components/home/LessonEntry.tsx": "aef5c1daaebf191f4415452210060db35684693f454ec1db7bb3bc2c6b40281e",
+    "frontend/src/components/layout/MobileTabBar.tsx": "c96d3c9c05986ba6a35e562ada45222afcb0ea717eda58794712d69eeb81473b",
+    "frontend/src/components/layout/Sidebar.tsx": "6c68ef757868506abad3a27229588a4d4d6b6036753dbd7b719a2836a5eb6e0d",
+    "frontend/src/components/layout/TopBar.tsx": "24a32a28265df0613fbe01e62052eb50f35c93f255a30316b0afd5dd863978c7",
+    "frontend/src/components/lessons/LessonCatalog.tsx": "5bea2cb82c589d3f0ad7c29d86dd1e8d8c912d807088514d782ffcbe01d370e9",
+    "frontend/src/components/lessons/LessonReader.tsx": "e75f98d6996d6b4f086c688e4c8844bea3e7358bbe32c735d7cd5e361729316f",
+    "frontend/src/components/ui/Card.tsx": "d6a97a098a2c0b8c279d3c9177e5a307faf0fb69877436bf197ed12859662a40",
+    "frontend/src/components/ui/TabPills.tsx": "c3e89e113147bc64acdbaa87f228d6628f102082ca4921593bb0818bec0863ca",
+    "frontend/src/components/ui/Tabs.tsx": "1b4be209bc1ad04f56e1eedf8dd26a75a15dac01a761fdf694d6e081f3911b21",
+    "frontend/src/components/vocabulary/VocabWordCard.tsx": "7603ce5172be3b392f2641db08fe67e3f854bea6ed5526f41ae7816c0d35a4e5",
+    "frontend/src/lib/navigation.test.ts": "5423f9877814778d64c2a8fc1f1532b7b1594f78d7483a2896d81b4755992f61",
+    "frontend/src/lib/navigation.ts": "1f085916bd126f0fbd86f677ef39bba1d480bd9f48b99f1f4f1ae0436de5f683",
+    "frontend/src/lib/sessionLogout.stores.test.ts": "b5eb1e07a86ccfb5b08747f1edf96da006d9167dbc5e0906e6e66daa24cecffc",
+    "frontend/src/lib/sessionLogout.test.ts": "a2484453423205a6533d132f3ec76e76391bc7ef84d7259911a33a3cd0e0eed0",
+    "frontend/src/lib/sessionLogout.ts": "ca5291ef012d3e02af260d89eb03d515b65c3a642c4962ffbb995f51844b623c",
+    "frontend/src/stores/adminAuthStore.ts": "99fc9d55dac82a30b3ad87d8eee573e7d4bb0a4527c7318772e5cb7a1e6d3ea5",
+    "frontend/src/stores/authStore.ts": "e6d0a86e5b0b98da24be365c0f36ebe3595a073e283a9fb6bd8c0ea6a43d9eba",
+    "gpu-worker/gpu_worker/tasks.py": "17ac7904de1314fbe75912a003846d407930fecc67acdaa3cb717123cc627cdd",
+    "gpu-worker/tests/test_callback_delivery.py": "4368db04bebcf9f23362bd9d833bbbd93bd79dfe22b920b88e070b7035ea46a5"
+  },
+  "authorization": {
+    "committed_again": false,
+    "pushed_again": false,
+    "deployed": false,
+    "business_database_touched": false,
+    "root_license_changed": false
+  }
+}

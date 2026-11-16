@@ -5,6 +5,7 @@ import {
   MAIN_NAV,
   SECONDARY_NAV,
   navigationActive,
+  mobileNavigationActive,
   type NavItem,
 } from "@/lib/navigation";
 
@@ -165,6 +166,23 @@ describe("navigationActive：不双高亮", () => {
     expect(navigationActive("/channels", "/")).toBe(false);
     expect(navigationActive("/favorites", "/")).toBe(false);
     expect(navigationActive("/notifications", "/")).toBe(false);
+  });
+});
+
+describe("手机课程导航归属", () => {
+  it.each(["/lessons", "/lessons/example"])("%s 只高亮发现，不增加底栏入口", (pathname) => {
+    expect(
+      MAIN_NAV.filter((item) => mobileNavigationActive(pathname, item.href)).map(
+        (item) => item.href
+      )
+    ).toEqual(["/"]);
+    expect(navigationActive(pathname, "/lessons")).toBe(true);
+    expect(navigationActive(pathname, "/")).toBe(false);
+    expect(MAIN_NAV).toHaveLength(5);
+  });
+  it("不吞相似前缀，并保留其它页面的原归属", () => {
+    expect(mobileNavigationActive("/lessons-extra", "/")).toBe(false);
+    expect(mobileNavigationActive("/vocabulary/review", "/vocabulary")).toBe(true);
   });
 });
 

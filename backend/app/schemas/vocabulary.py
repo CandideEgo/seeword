@@ -21,6 +21,8 @@ class VocabularyResponse(BaseModel):
     # the word row shows "来源视频 · mm:ss" instead of a bare link.
     video_title: str | None = None
     subtitle_start_time: float | None = None
+    has_lesson_sources: bool = False
+    review_operations_enabled: bool = False
     # Phase 1 D3b: drill "回看原句" needs the originating subtitle; null when
     # the word was added before the column existed (no source shown).
     subtitle_id: str | None = None
@@ -43,43 +45,6 @@ class VocabularyEnrichResponse(BaseModel):
     difficulty_level: str
 
     model_config = {"from_attributes": True}
-
-
-class QuizGenerateRequest(BaseModel):
-    quiz_type: Literal["multiple_choice", "spelling", "context_fill", "translation"]
-    count: int = Field(default=10, ge=1, le=30)
-    due_only: bool = False
-
-
-class QuizQuestionResponse(BaseModel):
-    id: str
-    word: str
-    quiz_type: str
-    question: str
-    options: list[str] | None = None
-    correct_answer_index: int | None = None
-
-
-class QuizAnswerItem(BaseModel):
-    question_id: str
-    answer: str
-
-
-class QuizSubmitRequest(BaseModel):
-    answers: list[QuizAnswerItem]
-
-
-class QuizItemResult(BaseModel):
-    question_id: str
-    correct: bool
-    correct_answer: str
-    user_answer: str
-
-
-class QuizSubmitResponse(BaseModel):
-    score: int
-    total: int
-    results: list[QuizItemResult]
 
 
 class VocabularyStatsResponse(BaseModel):

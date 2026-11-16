@@ -11,17 +11,13 @@ export type HomeEditorialMode = "preview" | "live";
 /** 首页唯一页头；不与视频标题抢层级。 */
 export function HomeEditorialHeader(): ReactElement {
   const now = new Date();
-  const label = `发现 · ${now.getMonth() + 1} 月 ${now.getDate()} 日`;
+  const label = `${now.getMonth() + 1} 月 ${now.getDate()} 日`;
   return (
-    <header className="home-editorial-heading mb-3">
-      <div className="min-w-0">
-        <h1
-          suppressHydrationWarning
-          className="text-caption font-semibold uppercase tracking-[0.09em] text-muted"
-        >
-          {label}
-        </h1>
-      </div>
+    <header className="home-editorial-heading mb-6 flex items-baseline justify-between gap-4">
+      <h1 className="text-display font-semibold tracking-tight text-ink">发现</h1>
+      <time suppressHydrationWarning className="text-meta text-muted">
+        {label}
+      </time>
     </header>
   );
 }

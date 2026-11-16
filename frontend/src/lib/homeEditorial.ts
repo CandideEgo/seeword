@@ -2,7 +2,7 @@
  * 首页编辑内容（「好奇心优先」布局）的数据访问与纯判定函数。
  *
  * 契约来源：`frontend/src/types/homeContent.ts`（唯一前端契约）与
- * `docs/home-editorial-content-implementation-2026-10.md` §5/§6。
+ * `backend/app/schemas/home_content.py`。
  *
  * 这里只做三件事：
  *  1. `fetchHomeEditorial()` 读公共接口（不缓存、不轮询——发布/下线要立即生效）；

@@ -187,13 +187,16 @@ async def test_broker_failure_keeps_localization_intent_and_previous_media(
         row = await db.get(Video, vid)
         intent = await db.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == vid))
         assert row.status == VideoStatus.processing and row.video_url_720p == "/media/previous.mp4"
-        assert intent.status == "pending" and intent.args == [vid, True]
+        assert row.processing_generation is not None and row.step_started_at is not None
+        expected_args = [vid, True, row.processing_generation]
+        assert intent.processing_generation == row.processing_generation
+        assert intent.status == "pending" and intent.args == expected_args
         intent.next_attempt_at = None
         await db.commit()
         sender = AsyncMock()
         monkeypatch.setattr(pipeline_dispatch, "_send", sender)
         assert (await pipeline_dispatch.dispatch_pending(db)).sent == 1
-        sender.assert_awaited_once_with(pipeline_dispatch.LOCALIZE_VIDEO_TASK, [vid, True], None)
+        sender.assert_awaited_once_with(pipeline_dispatch.LOCALIZE_VIDEO_TASK, expected_args, None)
 
 
 async def test_enqueue_failure_rolls_back_localization_claim(client, admin_headers, monkeypatch):
@@ -206,6 +209,7 @@ async def test_enqueue_failure_rolls_back_localization_claim(client, admin_heade
     async with TestSessionLocal() as db:
         row = await db.get(Video, vid)
         assert row.status == VideoStatus.ready and row.video_url_720p == "/media/original.mp4"
+        assert row.processing_generation is None and row.step_started_at is None
         assert await db.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == vid)) is None
 
 
@@ -225,3 +229,43 @@ async def test_localization_cannot_interrupt_full_pipeline_or_revive_offline_vid
         vid = video.id
     response = await client.post(f"/api/v1/videos/admin/{vid}/localize", headers=admin_headers)
     assert response.status_code == expected
+
+
+@pytest.mark.parametrize("force", [True, False])
+async def test_localization_claim_and_intent_share_fresh_generation(db_session, monkeypatch, force):
+    from datetime import UTC, datetime, timedelta
+    from uuid import UUID, uuid4
+
+    from app.services.video_service import localize_video_admin
+
+    old_generation = str(uuid4())
+    old_started_at = datetime.now(UTC) - timedelta(days=1)
+    video = await seed(
+        db_session,
+        status=VideoStatus.ready,
+        processing_generation=old_generation,
+        step_started_at=old_started_at,
+        video_url_720p="/media/keep.mp4",
+    )
+    original_enqueue = pipeline_dispatch.enqueue
+    seen = []
+
+    async def enqueue(db, **kwargs):
+        generation, started_at = (
+            await db.execute(select(Video.processing_generation, Video.step_started_at).where(Video.id == video.id))
+        ).one()
+        assert generation != old_generation and UUID(generation).version == 4
+        assert started_at.replace(tzinfo=UTC) > old_started_at
+        seen.append(generation)
+        return await original_enqueue(db, **kwargs)
+
+    sender = AsyncMock()
+    monkeypatch.setattr(pipeline_dispatch, "enqueue", enqueue)
+    monkeypatch.setattr(pipeline_dispatch, "_send", sender)
+    result = await localize_video_admin(db_session, video.id, force=force)
+    intent = await db_session.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == video.id))
+    assert result.status == VideoStatus.processing
+    assert video.processing_generation == intent.processing_generation == seen[0]
+    assert video.video_url_720p == "/media/keep.mp4"
+    assert intent.args == [video.id, force, seen[0]]
+    sender.assert_awaited_once_with(pipeline_dispatch.LOCALIZE_VIDEO_TASK, [video.id, force, seen[0]], None)

@@ -24,6 +24,7 @@ export default function Error({
       title="页面加载失败"
       message={message}
       fullPage
+      landmark
       action={
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button onClick={reset}>重试</Button>

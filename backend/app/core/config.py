@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # Dypnsapi 短信认证服务 endpoint（SendSmsVerifyCode / CheckSmsVerifyCode）。
     aliyun_sms_endpoint: str = "dypnsapi.aliyuncs.com"
 
+    # Explicit capability switches, not environment/security bypasses. Existing
+    # deployments keep their enabled-path credential requirements by default.
+    llm_enabled: bool = True
+    content_production_enabled: bool = True
+
     # Legacy OpenAI-compatible gateway (kept as a fallback provider). AIService
     # prefers COMMANDCODE_* below when that key is set.
     openai_api_key: str = ""
@@ -124,15 +129,24 @@ class Settings(BaseSettings):
     llm_gateway_tutor_max_tokens: int = Field(default=1024, ge=128, le=4096)
     llm_gateway_v2_team_id: str = ""
     content_receipts_enabled: bool = False
+    slcs_lessons_enabled: bool = False
+    slcs_tutor_enabled: bool = False
+    slcs_vocabulary_enabled: bool = False
+    slcs_lesson_receipt_issuer: str = ""
+    slcs_lesson_receipt_public_keys: dict[str, str] = Field(default_factory=dict)
+    slcs_lesson_receipt_max_age_seconds: int = Field(default=900, ge=1, le=86_400)
     content_verification_api_key: str = Field(default="", repr=False)
     content_receipt_public_keys: dict[str, str] = Field(default_factory=dict, repr=False)
     content_receipt_issuer: str = "seeword-content-gateway"
     content_receipt_max_age_seconds: int = Field(default=86400, ge=60, le=86400)
-    v2_daily_budget_usd: float = Field(default=1.0, gt=0, le=1.0)
-    v2_user_daily_budget_usd: float = Field(default=0.10, gt=0, le=0.10)
+    # Per-run budget handed to the gateway when a teaching run starts. The
+    # daily team/member budgets are NOT here: they belong to the gateway host and
+    # are constants in deploy/v2-gateway/bootstrap_gateway.py (TEAM_DAILY_USD /
+    # MEMBER_DAILY_USD), applied when the virtual key is provisioned.
     v2_run_budget_usd: float = Field(default=0.02, gt=0, le=0.02)
+    # 运行事件的保留期（小时）：teaching_runs.events 的游标过期与
+    # sweep_teaching_runs 的清理都读它，别在这两处再写死 24。
     teaching_run_retention_hours: int = 24
-    teaching_usage_retention_days: int = 7
 
     local_media_path: str = "./media"
 
@@ -140,10 +154,6 @@ class Settings(BaseSettings):
     # 容器 WORKDIR 是 /app，bind mount 把 ./backend/data 挂到 /app/data，所以
     # 相对路径在生产与本地都指到同一处，不需要新增任何 env / compose 项。
     exam_pdf_dir: str = "./data/exam_pdfs"
-
-    # Local video upload limits + temp dir (used by upload_service).
-    max_upload_file_size: int = 500 * 1024 * 1024  # 500 MB
-    upload_temp_dir: str = "./media/uploads"
 
     oss_endpoint: str = ""
     oss_bucket: str = ""
@@ -390,6 +400,20 @@ class Settings(BaseSettings):
                 except (ValueError, TypeError) as exc:
                     raise RuntimeError("Invalid content receipt Ed25519 public key configuration") from exc
 
+        if self.slcs_lesson_receipt_issuer or self.slcs_lesson_receipt_public_keys:
+            from app.services.teaching.content_receipts import public_key
+
+            keys = self.slcs_lesson_receipt_public_keys
+            if not self.slcs_lesson_receipt_issuer.strip() or not 1 <= len(keys) <= 5:
+                raise RuntimeError("SLCS lesson receipts require an issuer and one to five Ed25519 public keys")
+            for kid, pem in keys.items():
+                try:
+                    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", kid):
+                        raise ValueError("invalid key ID")
+                    public_key(pem)
+                except (ValueError, TypeError) as exc:
+                    raise RuntimeError("Invalid SLCS lesson receipt Ed25519 public key configuration") from exc
+
         if self.mcp_write_enabled and not self.mcp_read_enabled:
             raise RuntimeError("MCP_WRITE_ENABLED requires MCP_READ_ENABLED")
         if self.teaching_runs_enabled and not self.llm_gateway_governance_verified:
@@ -457,7 +481,7 @@ class Settings(BaseSettings):
             # The guard is "an LLM key must exist", not "the OpenAI key must
             # exist": production may run entirely on the Command Code provider.
             # An empty pair is still fatal — features would fail at call time.
-            if not (
+            if self.llm_enabled and not (
                 self.openai_api_key.strip()
                 or self.commandcode_api_key.strip()
                 or (self.llm_gateway_base_url.strip() and self.llm_gateway_api_key.strip())
@@ -470,7 +494,7 @@ class Settings(BaseSettings):
             # here as a non-empty string; require it to have been provided.
             if not self.redis_url or "redis_url" not in self.model_fields_set:
                 raise RuntimeError("REDIS_URL must be set in production")
-            if not self.transcription_callback_secret:
+            if self.content_production_enabled and not self.transcription_callback_secret.strip():
                 raise RuntimeError("TRANSCRIPTION_CALLBACK_SECRET must be set in production")
 
 

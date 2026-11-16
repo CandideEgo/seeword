@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slcs"
+version = "0.1.0"
+description = "Offline reader and reference validator for SLCS v0.1 learning packs"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dependencies = ["pydantic==2.13.5"]
+
+[project.optional-dependencies]
+mcp = ["mcp==2.0.0"]
+
+[project.scripts]
+slcs = "slcs.cli:main"
+
+[tool.setuptools]
+packages = ["slcs"]
+package-dir = {slcs = "."}
+
+[tool.setuptools.package-data]
+slcs = ["py.typed"]

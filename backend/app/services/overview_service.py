@@ -6,10 +6,11 @@ vocabulary/stats, learning/records, exams/stats) and still could not answer
 and lets the client render the overview in a single round trip.
 
 All figures are facts, not predictions: streak comes from the cached
-``UserLearningProfile``, this week's minutes from ``behavior_events`` watch_time
-bucketed by the user's local day (``study_time_service``), the all-time total
-from the cumulative ``LearningRecord.time_spent_seconds`` counter (it cannot be
-sliced by day), and the exam block reuses ``exam_service.exam_stats``.
+``UserLearningProfile``, this week's minutes from the ``watch_time`` events of
+both videos and courses bucketed by the user's local day
+(``study_time_service``), the all-time total from the cumulative
+``LearningRecord.time_spent_seconds`` counter plus the course watch seconds (it
+cannot be sliced by day), and the exam block reuses ``exam_service.exam_stats``.
 """
 
 from __future__ import annotations
@@ -33,6 +34,31 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.models.user import User
+
+
+async def _lesson_seconds(db: AsyncSession, user_id: str) -> int:
+    """All-time course watch seconds; zero when the pilot's table is absent.
+
+    The table check is a savepoint-guarded query rather than a schema probe:
+    ``inspect().get_table_names()`` is itself a round trip, and this read model
+    is bounded by a statement budget. A database stopped before the lesson
+    migration rolls back to the savepoint and reports zero, which is the same
+    answer the probe would give.
+    """
+    from sqlalchemy.exc import DBAPIError, ProgrammingError
+
+    from app.models.lesson import LessonActivity
+
+    try:
+        async with db.begin_nested():
+            seconds = await db.scalar(
+                select(func.coalesce(func.sum(LessonActivity.delta_s), 0)).where(
+                    LessonActivity.user_id == user_id, LessonActivity.event_type == "watch_time"
+                )
+            )
+    except (DBAPIError, ProgrammingError):
+        return 0
+    return int(seconds or 0)
 
 
 async def build_overview(db: AsyncSession, user: User) -> dict:
@@ -84,7 +110,10 @@ async def build_overview(db: AsyncSession, user: User) -> dict:
             ).where(LearningRecord.user_id == user.id)
         )
     ).one()
-    total_minutes = int(total_seconds or 0) // 60
+    # Course study time lives in its own table; the week figures above already
+    # include it, so the all-time total must too, or a course-only learner would
+    # see "this week: 12 min" above "total: 0 min".
+    total_minutes = (int(total_seconds or 0) + await _lesson_seconds(db, user.id)) // 60
 
     week_event_dates = {day for day in event_date_rows if day >= this_monday}
     daily: list[dict[str, Any]] = []

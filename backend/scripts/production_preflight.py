@@ -126,6 +126,20 @@ def main() -> int:
         REPO_ROOT / "docker-compose.prod.yml",
         ["SENTRY_DSN", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_SECRET"],
     )
+    # Same failure mode as A09, for the SLCS pilot: the switches are read from
+    # Settings, but a name that is not listed in the prod compose whitelist
+    # never reaches the container, so "打开开关" would silently do nothing.
+    problems += _check_file_contains(
+        REPO_ROOT / "docker-compose.prod.yml",
+        [
+            "SLCS_LESSONS_ENABLED",
+            "SLCS_TUTOR_ENABLED",
+            "SLCS_VOCABULARY_ENABLED",
+            "SLCS_LESSON_RECEIPT_ISSUER",
+            "SLCS_LESSON_RECEIPT_PUBLIC_KEYS",
+            "SLCS_LESSON_RECEIPT_MAX_AGE_SECONDS",
+        ],
+    )
     problems += _check_file_contains(
         REPO_ROOT / "nginx.ssl.conf",
         ["Content-Security-Policy", "media-src 'self' blob:", "Strict-Transport-Security"],

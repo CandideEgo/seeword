@@ -60,7 +60,7 @@ const HEADED = has("headed");
 /** 冒烟用：只跑 route+state 里含这个子串的条目。全量跑不要带。 */
 const ONLY = arg("only");
 
-/** 参考机型：与 docs/design/mobile/baseline/README.md 同一口径。 */
+/** 参考机型：与 frontend/src/lib/watchLayout.ts 同一口径。 */
 const VIEWPORT = { width: 375, height: 812 };
 const DEVICE_SCALE_FACTOR = 2;
 const UA =

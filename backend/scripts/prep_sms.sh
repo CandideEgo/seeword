@@ -7,8 +7,9 @@ set -e
 PROJECT_DIR="${PROJECT_DIR:-/opt/speaking}"
 cd "$PROJECT_DIR"
 
-cp -p .env ".env.bak.$(date +%Y%m%d-%H%M%S)"
-echo "backup created: $(ls -1 .env.bak.* | tail -1)"
+BACKUP="$(mktemp .env.bak.XXXXXXXXXX)"
+(umask 077; cp .env "$BACKUP")
+echo "backup created: $BACKUP"
 
 # Replace the legacy single template var with the three per-purpose vars
 # (values inherited from the old TEMPLATE_CODE=100001 as placeholders;
@@ -23,8 +24,10 @@ else
   echo "no legacy ALIYUN_SMS_TEMPLATE_CODE found (nothing to replace)"
 fi
 
-# The old backup still holds the leaked plaintext key - restrict it now
-chmod 600 .env.bak.20260805 2>/dev/null && echo "chmod 600 .env.bak.20260805 (leaked backup locked down)"
+# The backup we just made holds the same plaintext secrets as .env — restrict it
+# too. (This used to hardcode `.env.bak.20260805`, so it only ever chmod'ed that
+# one old file and silently did nothing on any other run.)
+chmod 600 "$BACKUP" && echo "chmod 600 $BACKUP"
 chmod 600 .env
 echo "chmod 600 .env"
 

@@ -3,13 +3,13 @@
 覆盖本轮修复的「副作用」，不只断言状态码：
 
 - ``retranslate``：状态守卫（processing/ready_subtitles/pending_processing →
-  409，且不清空译文）、engine 白名单（非法 → 422）、Redis 单飞锁、派发失败时
-  把已清空的 ``text_zh`` 与视频状态**恢复**（503），绝不出现「译文清空且无任务」。
-- ``recover``/``retry``：活锁（步骤预算内）→ 409 且**不删锁**、不派发；陈旧锁才
-  清理；60s 单飞键挡住连点。
+  409，且不清空译文）、engine 白名单（非法 → 422）、Redis 单飞锁；broker 失败
+  保留已提交的重译状态和 pending outbox，补发使用同一 generation 与 engine。
+- ``recover``/``retry``：活锁（步骤预算内）→ 409 且**不删锁**、不派发；陈旧运行
+  以新 generation 隔离；60s 单飞键挡住连点，有字幕走 tail、无字幕 recover 走 head。
 - ``/videos/seed``：去重覆盖 pending_processing/processing/ready_subtitles/ready；
-  URL 级 Redis 锁；连点只建一行、只派发一次；error 仍允许重试；派发失败把行标
-  error 并返回 503。
+  URL 级 Redis 锁；连点只建一行、只派发一次；error 仍允许重试；broker 失败返回
+  成功并保留 pending outbox；数据库提交失败则状态和意图一起 rollback。
 - 单行删除字幕：默认 409 + 影响计数，``?force=true`` 才级联删除，且显式清理
   favorites/revisions、把 vocabulary 来源句置空（与 Postgres 级联一致）。
 - ``create_subtitle`` 的 max+1 分配走视频行 ``FOR UPDATE``。
@@ -26,14 +26,18 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core import redis as redis_module
 from app.models.learning import Vocabulary
+from app.models.pipeline_dispatch import DISPATCH_STATUS_DISPATCHED, DISPATCH_STATUS_PENDING, PipelineDispatch
 from app.models.subtitle import Subtitle
 from app.models.subtitle_revision import SubtitleRevision
 from app.models.user import User
 from app.models.user_content import SentenceFavorite
 from app.models.video import Video, VideoStatus
+from app.services.pipeline_dispatch import FINALIZE_VIDEO_TASK, PROCESS_VIDEO_TASK, dispatch_pending
+from app.services.processing_generation import run_identity
 from tests.conftest import TestSessionLocal, _FakeRedis
 
 # ---------------------------------------------------------------------------
@@ -142,13 +146,70 @@ async def _count_videos(url: str) -> int:
         return (await db.scalar(select(func.count()).select_from(Video).where(Video.source_url == url))) or 0
 
 
+async def _dispatches(video_id: str) -> list[PipelineDispatch]:
+    async with TestSessionLocal() as db:
+        return list((await db.scalars(select(PipelineDispatch).where(PipelineDispatch.video_id == video_id))).all())
+
+
+async def _assert_dispatch(
+    video_id: str,
+    task_name: str,
+    *,
+    engine: str | None = None,
+    status: str = DISPATCH_STATUS_DISPATCHED,
+) -> PipelineDispatch:
+    (row,) = await _dispatches(video_id)
+    video = await _video(video_id)
+    assert video.processing_generation
+    assert row.processing_generation == video.processing_generation
+    assert row.task_name == task_name
+    assert row.queue is None
+    expected_args = [video_id, engine] if task_name == FINALIZE_VIDEO_TASK else [video_id]
+    assert row.args == [*expected_args, video.processing_generation]
+    assert row.status == status
+    assert row.attempts == 1
+    if status == DISPATCH_STATUS_PENDING:
+        assert row.last_error == "broker down"
+        assert row.next_attempt_at is not None
+        assert row.dispatched_at is None
+    else:
+        assert row.last_error is None
+        assert row.next_attempt_at is None
+        assert row.dispatched_at is not None
+    return row
+
+
+async def _assert_pending_can_resend(row: PipelineDispatch) -> None:
+    """模拟 beat 在 backoff 到期补发，不能产生另一行或换代。"""
+    assert row.next_attempt_at is not None
+    due = row.next_attempt_at.replace(tzinfo=UTC) + timedelta(seconds=1)
+    with (
+        patch("app.services.pipeline_dispatch._utcnow", return_value=due),
+        patch("app.services.pipeline_dispatch._send_task") as send,
+    ):
+        async with TestSessionLocal() as db:
+            sweep = await dispatch_pending(db)
+    assert sweep.scanned == sweep.sent == 1
+    assert sweep.failed == sweep.abandoned == 0
+    send.assert_called_once_with(row.task_name, row.args, row.queue)
+    (fresh,) = await _dispatches(row.video_id)
+    assert fresh.id == row.id
+    assert fresh.args == row.args
+    assert fresh.processing_generation == row.processing_generation
+    assert fresh.status == DISPATCH_STATUS_DISPATCHED
+    assert fresh.attempts == 2
+    assert fresh.last_error is None
+    assert fresh.next_attempt_at is None
+    assert fresh.dispatched_at is not None
+
+
 async def _user_id(phone: str = "13800138000") -> str:
     async with TestSessionLocal() as db:
         return (await db.execute(select(User).where(User.phone == phone))).scalar_one().id
 
 
 # ---------------------------------------------------------------------------
-# ADM-02: retranslate 状态守卫 / engine 白名单 / 单飞 / 派发失败恢复
+# ADM-02: retranslate 状态守卫 / engine 白名单 / 单飞 / 持久重译意图
 # ---------------------------------------------------------------------------
 
 
@@ -161,12 +222,12 @@ class TestRetranslateGuards:
         vid = await _create_video(status=status)
         await _add_subtitles(vid, 2)
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate", headers=admin_headers)
 
         assert resp.status_code == 409, resp.text
         assert resp.json()["code"] == "CONFLICT"
-        mock_fin.delay.assert_not_called()
+        mock_fin.assert_not_called()
         # 守卫必须先于清空：译文原样保留。
         rows = await _subtitles(vid)
         assert [row.text_zh for row in rows] == ["旧翻译 0", "旧翻译 1"]
@@ -176,42 +237,48 @@ class TestRetranslateGuards:
         vid = await _create_video(status=VideoStatus.error, quality_flag="quality_blocked")
         await _add_subtitles(vid, 1)
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate?engine=bogus", headers=admin_headers)
 
         assert resp.status_code == 422, resp.text
         assert resp.json()["code"] == "VALIDATION_ERROR"
-        mock_fin.delay.assert_not_called()
+        mock_fin.assert_not_called()
         assert (await _subtitles(vid))[0].text_zh == "旧翻译 0"
 
-    async def test_dispatch_failure_restores_translations_and_state(
+    async def test_dispatch_failure_keeps_new_translation_intent(
         self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis
     ):
-        """派发抛错时：503 + 译文/质量标记/状态全部回到点击前（ADM-02 核心）。"""
+        """broker 失败不补偿旧译文；新重译意图已持久化，可由 beat 补发。"""
         vid = await _create_video(
             status=VideoStatus.error,
             quality_flag="quality_blocked",
             error_message="coverage 50% below block",
             processing_step=None,
         )
-        await _add_subtitles(vid, 3)
+        subtitle_ids = await _add_subtitles(vid, 3)
+        previous_generation = (await _video(vid)).processing_generation
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
-            mock_fin.delay.side_effect = RuntimeError("broker down")
+        with patch("app.services.pipeline_dispatch._send_task", side_effect=RuntimeError("broker down")) as send:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate?engine=glm", headers=admin_headers)
+            repeated = await client.post(f"/api/v1/videos/admin/{vid}/retranslate?engine=glm", headers=admin_headers)
 
-        assert resp.status_code == 503, resp.text
-        assert resp.json()["code"] == "SERVICE_UNAVAILABLE"
-        # 单飞键必须释放，管理员可以立刻重试。
-        assert f"retranslate:{vid}" not in nx_redis._store
-
+        assert resp.status_code == 200, resp.text
+        assert repeated.status_code == 409, repeated.text
+        assert nx_redis._store.get(f"retranslate:{vid}") == "1"
         rows = await _subtitles(vid)
-        assert [row.text_zh for row in rows] == ["旧翻译 0", "旧翻译 1", "旧翻译 2"]
+        assert [row.id for row in rows] == subtitle_ids
+        assert [row.text_en for row in rows] == ["line 0", "line 1", "line 2"]
+        assert [row.text_zh for row in rows] == [None, None, None]
         fresh = await _video(vid)
-        assert fresh.status == VideoStatus.error
-        assert fresh.quality_flag == "quality_blocked"
-        assert fresh.error_message == "coverage 50% below block"
-        assert fresh.processing_step is None
+        assert fresh.status == VideoStatus.ready_subtitles
+        assert fresh.quality_flag is None
+        assert fresh.error_message is None
+        assert fresh.processing_step == "translating"
+        assert fresh.processing_generation != previous_generation
+        row = await _assert_dispatch(vid, FINALIZE_VIDEO_TASK, engine="glm", status=DISPATCH_STATUS_PENDING)
+        send.assert_called_once_with(FINALIZE_VIDEO_TASK, row.args, None)
+        await _assert_pending_can_resend(row)
+        assert [row.text_zh for row in await _subtitles(vid)] == [None, None, None]
 
     async def test_single_flight_lock_blocks_double_click(
         self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis
@@ -220,12 +287,12 @@ class TestRetranslateGuards:
         await _add_subtitles(vid, 1)
         nx_redis._store[f"retranslate:{vid}"] = "1"
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate", headers=admin_headers)
 
         assert resp.status_code == 409, resp.text
         assert "重新翻译" in resp.json()["message"]
-        mock_fin.delay.assert_not_called()
+        mock_fin.assert_not_called()
         assert (await _subtitles(vid))[0].text_zh == "旧翻译 0"
 
     async def test_successful_call_takes_single_flight_key(
@@ -234,11 +301,12 @@ class TestRetranslateGuards:
         vid = await _create_video(status=VideoStatus.error, quality_flag="quality_blocked")
         await _add_subtitles(vid, 1)
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retranslate", headers=admin_headers)
 
         assert resp.status_code == 200, resp.text
-        mock_fin.delay.assert_called_once_with(vid, engine=None)
+        row = await _assert_dispatch(vid, FINALIZE_VIDEO_TASK)
+        mock_fin.assert_called_once_with(FINALIZE_VIDEO_TASK, row.args, None)
         assert nx_redis._store.get(f"retranslate:{vid}") == "1"
         # 清空 + 状态推进仍然生效（成功路径）。
         assert (await _subtitles(vid))[0].text_zh is None
@@ -261,7 +329,7 @@ class TestRecoverRetryLockSafety:
         )
         nx_redis._store[f"video:processing:{vid}"] = "1"
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
 
         assert resp.status_code == 409, resp.text
@@ -269,25 +337,42 @@ class TestRecoverRetryLockSafety:
         assert "translating" in resp.json()["message"]
         # 活锁不能被删（否则第二个 finalize 会并发写同一批字幕行）。
         assert nx_redis._store.get(f"video:processing:{vid}") == "1"
-        mock_fin.delay.assert_not_called()
+        mock_fin.assert_not_called()
 
-    async def test_recover_clears_stale_lock_and_dispatches(
-        self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis
+    @pytest.mark.parametrize("with_subtitles", [False, True])
+    async def test_recover_fences_stale_lock_and_dispatches(
+        self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis, with_subtitles: bool
     ):
         vid = await _create_video(
             status=VideoStatus.ready_subtitles,
             processing_step="translating",
             step_started_at=datetime.now(UTC) - timedelta(days=2),
         )
-        nx_redis._store[f"video:processing:{vid}"] = "1"
+        subtitle_ids = await _add_subtitles(vid) if with_subtitles else []
+        previous = await _video(vid)
+        stale_lock = f"video:processing:{run_identity(vid, previous.processing_generation)}"
+        nx_redis._store[stale_lock] = "1"
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as send:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
 
         assert resp.status_code == 200, resp.text
-        mock_fin.delay.assert_called_once_with(vid)
-        assert f"video:processing:{vid}" not in nx_redis._store
+        task_name = FINALIZE_VIDEO_TASK if with_subtitles else PROCESS_VIDEO_TASK
+        row = await _assert_dispatch(vid, task_name)
+        send.assert_called_once_with(task_name, row.args, None)
+        fresh = await _video(vid)
+        assert fresh.processing_generation != previous.processing_generation
+        assert fresh.status == (VideoStatus.ready_subtitles if with_subtitles else VideoStatus.processing)
+        assert fresh.processing_step == ("translating" if with_subtitles else "extracting")
+        assert fresh.processing_progress == (70 if with_subtitles else 0)
+        assert fresh.error_message is None
+        # 不删除另一个运行的锁；新代与旧代隔离。
+        assert nx_redis._store.get(stale_lock) == "1"
+        assert f"video:processing:{run_identity(vid, fresh.processing_generation)}" not in nx_redis._store
         assert nx_redis._store.get(f"pipeline:resume:{vid}") == "1"
+        assert [sub.id for sub in await _subtitles(vid)] == subtitle_ids
+        if with_subtitles:
+            assert [sub.text_zh for sub in await _subtitles(vid)] == ["旧翻译 0", "旧翻译 1"]
 
     async def test_recover_double_click_single_flight(
         self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis
@@ -298,31 +383,42 @@ class TestRecoverRetryLockSafety:
             step_started_at=datetime.now(UTC) - timedelta(days=1),
         )
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             first = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
             second = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
 
         assert first.status_code == 200, first.text
         assert second.status_code == 409, second.text
         assert "60 秒" in second.json()["message"]
-        assert mock_fin.delay.call_count == 1
+        assert mock_fin.call_count == 1
+        row = await _assert_dispatch(vid, PROCESS_VIDEO_TASK)
+        mock_fin.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
 
-    async def test_recover_dispatch_failure_releases_single_flight(
-        self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis
+    @pytest.mark.parametrize("with_subtitles", [False, True])
+    async def test_recover_dispatch_failure_keeps_pending_intent(
+        self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis, with_subtitles: bool
     ):
         vid = await _create_video(
             status=VideoStatus.ready_subtitles,
             processing_step="translating",
             step_started_at=datetime.now(UTC) - timedelta(days=1),
         )
+        if with_subtitles:
+            await _add_subtitles(vid)
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
-            mock_fin.delay.side_effect = RuntimeError("broker down")
+        with patch("app.services.pipeline_dispatch._send_task", side_effect=RuntimeError("broker down")) as send:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
+            repeated = await client.post(f"/api/v1/videos/admin/{vid}/recover", headers=admin_headers)
 
-        assert resp.status_code == 503, resp.text
-        assert resp.json()["code"] == "SERVICE_UNAVAILABLE"
-        assert f"pipeline:resume:{vid}" not in nx_redis._store
+        assert resp.status_code == 200, resp.text
+        assert repeated.status_code == 409, repeated.text
+        assert "60 秒" in repeated.json()["message"]
+        assert nx_redis._store.get(f"pipeline:resume:{vid}") == "1"
+        task_name = FINALIZE_VIDEO_TASK if with_subtitles else PROCESS_VIDEO_TASK
+        row = await _assert_dispatch(vid, task_name, status=DISPATCH_STATUS_PENDING)
+        send.assert_called_once_with(task_name, row.args, None)
+        await _assert_pending_can_resend(row)
+        assert [sub.text_zh for sub in await _subtitles(vid)] == (["旧翻译 0", "旧翻译 1"] if with_subtitles else [])
 
     async def test_retry_rejects_live_lock(self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis):
         vid = await _create_video(
@@ -331,12 +427,12 @@ class TestRecoverRetryLockSafety:
         )
         nx_redis._store[f"video:processing:{vid}"] = "1"
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retry", headers=admin_headers)
 
         assert resp.status_code == 409, resp.text
         assert nx_redis._store.get(f"video:processing:{vid}") == "1"
-        mock_fin.delay.assert_not_called()
+        mock_fin.assert_not_called()
 
     async def test_retry_stale_lock_proceeds(self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis):
         vid = await _create_video(
@@ -347,12 +443,18 @@ class TestRecoverRetryLockSafety:
         await _add_subtitles(vid, 1)
         nx_redis._store[f"video:processing:{vid}"] = "1"
 
-        with patch("app.tasks.video_processing.finalize_video") as mock_fin:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_fin:
             resp = await client.post(f"/api/v1/videos/admin/{vid}/retry", headers=admin_headers)
 
         assert resp.status_code == 200, resp.text
-        mock_fin.delay.assert_called_once_with(vid)
-        assert f"video:processing:{vid}" not in nx_redis._store
+        row = await _assert_dispatch(vid, FINALIZE_VIDEO_TASK)
+        mock_fin.assert_called_once_with(FINALIZE_VIDEO_TASK, row.args, None)
+        # 旧锁仍归旧运行所有；重试已生成新的隔离身份。
+        fresh = await _video(vid)
+        assert fresh.processing_generation
+        assert nx_redis._store.get(f"video:processing:{vid}") == "1"
+        assert f"video:processing:{run_identity(vid, fresh.processing_generation)}" not in nx_redis._store
+        assert (await _subtitles(vid))[0].text_zh == "旧翻译 0"
 
 
 # ---------------------------------------------------------------------------
@@ -374,26 +476,28 @@ class TestSeedDedupeAndLock:
         url = f"https://youtu.be/dedupe-{status.value}-{uuid.uuid4().hex[:6]}"
         existing_id = await _create_video(status=status, url=url)
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             resp = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
 
         assert resp.status_code == 201, resp.text
         assert resp.json()["id"] == existing_id
-        mock_pv.delay.assert_not_called()
+        mock_pv.assert_not_called()
         assert await _count_videos(url) == 1
 
     async def test_error_video_still_retryable(self, client: AsyncClient, admin_headers: dict):
         url = f"https://youtu.be/error-retry-{uuid.uuid4().hex[:6]}"
         errored_id = await _create_video(status=VideoStatus.error, url=url)
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             resp = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
 
         assert resp.status_code == 201, resp.text
         new_id = resp.json()["id"]
         assert new_id != errored_id
-        mock_pv.delay.assert_called_once_with(new_id)
+        row = await _assert_dispatch(new_id, PROCESS_VIDEO_TASK)
+        mock_pv.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
         assert await _count_videos(url) == 2
+        assert await _dispatches(errored_id) == []
 
     async def test_url_lock_conflict_is_409(self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis):
         from app.services.video_seed_service import _seed_lock_key
@@ -401,32 +505,36 @@ class TestSeedDedupeAndLock:
         url = f"https://youtu.be/locked-{uuid.uuid4().hex[:6]}"
         nx_redis._store[_seed_lock_key(url)] = "1"
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             resp = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
 
         assert resp.status_code == 409, resp.text
         assert resp.json()["code"] == "CONFLICT"
-        mock_pv.delay.assert_not_called()
+        mock_pv.assert_not_called()
         assert await _count_videos(url) == 0
 
     async def test_double_click_creates_one_row(self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis):
         url = f"https://youtu.be/double-click-{uuid.uuid4().hex[:6]}"
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             first = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
             second = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
 
         assert first.status_code == 201, first.text
         assert second.status_code == 201, second.text
         assert first.json()["id"] == second.json()["id"]
-        assert mock_pv.delay.call_count == 1
+        assert mock_pv.call_count == 1
         assert await _count_videos(url) == 1
+        async with TestSessionLocal() as db:
+            vid = (await db.scalars(select(Video.id).where(Video.source_url == url))).one()
+        row = await _assert_dispatch(vid, PROCESS_VIDEO_TASK)
+        mock_pv.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
 
     async def test_concurrent_seed_creates_one_row(self, client: AsyncClient, admin_headers: dict, nx_redis: _NxRedis):
         """并发两击：要么第二个 409（锁生效），要么命中去重返回同一行；只建一行。"""
         url = f"https://youtu.be/concurrent-{uuid.uuid4().hex[:6]}"
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             responses = await asyncio.gather(
                 client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers),
                 client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers),
@@ -435,22 +543,103 @@ class TestSeedDedupeAndLock:
         statuses = sorted(resp.status_code for resp in responses)
         assert statuses in ([201, 201], [201, 409]), [resp.text for resp in responses]
         assert await _count_videos(url) == 1
-        assert mock_pv.delay.call_count == 1
+        assert mock_pv.call_count == 1
+        vid = next(resp.json()["id"] for resp in responses if resp.status_code == 201)
+        row = await _assert_dispatch(vid, PROCESS_VIDEO_TASK)
+        mock_pv.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
 
-    async def test_dispatch_failure_marks_row_error(self, client: AsyncClient, admin_headers: dict):
-        """建行后派发失败：不能留下 processing 且无任务的幽灵行（503 + error）。"""
+    async def test_dispatch_failure_keeps_pending_head(self, client: AsyncClient, admin_headers: dict):
+        """broker 失败仍创建成功，head 意图已持久化且可补发。"""
         url = f"https://youtu.be/dispatch-fail-{uuid.uuid4().hex[:6]}"
 
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
-            mock_pv.delay.side_effect = RuntimeError("broker down")
+        with patch("app.services.pipeline_dispatch._send_task", side_effect=RuntimeError("broker down")) as send:
             resp = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
+            repeated = await client.post("/api/v1/videos/seed", json={"source_url": url}, headers=admin_headers)
 
-        assert resp.status_code == 503, resp.text
-        assert resp.json()["code"] == "SERVICE_UNAVAILABLE"
+        assert resp.status_code == 201, resp.text
+        assert repeated.status_code == 201, repeated.text
+        vid = resp.json()["id"]
+        assert repeated.json()["id"] == vid
+        assert await _count_videos(url) == 1
+        video = await _video(vid)
+        assert video.status == VideoStatus.processing
+        assert video.processing_step == "extracting"
+        assert video.error_message is None
+        row = await _assert_dispatch(vid, PROCESS_VIDEO_TASK, status=DISPATCH_STATUS_PENDING)
+        send.assert_called_once_with(PROCESS_VIDEO_TASK, row.args, None)
+        await _assert_pending_can_resend(row)
+
+
+class TestAdminPipelineTransactions:
+    @pytest.mark.parametrize("action", ["seed", "retranslate", "recover", "retry"])
+    async def test_commit_failure_rolls_back_state_subtitles_and_outbox(self, action: str):
+        """真实 enqueue 已写 SQLite，commit 失败必须一起 rollback，且不碰 broker。"""
+        from app.services import video_seed_service
+
+        url = f"https://youtu.be/rollback-{uuid.uuid4().hex[:6]}"
+        vid = None
+        before = None
+        subtitle_ids = []
+        if action != "seed":
+            vid = await _create_video(
+                status=VideoStatus.processing if action == "recover" else VideoStatus.error,
+                quality_flag="quality_blocked",
+                error_message="original failure",
+                processing_step="translating",
+                step_started_at=datetime.now(UTC) - timedelta(days=1),
+            )
+            subtitle_ids = await _add_subtitles(vid)
+            before = await _video(vid)
+
         async with TestSessionLocal() as db:
-            row = (await db.execute(select(Video).where(Video.source_url == url))).scalar_one()
-        assert row.status == VideoStatus.error
-        assert "派发失败" in (row.error_message or "")
+            with (
+                patch.object(db, "commit", new=AsyncMock(side_effect=SQLAlchemyError("commit failed"))),
+                patch.object(db, "rollback", wraps=db.rollback) as rollback,
+                patch("app.services.pipeline_dispatch._send_task") as send,
+            ):
+                with pytest.raises(SQLAlchemyError, match="commit failed"):
+                    if action == "seed":
+                        await video_seed_service.seed_video(db, url)
+                    elif action == "retranslate":
+                        await video_seed_service.retranslate_video(db, vid, engine="glm")
+                    elif action == "recover":
+                        await video_seed_service.recover_processing(db, vid)
+                    else:
+                        await video_seed_service.retry_video(db, vid)
+                rollback.assert_awaited_once()
+                send.assert_not_called()
+
+        async with TestSessionLocal() as db:
+            assert (await db.scalar(select(func.count()).select_from(PipelineDispatch))) == 0
+        if action == "seed":
+            assert await _count_videos(url) == 0
+        else:
+            fresh = await _video(vid)
+            for field in (
+                "status",
+                "quality_flag",
+                "error_message",
+                "processing_step",
+                "processing_progress",
+                "processing_generation",
+                "step_started_at",
+            ):
+                assert getattr(fresh, field) == getattr(before, field), field
+            rows = await _subtitles(vid)
+            assert [row.id for row in rows] == subtitle_ids
+            assert [row.text_zh for row in rows] == ["旧翻译 0", "旧翻译 1"]
+
+    @pytest.mark.parametrize("action", ["retry", "recover", "retranslate"])
+    async def test_requires_admin(self, client: AsyncClient, auth_headers: dict, action: str):
+        vid = await _create_video(status=VideoStatus.error)
+        await _add_subtitles(vid)
+        with patch("app.services.pipeline_dispatch._send_task") as send:
+            resp = await client.post(f"/api/v1/videos/admin/{vid}/{action}", headers=auth_headers)
+        assert resp.status_code == 403, resp.text
+        send.assert_not_called()
+        assert await _dispatches(vid) == []
+        assert (await _video(vid)).status == VideoStatus.error
+        assert [row.text_zh for row in await _subtitles(vid)] == ["旧翻译 0", "旧翻译 1"]
 
 
 # ---------------------------------------------------------------------------

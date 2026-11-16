@@ -47,7 +47,7 @@ ignore = [
 "scripts/precompute_global_word_notes_dual.py" = ["TID251"] # one-off operator tooling, not a runtime path
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "scripts"]
+known-first-party = ["app", "scripts", "slcs"]
 
 [tool.ruff.format]
 quote-style = "double"

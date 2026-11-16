@@ -1,0 +1,58 @@
+{
+  "checked_at": "2026-11-13T16:03:00.787Z",
+  "scope": "Only GSAP dependency removal; no UI or application-source edits",
+  "manifest_changes": ["dependencies.gsap removed"],
+  "lockfile_changes": [
+    "root dependencies.gsap removed",
+    "packages.node_modules/gsap removed"
+  ],
+  "other_manifest_and_lock_values_unchanged": true,
+  "installed_gsap_absent": true,
+  "astryx_dependencies_preserved": true,
+  "before_sha256": {
+    "package": "b4c09e7b81d762e99d49a700f26ab57c4e651033c0b9fa5454f450af4592d28d",
+    "lockfile": "207534f7a9949a2fab319241e47d8f03bc444c1155e0502b378faa98fe76bce5"
+  },
+  "after_sha256": {
+    "package": "c3f9a8bdb1684d2d6ada8c05b44cca9a132e74947d30bda6a116bdd2b31640ed",
+    "lockfile": "b3ef53405e7133abce07b303b22ca154307a64c7355f884298237d7eddcac3db"
+  },
+  "non_root_lock_entries": {
+    "before": 319,
+    "after": 318
+  },
+  "validation": {
+    "check": "passed",
+    "unit": {
+      "status": "passed",
+      "files": 42,
+      "tests": 393
+    },
+    "build": {
+      "status": "passed",
+      "static_pages": 44
+    }
+  },
+  "completed_at": "2026-11-13T16:07:28.843403+00:00",
+  "historical_audit_input_hashes_match_before": true,
+  "standalone_manifest_has_no_gsap": true,
+  "standalone_gsap_directory_absent": true,
+  "logs": {
+    "check_build": {
+      "path": "docs/evidence/open-learning/p0/gsap-removal-check-build.log",
+      "sha256": "f5ee6322c6460d2fe7e2f3a0622309cbce8144675f88e76e8f6a20887c96843d",
+      "bytes": 4601
+    },
+    "unit": {
+      "path": "docs/evidence/open-learning/p0/gsap-removal-unit.log",
+      "sha256": "1eeadeb5dbd82500912e1c66eba791fb743367a2d599f3d31194d25dc20a6342",
+      "bytes": 275
+    }
+  },
+  "root_license_unchanged": true,
+  "not_executed": [
+    "Browser/e2e, backend tests or independent review: dependency-only removal, no UI/application-source changes",
+    "Root license change, production migration, commit, push or deploy"
+  ],
+  "relative_links_checked": 38
+}

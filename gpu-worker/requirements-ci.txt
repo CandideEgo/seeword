@@ -8,7 +8,9 @@
 #
 # For a real GPU worker install requirements.txt instead — it adds whisperx,
 # faster-whisper, yt-dlp, deepmultilingualpunctuation and (transitively) torch.
-celery[redis]==5.4.0
+# Same celery pin as requirements.txt: the tests assert `worker_enable_remote_control`
+# is off on the app object, and CI should exercise the version the worker runs on.
+celery[redis]==5.5.3
 redis==5.0.0
 httpx==0.27.0
 pydantic-settings==2.15.0

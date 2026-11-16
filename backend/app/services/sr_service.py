@@ -3,8 +3,9 @@
 Two algorithms live side by side here:
 
 1. ``calculate_review_interval`` (S6, DEC-057) — the product's review
-   scheduling. Error counts decide the next interval directly; see the band
-   table in ``docs/plans/词汇训练与播放页返回-设计方案-2026-09.md`` §5.4.
+   scheduling. Error counts decide the next interval directly; the band
+   table lives in the constants below (round/hard/clean/error ladders and the
+   wrong-count cap).
    Consumed by ``vocabulary_service.apply_review``, the single writer of a
    word's review state. ``ease_factor`` no longer participates in scheduling.
 
@@ -71,7 +72,7 @@ def calculate_review_interval(
         Interval in days until the next review.
     """
     # 答错（无论本轮内还是复习时）→ 回到次日；本轮内曾答错、其后答对的词也
-    # 必须次日重现（设计 §5.4 情形 1），wrong_recent 就是那个信号。
+    # 必须次日重现，wrong_recent 就是那个信号。
     if not correct or wrong_recent:
         return ROUND_INTERVAL_DAYS
     if hard:

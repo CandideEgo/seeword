@@ -5,6 +5,7 @@ from app.models.catalog import CatalogItem
 from app.models.channel import Channel
 from app.models.content_publication import ContentPublicationOperation, TeachingContentDraft
 from app.models.data_export import DataExportTask
+from app.models.delegated_learning import ExternalLearningGrant, ExternalLearningIntent, ExternalLearningOperation
 from app.models.engagement import VideoLike
 from app.models.exam_corpus import ExamSentence, ExamSentenceWord, ExamWordFreq
 from app.models.exam_test import ExamAnswer, ExamPaper, ExamQuestion, ExamSession
@@ -13,6 +14,8 @@ from app.models.feedback import Feedback
 from app.models.home_content import HomeContentDraft, HomeContentRevision, HomePageConfig
 from app.models.learning import LearningRecord, Vocabulary
 from app.models.learning_plan import LearningEvent, UserLearningProfile
+from app.models.lesson import Lesson, LessonActivity, LessonOperation, LessonProgress, LessonRevision
+from app.models.lesson_learning import LessonTutorAnchor, LessonVocabularySource, VocabularyReviewLog
 from app.models.listening import ListeningSession
 from app.models.media_cleanup import MediaCleanupTask
 from app.models.milestone import MasterySnapshot, UserMilestone

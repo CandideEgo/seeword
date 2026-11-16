@@ -158,6 +158,83 @@ class TestSecretGuards:
         assert (s.jwt_secret, s.database_url) == ("mine", "postgresql+asyncpg://u:p@db/x")
 
 
+class TestSelfhostCapabilities:
+    def test_production_can_explicitly_disable_models_and_production(self):
+        s = _settings(
+            env="production",
+            jwt_secret=_STRONG_SECRET,
+            database_url="postgresql+asyncpg://u:p@db/selfhost",
+            redis_url="redis://redis:6379/0",
+            llm_enabled=False,
+            content_production_enabled=False,
+            openai_api_key="",
+            commandcode_api_key="",
+            llm_gateway_base_url="",
+            llm_gateway_api_key="",
+            transcription_callback_secret="",
+        )
+        assert not s.llm_enabled and not s.content_production_enabled
+
+    @pytest.mark.parametrize(
+        "override,match",
+        [
+            ({"jwt_secret": "weak"}, "JWT_SECRET"),
+            ({"database_url": ""}, "DATABASE_URL"),
+            ({"redis_url": ""}, "REDIS_URL"),
+            ({"sms_dev_fake_enabled": True}, "SMS_DEV_FAKE_ENABLED"),
+        ],
+    )
+    def test_disabled_capabilities_keep_security_guards(self, override, match):
+        values = dict(
+            env="production",
+            jwt_secret=_STRONG_SECRET,
+            database_url="postgresql+asyncpg://u:p@db/selfhost",
+            redis_url="redis://redis:6379/0",
+            llm_enabled=False,
+            content_production_enabled=False,
+        )
+        with pytest.raises(RuntimeError, match=match):
+            _settings(**(values | override))
+
+    def test_disabled_models_still_require_explicit_redis(self, monkeypatch):
+        monkeypatch.delenv("REDIS_URL", raising=False)
+        with pytest.raises(RuntimeError, match="REDIS_URL"):
+            _settings(
+                env="production",
+                jwt_secret=_STRONG_SECRET,
+                database_url="postgresql+asyncpg://u:p@db/selfhost",
+                llm_enabled=False,
+                content_production_enabled=False,
+            )
+
+    @pytest.mark.parametrize(
+        "llm,production,match",
+        [
+            (True, False, "COMMANDCODE_API_KEY"),
+            (False, True, "TRANSCRIPTION_CALLBACK_SECRET"),
+        ],
+    )
+    def test_independent_switches_preserve_enabled_path_guards(self, llm, production, match):
+        with pytest.raises(RuntimeError, match=match):
+            _settings(
+                env="production",
+                jwt_secret=_STRONG_SECRET,
+                database_url="postgresql+asyncpg://u:p@db/selfhost",
+                redis_url="redis://redis:6379/0",
+                llm_enabled=llm,
+                content_production_enabled=production,
+                openai_api_key="",
+                commandcode_api_key="",
+                llm_gateway_base_url="",
+                llm_gateway_api_key="",
+                transcription_callback_secret="",
+            )
+
+    def test_enabled_capabilities_remain_default(self):
+        s = _settings(env="development")
+        assert s.llm_enabled and s.content_production_enabled
+
+
 class TestJwtSecretStrength:
     """A non-empty secret is not enough: short HS256 keys are brute-forceable.
 

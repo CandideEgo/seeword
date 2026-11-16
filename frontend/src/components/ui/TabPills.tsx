@@ -66,7 +66,7 @@ export function TabPills<K extends string = string>({
   return (
     <div
       className={cn(
-        "inline-flex gap-1",
+        "sw-tab-filters inline-flex gap-1",
         variant === "default" &&
           "flex-wrap items-center rounded-pill border border-hairline bg-surface-soft p-1",
         variant === "ghost" && "flex-nowrap bg-transparent p-0",

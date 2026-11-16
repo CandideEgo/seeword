@@ -1,0 +1,69 @@
+[
+  {
+    "check": "pagination",
+    "passed": true
+  },
+  {
+    "check": "mobile-light",
+    "viewport": [
+      390,
+      844
+    ],
+    "dpr": 2,
+    "overflow": false,
+    "mode": "light",
+    "radios": [
+      {
+        "text": "复习",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      },
+      {
+        "text": "词库",
+        "height": 36,
+        "color": "rgb(29, 29, 31)"
+      },
+      {
+        "text": "视频集合",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      },
+      {
+        "text": "全部单词",
+        "height": 36,
+        "color": "rgb(29, 29, 31)"
+      },
+      {
+        "text": "全部",
+        "height": 36,
+        "color": "rgb(29, 29, 31)"
+      },
+      {
+        "text": "新词",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      },
+      {
+        "text": "学习中",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      },
+      {
+        "text": "已掌握",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      },
+      {
+        "text": "不限",
+        "height": 36,
+        "color": "rgb(29, 29, 31)"
+      },
+      {
+        "text": "待复习",
+        "height": 36,
+        "color": "rgb(71, 71, 71)"
+      }
+    ],
+    "searchLabel": null
+  }
+]

@@ -24,6 +24,20 @@ from app.models.user import User
 from app.models.video import Video, VideoReviewStatus, VideoStatus
 
 
+async def _assert_head_intent(vid, send):
+    from app.models.pipeline_dispatch import PipelineDispatch
+    from app.services.pipeline_dispatch import PROCESS_VIDEO_TASK
+    from tests.conftest import TestSessionLocal
+
+    async with TestSessionLocal() as db:
+        video = await db.get(Video, vid)
+        intent = await db.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == vid))
+        assert video.processing_generation is not None
+        assert intent.processing_generation == video.processing_generation
+        assert intent.args == [vid, video.processing_generation]
+        send.assert_called_once_with(PROCESS_VIDEO_TASK, intent.args, None)
+
+
 async def _owner_id(db) -> str:
     user = (await db.execute(select(User).where(User.phone == "13800138000"))).scalar_one()
     return user.id
@@ -52,13 +66,14 @@ class TestUserSubmissionNoAutoProcess:
 
     async def test_admin_seed_still_auto_processes(self, client: AsyncClient, admin_headers: dict):
         """POST /videos/seed (admin) should still immediately process."""
-        with patch("app.tasks.video_processing.process_video") as mock_pv:
+        with patch("app.services.pipeline_dispatch._send_task") as mock_pv:
             resp = await client.post(
                 "/api/v1/videos/seed",
                 json={"source_url": "https://www.youtube.com/watch?v=admin_seed_test"},
                 headers=admin_headers,
             )
-            mock_pv.delay.assert_called_once()
+            assert resp.status_code == 201
+            await _assert_head_intent(resp.json()["id"], mock_pv)
 
         assert resp.status_code == 201
         data = resp.json()
@@ -80,7 +95,7 @@ class TestStartProcessing:
 
         with (
             patch("app.services.video_seed_service.is_gpu_worker_online", return_value=True),
-            patch("app.tasks.video_processing.process_video") as mock_pv,
+            patch("app.services.pipeline_dispatch._send_task") as mock_pv,
         ):
             resp = await client.post(
                 f"/api/v1/videos/admin/{vid}/start-processing",
@@ -90,7 +105,7 @@ class TestStartProcessing:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "processing"
-        mock_pv.delay.assert_called_once_with(vid)
+        await _assert_head_intent(vid, mock_pv)
 
     async def test_start_processing_worker_offline_503(
         self, client: AsyncClient, auth_headers: dict, admin_headers: dict

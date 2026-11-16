@@ -1,6 +1,6 @@
 // Design-review screenshot harness.
 // Registers (or reuses) a throwaway account, then captures every user-facing
-// route at desktop and mobile widths into docs/evidence/design-redo/.
+// route at desktop and mobile widths into the ignored tmp/design-shots/.
 //
 // Usage: node scripts/design-shots.mjs [--routes=/a,/b] [--tag=before]
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chromium, request } from "@playwright/test";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = join(HERE, "..", "..", "docs", "evidence", "design-redo");
+const OUT = join(HERE, "..", "..", "tmp", "design-shots");
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const API = process.env.SHOT_API ?? "http://localhost:8000";

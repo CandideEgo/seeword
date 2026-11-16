@@ -177,6 +177,48 @@ def redis_down(monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("status", ["ok", "error"])
+@pytest.mark.parametrize("missing", [False, True])
+async def test_old_or_missing_generation_cannot_write_new_attempt(
+    client, redis_lock, callback_secret, _mock_celery, status, missing
+):
+    video_id = await _seed_video()
+    generation = str(uuid.uuid4())
+    async with TestSessionLocal() as db:
+        video = await db.get(Video, video_id)
+        video.processing_generation = generation
+        await db.commit()
+    payload = _payload(video_id, status=status)
+    if not missing:
+        payload["processing_generation"] = str(uuid.uuid4())
+    response = await client.post(CALLBACK_URL, json=payload, headers=_headers())
+    assert response.status_code == 200
+    assert await _subtitle_count(video_id) == 0
+    assert (await _video_state(video_id))[0] == "processing"
+    assert _finalize_calls(_mock_celery) == []
+
+
+async def test_current_generation_callback_preserves_identity_on_tail(
+    client, redis_lock, callback_secret, _mock_celery
+):
+    video_id = await _seed_video()
+    generation = str(uuid.uuid4())
+    async with TestSessionLocal() as db:
+        video = await db.get(Video, video_id)
+        video.processing_generation = generation
+        await db.commit()
+    payload = {**_payload(video_id), "processing_generation": generation}
+    for _ in range(2):
+        response = await client.post(CALLBACK_URL, json=payload, headers=_headers())
+        assert response.status_code == 200
+    assert await _subtitle_count(video_id) == 3
+    async with TestSessionLocal() as db:
+        row = await db.scalar(select(PipelineDispatch).where(PipelineDispatch.video_id == video_id))
+        assert row.processing_generation == generation
+        assert row.args == [video_id, None, generation]
+    assert len(_finalize_calls(_mock_celery)) == 1
+
+
 class TestCallbackAuth:
     async def test_missing_secret_is_rejected(self, client, redis_lock, callback_secret, _mock_celery):
         video_id = await _seed_video()

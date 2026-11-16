@@ -78,6 +78,20 @@ export interface TeachingSession {
   updated_at: string;
 }
 
+/**
+ * `GET /api/v1/teaching/sessions` — the "继续教学" list. Deliberately a
+ * different (smaller) shape than `TeachingSession`: the list endpoint does not
+ * load items/attempts/cards, so reading `session.items` off it is always
+ * undefined. See `SessionSummary` in backend/app/schemas/teaching.py.
+ */
+export interface TeachingSessionSummary {
+  id: string;
+  status: "active" | "completed" | "abandoned";
+  revision: number;
+  current_item_id: string | null;
+  updated_at: string;
+}
+
 export interface TeachingContent {
   id: string;
   question_key: string;
@@ -125,7 +139,12 @@ export const EXTERNAL_SCOPES = [
   ["teaching:attempts:submit", "提交辅助作答"],
   ["learning:feedback:write", "记录学习反馈"],
   ["learning:profile:read", "读取学习概况"],
-  ["review:read", "读取复习任务"],
+  ["review:read", "读取所选资料的复习任务"],
+  ["materials:read", "读取所选课程与原句"],
+  ["learning:vocabulary:write", "保存课程词语"],
+  ["learning:progress:read", "读取课程恢复位置"],
+  ["learning:progress:write", "更新课程恢复位置"],
+  ["review:write", "提交经我确认的复习结果"],
 ] as const;
 
 export interface ExternalConnection {
@@ -135,6 +154,8 @@ export interface ExternalConnection {
   expires_at: string;
   revoked_at: string | null;
   created_at?: string;
+  resource_limits?: { lesson_ids?: string[]; word_ids?: string[] };
+  audience?: "model" | "application";
 }
 
 export interface ExternalCredentialCreated {

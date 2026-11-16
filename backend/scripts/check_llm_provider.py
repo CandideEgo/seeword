@@ -110,7 +110,7 @@ async def _run_list(as_json: bool) -> int:
 
 async def _run_smoke() -> int:
     # Imported here so `--list` works even if the SDK/service stack is borked.
-    from app.services.ai_service import AIService, AIServiceError
+    from app.services.ai_service import AIService
     from app.services.translation import TranslationService
 
     failures = 0

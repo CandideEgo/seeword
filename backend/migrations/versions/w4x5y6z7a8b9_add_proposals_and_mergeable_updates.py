@@ -13,7 +13,7 @@ Adds Phase 3e PR + propagation tables:
 SubtitleRevision.scope gains the "sync" value (no schema change — it's a plain
 String column; only the model comment + writer logic change).
 
-See docs/plans/PIPELINE-RESUME-DEDUP-AUDIT.md Phase 3e.
+See backend/app/services/subtitle_edit_service.py Phase 3e.
 """
 
 from collections.abc import Sequence

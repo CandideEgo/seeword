@@ -1,5 +1,0 @@
-[restore] verifying checksums
-[restore] dump OK: 365 TOC lines
-[restore] archive alembic revision: d5e6f7a8b9c0
-[restore] verify-only: database untouched
-elapsed_seconds=0

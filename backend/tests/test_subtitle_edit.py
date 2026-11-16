@@ -83,6 +83,22 @@ class TestSubtitleUpdate:
         # (no DB) it's None. Either way "running":["gre"] must no longer exist.
         assert not levels or levels.get("running") != ["gre"]
 
+    async def test_edit_text_en_invalidates_word_timestamps(self, client: AsyncClient, admin_headers: dict):
+        vid, sids = await _seed_video_with_subtitles()
+        async with TestSessionLocal() as db:
+            sub = await db.get(Subtitle, sids[0])
+            sub.words = [{"word": "hello", "start": 0.0, "end": 0.8}, {"word": "world", "start": 1.0, "end": 1.8}]
+            await db.commit()
+
+        resp = await client.patch(
+            f"/api/v1/videos/admin/{vid}/subtitles/{sids[0]}",
+            headers=admin_headers,
+            json={"text_en": "greetings world"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["words"] is None
+
     async def test_edit_timing(self, client: AsyncClient, admin_headers: dict):
         vid, sids = await _seed_video_with_subtitles()
         # [0.5, 1.5] stays within the original [0, 2] slot — no overlap with the
@@ -164,6 +180,22 @@ class TestSubtitleBatchUpdate:
         zh_by_id = {item["id"]: item["text_zh"] for item in data}
         assert zh_by_id[sids[0]] == "翻译一"
         assert zh_by_id[sids[2]] == "翻译三"
+
+    async def test_batch_edit_text_en_invalidates_word_timestamps(self, client: AsyncClient, admin_headers: dict):
+        vid, sids = await _seed_video_with_subtitles()
+        async with TestSessionLocal() as db:
+            sub = await db.get(Subtitle, sids[0])
+            sub.words = [{"word": "hello", "start": 0.0, "end": 0.8}, {"word": "world", "start": 1.0, "end": 1.8}]
+            await db.commit()
+
+        resp = await client.patch(
+            f"/api/v1/videos/admin/{vid}/subtitles",
+            headers=admin_headers,
+            json={"updates": [{"id": sids[0], "text_en": "greetings world"}]},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()[0]["words"] is None
 
     async def test_batch_rejects_cross_video(self, client: AsyncClient, admin_headers: dict):
         vid_a, sids_a = await _seed_video_with_subtitles()

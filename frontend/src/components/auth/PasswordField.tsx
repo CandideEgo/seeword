@@ -2,14 +2,14 @@
 
 import { useId, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
-import { passwordStrength } from "@/lib/password";
+import { passwordByteLength, passwordStrength, PASSWORD_MAX_BYTES } from "@/lib/password";
 import { cn } from "@/lib/utils";
 
 const STRENGTH_LABEL = ["强度", "弱", "中", "强"] as const;
 const STRENGTH_SEG = ["", "bg-error", "bg-warning", "bg-success"] as const;
 
 const RULES: {
-  key: "len" | "upper" | "lower" | "digit";
+  key: "len" | "upper" | "lower" | "digit" | "bytes";
   label: string;
   test: (v: string) => boolean;
 }[] = [
@@ -17,6 +17,13 @@ const RULES: {
   { key: "upper", label: "含大写字母", test: (v) => /[A-Z]/.test(v) },
   { key: "lower", label: "含小写字母", test: (v) => /[a-z]/.test(v) },
   { key: "digit", label: "含数字", test: (v) => /\d/.test(v) },
+  // bcrypt only consumes 72 bytes; a longer password is rejected by both the
+  // server and `isPasswordAcceptable`, so the checklist has to say so too.
+  {
+    key: "bytes",
+    label: "不超过 72 个字节",
+    test: (v) => passwordByteLength(v) <= PASSWORD_MAX_BYTES,
+  },
 ];
 
 interface PasswordFieldProps {
@@ -36,7 +43,7 @@ interface PasswordFieldProps {
   hint?: ReactNode;
   /** 3 段强度条（设计 `.pw-meter`）。 */
   showMeter?: boolean;
-  /** 四条规则清单（设计 `.pw-rules`）。 */
+  /** 规则清单（设计 `.pw-rules`）：长度 / 大写 / 小写 / 数字 / 72 字节上限。 */
   showRules?: boolean;
   className?: string;
 }

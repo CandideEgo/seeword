@@ -1,5 +1,5 @@
 /**
- * 管理端「首页编辑内容」数据访问层（docs/home-editorial-content-implementation-2026-10.md §4/§7）。
+ * 管理端「首页编辑内容」数据访问层（backend/app/schemas/home_content.py）。
  *
  * 只封装 `/api/v1/admin/home-content/*` 的管理员接口，鉴权走 `adminApi`
  * （`seeword_admin_token`，与用户端会话分离）。领域类型一律从

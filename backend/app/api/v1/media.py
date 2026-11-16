@@ -35,8 +35,9 @@ _CHUNK = 64 * 1024
 
 # Only these extensions may ever be served from the media directory. Anything
 # else (html, svg, json, ...) is a 404: a client-chosen filename extension must
-# never become servable content on the trusted origin (stored-XSS defense —
-# see upload_service._CONTENT_TYPE_EXT for the upload-side allowlist).
+# never become servable content on the trusted origin (stored-XSS defense).
+# There is no upload-side counterpart any more — user submissions are gone
+# (INV-003); every file in this tree is produced by the pipeline or by ops.
 _SERVE_EXT_ALLOWLIST = {
     ".mp4",
     ".webm",
@@ -196,17 +197,23 @@ async def _shadowing_token_ok(owner_user_id: str, request: Request) -> bool:
 # Publish-state gate for video media files.
 #
 # Pipeline-produced files are named ``{video_id}.mp4`` (720p fallback),
-# ``{video_id}_480p.mp4`` / ``_720p`` / ``_1080p`` / ``_raw.<ext>``. They must
+# ``{video_id}_480p.mp4`` / ``_720p`` / ``_1080p`` / ``_raw.<ext>``; fenced
+# attempts insert ``_g{32 lowercase hex}`` between the UUID and that suffix.
+# They must
 # not be publicly downloadable while the video is unpublished (draft UGC
 # content leaks before admin approval otherwise — the URL is derivable from
 # the video id). Access follows the same rules as the API layer
 # (services/video_access.py): official/published/snapshot videos are public,
 # owners and admins may preview drafts via a JWT (?token= or Bearer).
 # ---------------------------------------------------------------------------
-_VIDEO_FILE_RE = re.compile(
-    r"^(?P<vid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
-    r"(?:_raw|_480p|_720p|_1080p)?$"
+_VIDEO_ARTIFACT_STEM = (
+    r"(?P<vid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    r"(?:_g[0-9a-f]{32})?"
 )
+_VIDEO_FILE_RE = re.compile(rf"^{_VIDEO_ARTIFACT_STEM}(?:_raw|_480p|_720p|_1080p)?$")
+# Atomic writers probe temporary bytes before replacing the final filename.
+# Those UUID-named files are not playable artifacts, even for an admin/owner.
+_VIDEO_TEMP_FILE_RE = re.compile(rf"^{_VIDEO_ARTIFACT_STEM}_(?:raw|480p|720p|1080p)\.[0-9a-f]{{32}}\.part$")
 
 # Short-TTL cache of the viewer-independent access decision:
 # {video_id: (expires_at, publicly_viewable)}. Only "is this video public" may
@@ -266,10 +273,11 @@ async def _video_media_allowed(video_id: str, viewer_id: str | None) -> bool:
     """
     now = time.monotonic()
     cached = _VIDEO_ACCESS_CACHE.get(video_id)
-    # 匿名 viewer 没有旁路，缓存里的公共判定就是全部答案（正负都算，与既有的
-    # 负向缓存行为一致）；带身份的 viewer 还要算 owner/admin 旁路，必须实时判定。
-    if cached is not None and cached[0] > now and (cached[1] or viewer_id is None):
-        return cached[1]
+    # Only anonymous denials may be reused. Positive state must be read live:
+    # a taken-down worker may finish writing an old artifact after local file
+    # cleanup, and a cached public=True must not make those bytes playable.
+    if cached is not None and cached[0] > now and not cached[1] and viewer_id is None:
+        return False
 
     from app.models.video import Video
     from app.services.video_access import check_video_access_by_owner, is_admin
@@ -302,8 +310,11 @@ async def _video_media_allowed(video_id: str, viewer_id: str | None) -> bool:
 # video that passes the publish-state gate above. Anonymous viewers are still
 # refused except for ``is_demo`` videos, whose open access is a deliberate
 # carve-out for the (deferred) public landing page — the login wall sends
-# everyone else to /login. The Pro/unlock tables stay dormant for a future
-# paid tier — see docs/progress/FREE-TIER-ASSESSMENT-2026-09.md.
+# everyone else to /login. The paid membership chain is gone for good: the
+# orders / jinshuju_payments / user_video_unlocks tables and the users.plan*
+# columns were dropped in migration d4e5f6a7b8c9, and
+# tests/test_architecture_invariants.py::DROPPED_TABLES fails if any of them
+# reappears in the metadata. The login wall is the only remaining boundary.
 #
 # Draft/unpublished protection is NOT this gate's job: ``_video_media_allowed``
 # above still enforces owner/admin-only preview for those.
@@ -356,6 +367,8 @@ async def serve_media(file_path: str, request: Request):
     # `/media/shadowing/{own}/../../{vid}.mp4` entered it, skipping the
     # publish-state gate below. The gate must follow the bytes that ship.
     rel = full.relative_to(base).parts
+    if len(rel) == 1 and _VIDEO_TEMP_FILE_RE.fullmatch(full.stem) is not None:
+        raise HTTPException(status_code=404)
     if rel[0] == "shadowing":
         if len(rel) < 2 or not await _shadowing_token_ok(rel[1], request):
             raise HTTPException(status_code=404)

@@ -1,0 +1,86 @@
+{
+  "viewport": [
+    390,
+    844
+  ],
+  "dark": true,
+  "astryxMode": "dark",
+  "scrollWidth": 390,
+  "controls": [
+    {
+      "name": "词汇视图",
+      "rect": {
+        "x": 16,
+        "y": 249,
+        "width": 118,
+        "height": 44,
+        "top": 249,
+        "right": 134,
+        "bottom": 293,
+        "left": 16
+      },
+      "color": "rgb(245, 245, 247)",
+      "background": "rgb(17, 17, 19)"
+    },
+    {
+      "name": "词库内容",
+      "rect": {
+        "x": 196,
+        "y": 293,
+        "width": 178,
+        "height": 44,
+        "top": 293,
+        "right": 374,
+        "bottom": 337,
+        "left": 196
+      },
+      "color": "rgb(245, 245, 247)",
+      "background": "rgb(17, 17, 19)"
+    },
+    {
+      "name": "掌握程度",
+      "rect": {
+        "x": 16,
+        "y": 367,
+        "width": 260,
+        "height": 44,
+        "top": 367,
+        "right": 276,
+        "bottom": 411,
+        "left": 16
+      },
+      "color": "rgb(245, 245, 247)",
+      "background": "rgb(17, 17, 19)"
+    },
+    {
+      "name": "复习范围",
+      "rect": {
+        "x": 16,
+        "y": 423,
+        "width": 133,
+        "height": 44,
+        "top": 423,
+        "right": 149,
+        "bottom": 467,
+        "left": 16
+      },
+      "color": "rgb(245, 245, 247)",
+      "background": "rgb(17, 17, 19)"
+    },
+    {
+      "name": "search",
+      "rect": {
+        "x": 49,
+        "y": 489,
+        "width": 316,
+        "height": 24,
+        "top": 489,
+        "right": 365,
+        "bottom": 513,
+        "left": 49
+      },
+      "color": "rgb(245, 245, 247)",
+      "background": "rgba(0, 0, 0, 0)"
+    }
+  ]
+}

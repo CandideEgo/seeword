@@ -127,6 +127,19 @@ class PipelineCtx:
     video_path: str | None = None
     current_step: str | None = None
     stopped: bool = False
+    processing_generation: str | None = None
+
+    @property
+    def run_key(self) -> str:
+        from app.services.processing_generation import run_identity
+
+        return run_identity(self.video_id, self.processing_generation)
+
+    @property
+    def artifact_key(self) -> str:
+        from app.services.processing_generation import artifact_identity
+
+        return artifact_identity(self.video_id, self.processing_generation)
 
     def stop(self) -> None:
         """End the chain after the current step; no later step runs."""
@@ -162,10 +175,10 @@ async def run_steps(ctx: PipelineCtx, steps: tuple[Step, ...]) -> None:
         # Keep the processing lock alive across long pipelines: the lock TTL
         # covers the declared budgets, but a run near the limit (or settings
         # changed mid-run) should still hold it through every step boundary.
-        refresh_lock(ctx.video_id)
+        refresh_lock(ctx.run_key)
         if step.resumable:
             ctx.current_step = step.name
-            if await is_step_done(ctx.video_id, step.name):
+            if await is_step_done(ctx.run_key, step.name):
                 logger.info("Video %s: skipping %s (already done)", ctx.video_id, step.name)
                 if step.skip_run is not None:
                     await step.skip_run(ctx)
@@ -395,7 +408,11 @@ async def commit_error_state(video, db, error: Exception, *, step: str | None = 
         from app.services.pipeline_alerting import record_pipeline_failure
 
         await record_pipeline_failure(video.id, step=step or video.processing_step, reason=str(error))
-    except Exception:
+    except Exception as exc:
+        from app.services.processing_generation import StaleProcessingGenerationError
+
+        if isinstance(exc, StaleProcessingGenerationError):
+            raise
         logger.exception("Failed to commit error state for video %s", video.id)
         try:
             await db.rollback()

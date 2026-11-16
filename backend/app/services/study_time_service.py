@@ -1,6 +1,6 @@
 """有效学习时长的聚合读模型（A02 / BE-06 / MET-01）。
 
-**唯一来源是 ``behavior_events`` 的 ``watch_time`` 事件**，按用户本地日分桶。
+使用视频与课程各自的 ``watch_time`` 事件，按用户本地日分桶。
 
 为什么不再用 ``LearningRecord.time_spent_seconds``：那是一个**累计计数器**，
 一行一个用户/视频。拿 ``last_accessed_at`` 给它切片，会把这条记录的全部历史
@@ -18,9 +18,10 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 
 from app.models.behavior import BehaviorEvent
+from app.models.lesson import LessonActivity
 
 if TYPE_CHECKING:
     from zoneinfo import ZoneInfo
@@ -56,27 +57,33 @@ async def watch_seconds_by_local_day(
         BehaviorEvent.server_ts >= start,
         BehaviorEvent.server_ts < end,
     )
-    delta_seconds = BehaviorEvent.event_payload["delta_s"].as_float()
+    events = select(
+        BehaviorEvent.server_ts.label("recorded_at"),
+        BehaviorEvent.event_payload["delta_s"].as_float().label("seconds"),
+    ).where(*filters)
+    connection = await db.connection()
+    if await connection.run_sync(lambda sync: inspect(sync).has_table(LessonActivity.__tablename__)):
+        samples = events.union_all(
+            select(LessonActivity.created_at, LessonActivity.delta_s).where(
+                LessonActivity.user_id == user_id,
+                LessonActivity.event_type == EVENT_WATCH_TIME,
+                LessonActivity.created_at >= start,
+                LessonActivity.created_at < end,
+            )
+        ).subquery()
+    else:
+        samples = events.subquery()
 
     if db.get_bind().dialect.name == "postgresql":
-        local_day = func.date(func.timezone(tz.key, BehaviorEvent.server_ts))
+        local_day = func.date(func.timezone(tz.key, samples.c.recorded_at))
         rows = (
             await db.execute(
-                select(local_day.label("day"), func.sum(delta_seconds).label("seconds"))
-                .where(*filters)
-                .group_by(local_day)
+                select(local_day.label("day"), func.sum(samples.c.seconds).label("seconds")).group_by(local_day)
             )
         ).all()
         return {day: int(seconds) for day, seconds in rows if day is not None and seconds is not None}
 
-    rows = (
-        await db.execute(
-            select(
-                BehaviorEvent.server_ts,
-                delta_seconds,
-            ).where(*filters)
-        )
-    ).all()
+    rows = (await db.execute(select(samples.c.recorded_at, samples.c.seconds))).all()
 
     totals: dict[date, float] = {}
     for server_ts, delta in rows:

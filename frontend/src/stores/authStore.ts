@@ -24,6 +24,7 @@ import {
 } from "@/lib/authHelpers";
 import { useProfileStore } from "@/stores/profileStore";
 import { requestTokenRefresh, type RefreshOutcome } from "@/lib/sessionRefresh";
+import { requestSessionLogout, logoutLocation } from "@/lib/sessionLogout";
 
 /** JWT payload shape we care about (role 不在 JWT 里，见 authHelpers.BaseAuthUser) */
 export type AuthUser = BaseAuthUser;
@@ -82,6 +83,8 @@ type AuthStore = AuthState & AuthActions;
 
 /** Module-level mutex for preventing concurrent refresh calls */
 let refreshPromise: Promise<RefreshOutcome> | null = null;
+/** Invalidates async work when login/logout changes the local session. */
+let sessionEpoch = 0;
 
 /**
  * 另一个标签页可能已经把 refresh 轮换掉了：它会写新的 token 对到 localStorage。
@@ -108,6 +111,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isLoading: true, // starts true until initialize() runs
 
   login(token: string, refreshToken?: string | null) {
+    sessionEpoch += 1;
     // localStorage + 镜像 cookie 一起写（唯一入口，见 lib/authHelpers.setSession）。
     setSession(USER_SESSION_KEYS, token, refreshToken);
     const user = decodeJwt(token) as AuthUser | null;
@@ -128,32 +132,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout() {
-    // Fire-and-forget server-side token blacklist request.
-    // We capture the token *before* clearing state so the header is valid.
-    // We await the fetch so the request completes before the hard redirect
-    // (window.location.href aborts all in-flight JS).
+    const epoch = ++sessionEpoch;
+    // Clear locally immediately, but distinguish remote acknowledgement from outage.
     const currentToken = get().token;
     const currentRefreshToken = get().refreshToken;
-    const blacklistPromise =
-      currentToken && typeof window !== "undefined"
-        ? (async () => {
-            const body = currentRefreshToken
-              ? JSON.stringify({ refresh_token: currentRefreshToken })
-              : "{}";
-            try {
-              await fetch("/api/v1/auth/logout", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${currentToken}`,
-                  "Content-Type": "application/json",
-                },
-                body,
-              });
-            } catch {
-              /* ignore - token will expire naturally */
-            }
-          })()
-        : Promise.resolve();
+    const blacklistPromise = requestSessionLogout(currentToken, currentRefreshToken);
 
     if (typeof window !== "undefined") {
       // 两个存放位置一起清（唯一入口，见 lib/authHelpers.clearSession）。
@@ -177,9 +160,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     // Wait for blacklist + store resets, then navigate.
     // Using window.location is correct here because the Zustand store
     // operates outside the React component tree where useRouter is unavailable.
-    Promise.all([blacklistPromise, resetPromise]).then(() => {
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
+    Promise.all([blacklistPromise, resetPromise]).then(([outcome]) => {
+      if (typeof window !== "undefined" && epoch === sessionEpoch) {
+        window.location.href = logoutLocation("/login", outcome);
       }
     });
   },
@@ -278,6 +261,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     // If already refreshing, return the existing promise
     if (refreshPromise) return refreshPromise;
 
+    const epoch = sessionEpoch;
     const attempted = get().refreshToken;
     refreshPromise = (async (): Promise<RefreshOutcome> => {
       if (!attempted) {
@@ -286,6 +270,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
 
       const result = await requestTokenRefresh(attempted);
+      // Login/logout may have replaced this session while the request was in flight.
+      if (epoch !== sessionEpoch) return result.outcome;
 
       if (result.outcome === "refreshed") {
         get().login(result.pair.token, result.pair.refreshToken);

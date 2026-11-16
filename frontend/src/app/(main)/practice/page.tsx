@@ -36,7 +36,6 @@ const TYPES = [
   {
     key: "reading",
     title: "仔细阅读",
-    tag: "推荐",
     description: "先读文章，再定位细节、推断和词义；交卷后查看解析。",
   },
   {
@@ -256,20 +255,13 @@ export default function PracticePage() {
                   </h2>
                 </div>
                 <ul className="divide-y divide-hairline">
-                  {typeEntries.map((type, index) => (
-                    <li key={type.key} className="flex items-start gap-3 py-6 sm:gap-4">
-                      <span className="mt-1 w-5 flex-none font-mono text-caption text-muted">
-                        0{index + 1}
-                      </span>
+                  {typeEntries.map((type) => (
+                    <li
+                      key={type.key}
+                      className="practice-type-row flex items-start gap-3 py-6 sm:gap-4"
+                    >
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-copy-lg font-bold text-ink">{type.title}</h3>
-                          {type.tag && (
-                            <span className="rounded-sm bg-brand-50 px-1.5 py-0.5 text-caption font-semibold text-brand-700">
-                              {type.tag}
-                            </span>
-                          )}
-                        </div>
+                        <h3 className="text-copy-lg font-semibold text-ink">{type.title}</h3>
                         <p className="mt-1.5 text-copy leading-relaxed text-muted">
                           {type.description}
                         </p>
@@ -282,7 +274,7 @@ export default function PracticePage() {
                         {type.groupCount > 0 ? (
                           <LinkButton
                             href={`/practice/daily?type=${type.key}`}
-                            variant="outline"
+                            variant="tonal"
                             size="sm"
                           >
                             开始

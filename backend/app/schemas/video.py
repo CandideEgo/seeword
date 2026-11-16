@@ -465,6 +465,9 @@ class TranscriptionCallbackRequest(BaseModel):
     """
 
     video_id: str
+    processing_generation: str | None = Field(
+        default=None, max_length=36, pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
     status: Literal["ok", "error"]
     segments: list[TranscriptionSegment] | None = None
     error: str | None = None

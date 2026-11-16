@@ -22,7 +22,7 @@ from test_watch_postgres import provision
 
 
 async def seed(media: Path) -> str:
-    from app import models  # Register all tables before create_all.
+    from app import models  # noqa: F401 - register all ORM tables before create_all.
     from app.core.config import get_settings
     from app.core.database import Base, get_async_session_maker, get_engine
     from app.core.security import create_token
@@ -115,7 +115,19 @@ def main() -> int:
             log_path = Path(tempfile.gettempdir()) / "seeword-watch-mobile-api.log"
             with log_path.open("w", encoding="utf-8") as log:
                 server = subprocess.Popen(
-                    [sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000"],
+                    [
+                        sys.executable,
+                        "-m",
+                        "uvicorn",
+                        "app.main:app",
+                        "--port",
+                        "8000",
+                        # Same reason as playwright.config.ts / CI: uvicorn's 5s
+                        # keep-alive default closes connections the dev proxy is
+                        # still reusing → ECONNRESET surfaces as a proxy 500.
+                        "--timeout-keep-alive",
+                        "120",
+                    ],
                     cwd=backend,
                     stdout=log,
                     stderr=log,
