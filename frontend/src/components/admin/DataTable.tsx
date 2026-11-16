@@ -95,7 +95,12 @@ export function DataTable<T>({
                   {isExpanded && (
                     <tr id={`row-detail-${id}`} className="bg-surface-soft/40">
                       <td colSpan={colSpan} className="p-4">
-                        {renderDetail!(item)}
+                        {/* The table scrolls horizontally on phones; without pinning,
+                            an expanded editor sits past the fold until the reader
+                            scrolls the table sideways. */}
+                        <div className="sticky left-0 w-full max-w-[calc(100vw-6rem)] lg:static lg:max-w-none">
+                          {renderDetail!(item)}
+                        </div>
                       </td>
                     </tr>
                   )}

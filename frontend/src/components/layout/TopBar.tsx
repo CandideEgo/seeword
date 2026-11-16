@@ -23,11 +23,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/Popover";
 import { useOverlayContainer } from "@/hooks/useOverlayContainer";
-import { MAIN_NAV } from "@/lib/navigation";
+import { MAIN_NAV, SECONDARY_NAV, navigationActive } from "@/lib/navigation";
 
 export function TopBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const locationLabel = pathname.startsWith("/lessons")
+    ? "视频课程"
+    : pathname.startsWith("/search")
+      ? "搜索"
+      : [...MAIN_NAV, ...SECONDARY_NAV].find((item) => navigationActive(pathname, item.href))
+          ?.label;
   const { user } = useAuthStore();
   const me = useProfileStore((s) => s.me);
   const fetchMe = useProfileStore((s) => s.fetchMe);
@@ -91,13 +97,16 @@ export function TopBar() {
           <span className="text-[17px] font-semibold tracking-[-0.02em] text-ink">SeeWord</span>
         </Link>
 
+        <span className="hidden shrink-0 text-meta font-medium text-muted min-[1025px]:block">
+          {locationLabel}
+        </span>
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={searchOpen}
           aria-label="搜索视频、原句、单词或频道"
-          className="hidden h-9 w-full max-w-[42.5rem] items-center gap-2 rounded-pill bg-surface-soft px-4 text-copy text-muted transition-colors hover:bg-surface-card min-[1025px]:flex"
+          className="ml-auto hidden h-10 w-full max-w-md items-center gap-2 rounded-md border border-hairline bg-surface-card px-3 text-meta text-muted transition-colors hover:border-hairline-strong min-[1025px]:flex"
         >
           <Search size={17} className="shrink-0" aria-hidden />
           <span className="flex-1 text-left">搜索视频、原句或单词</span>

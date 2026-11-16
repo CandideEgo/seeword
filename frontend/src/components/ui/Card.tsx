@@ -56,7 +56,7 @@ export function Card({
   return (
     <Tag
       className={cn(
-        "rounded-md transition-all duration-150",
+        "sw-card rounded-md transition-colors duration-150",
         VARIANT[variant],
         PADDING[padding],
         className

@@ -35,6 +35,7 @@ def _post_transcription_callback(
     segments: list[dict] | None = None,
     error: str | None = None,
     audio_duration: float | None = None,
+    processing_generation: str | None = None,
 ) -> bool:
     """POST transcription results to the cloud callback endpoint.
 
@@ -58,6 +59,7 @@ def _post_transcription_callback(
 
     payload = {
         "video_id": video_id,
+        "processing_generation": processing_generation,
         "status": status,
         "segments": (
             [
@@ -135,7 +137,14 @@ def _send_alert_sync(title: str, message: str, *, severity: str = "critical") ->
 # rename would orphan messages already sitting in the transcription_gpu queue.
 # Keep the old name even though this code lives in ``gpu_worker`` now.
 @celery_app.task(bind=True, max_retries=3, name=TASK_NAME)
-def transcribe_video_gpu(self, video_id: str, source: str, platform: str, language: str | None = None):
+def transcribe_video_gpu(
+    self,
+    video_id: str,
+    source: str,
+    platform: str,
+    language: str | None = None,
+    processing_generation: str | None = None,
+):
     """Transcribe a video on the GPU worker and POST subtitles back to the cloud.
 
     Runs on a remote machine (``transcription_gpu`` queue). Does NOT touch the
@@ -154,7 +163,9 @@ def transcribe_video_gpu(self, video_id: str, source: str, platform: str, langua
         if self.request.retries >= self.max_retries:
             # Let the cloud know transcription is unrecoverable so it can mark
             # the video failed instead of waiting for the watchdog.
-            _post_transcription_callback(video_id, status="error", error=str(e))
+            _post_transcription_callback(
+                video_id, status="error", error=str(e), processing_generation=processing_generation
+            )
             _send_alert_sync(
                 "GPU 转录最终失败",
                 f"video {video_id}: {e}",
@@ -162,7 +173,13 @@ def transcribe_video_gpu(self, video_id: str, source: str, platform: str, langua
             raise
         raise self.retry(exc=e, countdown=60) from e
 
-    if not _post_transcription_callback(video_id, status="ok", segments=segments, audio_duration=audio_duration):
+    if not _post_transcription_callback(
+        video_id,
+        status="ok",
+        segments=segments,
+        audio_duration=audio_duration,
+        processing_generation=processing_generation,
+    ):
         # The transcription itself succeeded; only delivery failed (e.g.
         # rate limit / network). Retrying re-runs the transcription, but that
         # is cheaper than leaving the video stuck in ``processing`` with a

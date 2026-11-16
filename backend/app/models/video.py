@@ -90,6 +90,9 @@ class Video(Base):
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Server-issued processing attempt, independent of content/lesson revisions.
+    # NULL admits only legacy messages; a new run never adopts an old message.
+    processing_generation: Mapped[str | None] = mapped_column(String(36), nullable=True)
     processing_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "lightweight" or "full"
     processing_step: Mapped[str | None] = mapped_column(String(30), nullable=True)
 

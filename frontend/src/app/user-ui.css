@@ -1,30 +1,29 @@
-/* User-side visual system: Apple editorial (white / pale gray / near-black ink,
-   one blue accent). Scoped to `.user-ui` so the admin surface keeps its
-   existing orange tokens. Values mirror the 2026-10 design handoff. */
+/* Context-first learning workspace. User tokens stay local: the operations
+   console retains its own theme, while original sentences get room to breathe. */
 .user-ui {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei",
-    "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+    "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-display:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+    "Segoe UI Variable Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-reading: Georgia, "Times New Roman", serif;
   font-family: var(--font-sans);
 
   /* Neutrals */
-  --canvas: #ffffff;
-  --surface-soft: #f5f5f7;
-  --surface-card: #ececef;
-  --surface-strong: #e5e5ea;
-  --sidebar-bg: #fbfbfd;
-  --topbar-bg: #ffffff;
-  --ink: #1d1d1f;
-  --body: #424245;
-  --body-strong: #1d1d1f;
-  --muted-c: #5f5f66;
-  --muted-soft: #69696f;
-  --hairline: #d2d2d7;
-  --hairline-soft: #ececef;
-  --hairline-strong: #86868b;
+  --canvas: #f3f6fa;
+  --surface-soft: #eaf0f7;
+  --surface-card: #ffffff;
+  --surface-strong: #dce6f1;
+  --sidebar-bg: #ffffff;
+  --topbar-bg: #f3f6fa;
+  --ink: #172b45;
+  --body: #354d68;
+  --body-strong: #172b45;
+  --muted-c: #52657b;
+  --muted-soft: #63748a;
+  --hairline: #c9d6e5;
+  --hairline-soft: #e0e7f0;
+  --hairline-strong: #849bb5;
+  --focus-ring: color-mix(in srgb, var(--color-action-primary) 18%, transparent);
 
   /* Tailwind utilities resolve these var() references on the same element. */
   --color-canvas: var(--canvas);
@@ -45,38 +44,36 @@
 
   /* Brand blue. The 300–600/900/950 steps are static in @theme, so each one
      needs an explicit override here; 50/100/200/700/800 are theme-aware. */
-  --brand-50: #e8f2fd;
-  --brand-100: #d6e8fb;
-  --brand-200: #b8d7f8;
-  --brand-700: #0066cc;
-  --brand-800: #0055ad;
+  --brand-50: #e9efff;
+  --brand-100: #dce6ff;
+  --brand-200: #b9ccff;
+  --brand-700: #2459d3;
+  --brand-800: #1d46a8;
   /* Tailwind 的 bg-brand-50 / border-brand-200 等工具类在构建时写死了 @theme
      里的值，只覆盖 --brand-* 不会改变它们；浅色三档必须同时覆盖 --color-brand-*。 */
-  --color-brand-50: #e8f2fd;
-  --color-brand-100: #d6e8fb;
-  --color-brand-200: #b8d7f8;
-  --color-brand-300: #7fbcf4;
-  --color-brand-400: #3f9bee;
-  --color-brand-500: #0071e3;
-  --color-brand-600: #0066cc;
-  --color-brand-700: #0066cc;
-  --color-brand-800: #0055ad;
-  --color-brand-900: #004487;
-  --color-brand-950: #002b56;
-  /* Solid CTAs: white on #0071e3 = 4.73:1 (AA for normal text). */
-  --color-action-primary: #0071e3;
-  /* Hover must stay AA with white text (design's #0077ed only reaches 4.32:1).
-     Keep the darker #0066cc; dark theme's #0071e3 passes at 4.70:1. */
-  --color-action-primary-hover: #0066cc;
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: #91afff;
+  --color-brand-400: #5c85ee;
+  --color-brand-500: #3267df;
+  --color-brand-600: #2459d3;
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: #183b83;
+  --color-brand-950: #152e60;
+  /* Solid CTAs and focus use the same action identity, not decorative fills. */
+  --color-action-primary: #2459d3;
+  --color-action-primary-hover: #1d46a8;
 
   /* Radii / elevation / width */
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-lg: 16px;
   --elevation-soft: 0 1px 2px rgba(0, 0, 0, 0.05);
   --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.05);
   --elevation-lift: 0 8px 24px rgba(0, 0, 0, 0.07);
-  --max-width-page: 1760px;
+  --max-width-page: 1600px;
 
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.125rem;
@@ -95,20 +92,20 @@
 
 .dark .user-ui,
 .user-ui.is-watch-immersive {
-  --canvas: #0a0a0a;
-  --surface-soft: #111113;
-  --surface-card: #1a1a1c;
-  --surface-strong: #262628;
-  --sidebar-bg: #0d0d0e;
-  --topbar-bg: #0a0a0a;
-  --ink: #f5f5f7;
-  --body: #d1d1d6;
-  --body-strong: #f5f5f7;
-  --muted-c: #a1a1a6;
-  --muted-soft: #8e8e93;
-  --hairline: #2c2c2e;
-  --hairline-soft: #232325;
-  --hairline-strong: #3a3a3c;
+  --canvas: #101b29;
+  --surface-soft: #1b2a3d;
+  --surface-card: #152235;
+  --surface-strong: #263b54;
+  --sidebar-bg: #152235;
+  --topbar-bg: #101b29;
+  --ink: #edf3fc;
+  --body: #c4d2e5;
+  --body-strong: #edf3fc;
+  --muted-c: #a4b6ce;
+  --muted-soft: #99acc6;
+  --hairline: #354b66;
+  --hairline-soft: #273b54;
+  --hairline-strong: #617c9d;
 
   --brand-50: #0b2540;
   --brand-100: #0f2c4d;
@@ -124,8 +121,8 @@
   --color-brand-800: #8ecbff;
   --color-brand-900: #8ecbff;
   --color-brand-950: #b3dcff;
-  --color-action-primary: #0066cc;
-  --color-action-primary-hover: #0071e3;
+  --color-action-primary: #315ed0;
+  --color-action-primary-hover: #3c6bde;
 
   --elevation-soft: 0 1px 2px rgba(0, 0, 0, 0.5);
   --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -201,12 +198,10 @@
 }
 
 .user-nav-label {
-  margin: 1.125rem 0 0.5rem;
+  margin: 1.5rem 0 0.625rem;
   padding-inline: 0.75rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--muted-soft);
 }
 .user-nav-count {
@@ -238,10 +233,9 @@
 /* 命令面板（⌘K）的挂载与定位由 components/search/CommandPalette.tsx 的
    Tailwind 类承载；旧的 `.user-search-dialog` 原生 dialog 规则已随实现删除。 */
 
-/* Handoff buttons are capsules; scoping by data-variant keeps the admin
-   surface on its existing radii. */
+/* Action shapes follow their role; only chips and avatars are capsules. */
 .user-ui button[data-variant] {
-  border-radius: 9999px;
+  border-radius: var(--radius-md);
 }
 
 /* Home: real expressions are the content; the personal column offers a next step. */
@@ -810,12 +804,7 @@
 }
 .user-ui .home-compact .home-editorial-heading {
   align-items: baseline;
-  margin: 0;
-}
-/* 首页页头按设计稿是 11px 小眉标（组件里已是 text-caption）；这里不再把
-   h1 放大成 20px —— 设计稿的大标题只留给详情页（频道名 / 观看标题 / 姓名）。 */
-.user-ui .home-compact .home-editorial-heading h1 {
-  letter-spacing: 0.09em;
+  margin-bottom: 1.5rem;
 }
 .user-ui .home-compact .home-editorial-eyebrow {
   margin: 0;
@@ -1225,7 +1214,7 @@
     margin-bottom: 0.85rem;
   }
   .user-ui .home-compact .home-editorial-heading h1 {
-    font-size: 0.75rem;
+    font-size: 1.5rem;
   }
   .user-ui .home-compact .home-editorial-eyebrow {
     display: none;
@@ -1386,6 +1375,10 @@
   display: flex;
   background: var(--canvas);
 }
+/* Theme supplies tokens, never an additional flex/scroll owner. */
+.user-shell > [data-astryx-theme] {
+  display: contents;
+}
 .user-shell-main {
   display: flex;
   flex: 1;
@@ -1400,8 +1393,8 @@
    改版前各页写 pt-6 pb-18 / py-16 sm:py-24 / min-h-dvh，切页时内容会跳。
    页面根元素用 `.user-page`，不要再各写一套 padding。 */
 .user-ui .user-page {
-  padding-top: 1.375rem;
-  padding-bottom: 4.5rem;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
 }
 .user-ui .user-page-header {
   display: flex;
@@ -1418,11 +1411,10 @@
   gap: 0.5rem;
   font-size: 0.75rem;
   line-height: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted-c);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 .user-ui .user-page-title {
   font-size: 1.875rem;
@@ -1433,12 +1425,11 @@
   overflow-wrap: anywhere;
 }
 .user-ui .user-page-title.is-eyebrow {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--muted-c);
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  color: var(--ink);
 }
 .user-ui .user-page-header:has(.is-eyebrow) {
   align-items: center;
@@ -1491,9 +1482,20 @@
 .user-auth {
   position: relative;
 }
-.user-auth > div {
-  width: 100%;
+.user-auth-shell {
   max-width: 30rem;
+  padding: 2rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+.user-auth-shell.is-wide {
+  max-width: 44rem;
+}
+@media (max-width: 479px) {
+  .user-auth-shell {
+    padding: 1.25rem;
+  }
 }
 .user-auth h1 {
   font-size: 1.875rem;
@@ -1540,13 +1542,14 @@
   .user-sidebar {
     position: relative;
     z-index: 40;
-    width: 15.5rem;
-    flex: 0 0 15.5rem;
+    width: 13.5rem;
+    flex: 0 0 13.5rem;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    padding-inline: 0.875rem;
-    border-right: 1px solid var(--hairline);
+    padding-inline: 0.75rem;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--hairline-soft);
   }
   .user-sidebar.is-collapsed {
     width: 4.5rem;
@@ -1577,7 +1580,7 @@
   }
   .user-nav-link.is-active {
     color: var(--brand-700);
-    background: var(--surface-card);
+    background: var(--brand-50);
     font-weight: 600;
   }
   .user-sidebar:not(.is-collapsed) .user-nav-link.is-active::after {
@@ -1906,12 +1909,11 @@
   margin-bottom: 0.4rem;
 }
 .user-ui .home-editorial-heading h1 {
-  color: var(--muted-soft);
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  color: var(--ink);
+  font-size: 1.875rem;
+  line-height: 2.375rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
 .user-ui .home-editorial-note {
@@ -2804,10 +2806,112 @@
 .user-ui .watch-control-row > div {
   flex-shrink: 0;
 }
+.user-ui .lesson-original {
+  font-family: var(--font-reading);
+  font-size: 1.25rem;
+  line-height: 1.8;
+  max-width: 68ch;
+}
+.user-ui .lesson-original button {
+  font-family: inherit;
+}
+.user-ui .lesson-original + p {
+  margin-top: 0.5rem;
+}
+.user-ui .lesson-reader aside > section {
+  padding: 1.25rem;
+  border-color: var(--hairline-soft);
+}
+.user-ui .vocabulary-context {
+  max-width: 68ch;
+  padding-left: 0.875rem;
+  border-left: 2px solid var(--brand-200);
+  font-family: var(--font-reading);
+}
+.user-ui .sw-tab-filters {
+  border-radius: var(--radius-md);
+}
+.user-ui .sw-tab-filters > button {
+  border-radius: var(--radius-sm);
+}
+.user-ui .sw-tabs-list {
+  max-width: 100%;
+}
+.user-ui .exam-answer:not([aria-pressed="true"]) {
+  background: var(--surface-card);
+}
+.user-ui .practice-type-row {
+  padding-inline: 1.25rem;
+  background: var(--surface-card);
+}
+.user-ui .practice-type-row:first-child {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.user-ui .practice-type-row:last-child {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.user-ui .sw-card.bg-canvas {
+  background: var(--surface-card);
+}
+.user-ui .lesson-search {
+  max-width: 42rem;
+}
+.user-ui .lesson-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+.user-ui .lesson-catalog-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  height: 100%;
+  min-height: 7rem;
+  padding: 1.25rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.user-ui .lesson-catalog-item:hover {
+  border-color: var(--brand-700);
+}
+.user-ui .lesson-catalog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--brand-700);
+  background: var(--brand-50);
+}
+@media (max-width: 639px) {
+  .user-ui .lesson-catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.user-ui .learning-course-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-height: 4.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  color: var(--brand-700);
+}
+.user-ui .learning-course-entry:hover {
+  border-color: var(--brand-700);
+}
 .user-ui .home-discover-columns {
   display: grid;
   align-items: start;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 .user-ui .home-video-feed {
   container-type: inline-size;
@@ -2825,7 +2929,7 @@
 }
 .user-ui .discover-feature {
   container-type: inline-size;
-  background: linear-gradient(120deg, var(--brand-50), var(--canvas) 65%);
+  background: var(--surface-card);
 }
 .user-ui .discover-feature-grid {
   display: grid;
@@ -2875,7 +2979,7 @@
   overflow: hidden;
   border: 1px solid var(--hairline-soft);
   border-radius: var(--radius-lg);
-  background: var(--surface-soft);
+  background: var(--surface-card);
 }
 .user-ui .discover-learning-heading {
   display: flex;

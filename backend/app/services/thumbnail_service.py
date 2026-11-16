@@ -155,7 +155,13 @@ async def download_thumbnail(url: str, dest: Path, proxy: str | None = None) -> 
         return False
 
 
-async def localize_video_thumbnail(video, proxy: str | None = None, fallback_urls: list[str] | None = None) -> bool:
+async def localize_video_thumbnail(
+    video,
+    proxy: str | None = None,
+    fallback_urls: list[str] | None = None,
+    *,
+    artifact_id: str | None = None,
+) -> bool:
     """Download ``video.thumbnail_url`` into the media volume, rewrite to local.
 
     Idempotent: already-local or missing URLs are left untouched (True); a
@@ -165,19 +171,25 @@ async def localize_video_thumbnail(video, proxy: str | None = None, fallback_url
     404), each fallback is tried in order before resorting to ffmpeg frame
     extraction.  This preserves the author's chosen cover at a lower
     resolution instead of replacing it with an arbitrary video frame.
+
+    ``artifact_id`` isolates a pipeline attempt's probe, cover and frame source.
+    Omitted by legacy/backfill callers, it preserves the video-id filenames.
     """
+    artifact_id = artifact_id if artifact_id is not None else video.id
     url = video.thumbnail_url
     if not url or not url.startswith("http"):
         return True
 
-    existing = local_thumbnail_stems(video.id)
+    # A worker supplies its attempt identity; scripts and legacy callers keep
+    # their original filenames. Never reuse another attempt's thumb/probe/raw.
+    existing = local_thumbnail_stems(artifact_id)
     if existing:
         video.thumbnail_url = f"/media/{existing[0].name}"
         return True
 
     settings = get_settings()
     base = Path(settings.local_media_path).resolve()
-    probe = base / f"{video.id}_thumb.probe"
+    probe = base / f"{artifact_id}_thumb.probe"
     ok = await download_thumbnail(url, probe, proxy=proxy)
     # Primary URL failed — try fallbacks before giving up.
     if not ok and fallback_urls:
@@ -191,7 +203,7 @@ async def localize_video_thumbnail(video, proxy: str | None = None, fallback_url
     if not ok:
         # CDN unreachable (egress dead): synthesize a cover from the local
         # video file when it exists — no runtime network dependency.
-        local_video = find_local_video_file(video.id)
+        local_video = find_local_video_file(artifact_id)
         if local_video is not None:
             ok = await extract_frame_thumbnail(local_video, probe)
     if not ok:
@@ -199,7 +211,7 @@ async def localize_video_thumbnail(video, proxy: str | None = None, fallback_url
     # Extension from the actual payload (headers can lie; nosniff serving
     # requires the extension to match).
     ext = _ext_for_content_type(_sniff(probe))
-    dest = base / f"{video.id}_thumb{ext}"
+    dest = base / f"{artifact_id}_thumb{ext}"
     probe.replace(dest)
     video.thumbnail_url = f"/media/{dest.name}"
     return True

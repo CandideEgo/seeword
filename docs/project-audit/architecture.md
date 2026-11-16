@@ -1,6 +1,6 @@
 # 当前框架与关键链路
 
-审计起点：`a93979c34dab7b8fb7a5493f76b63a28e58d48ac`，2026-11-14（北京时间）。这是**本地代码现状**，不是生产部署证明，也不是新大纲的目标架构。具体文件职责和直接依赖见 [文件索引](file-catalog.md)，风险见 [审计结论](README.md)。
+审计起点：`a93979c34dab7b8fb7a5493f76b63a28e58d48ac`，2026-11-14（北京时间）。这是**本地代码现状**，不是生产部署证明，也不是新大纲的目标架构。具体文件职责和直接依赖见 [文件索引](file-catalog.md)，风险见 [审计结论](README.md)。2026-11-16 已按当前未提交工程更新处理代次、认证故障策略和用户壳；本轮验证边界认[验收卡第 5 节](../evidence/open-learning/acceptance-cards.md#5-前端重设计与后端补齐--2026-11-15)。
 
 ## 1. 先用一张文字地图理解它
 
@@ -38,7 +38,7 @@ FastAPI（backend/app/main.py）
 | Celery                     | [celery_app.py](../../backend/app/tasks/celery_app.py)                                                                                                 | worker 干活；beat 定时发活；只启动 worker 不会自动有定时任务                     |
 | Next.js 16 / React 19 / TS | [package.json](../../frontend/package.json)、[next.config.js](../../frontend/next.config.js)                                                           | App Router 按目录组织网址，`proxy.ts` 是登录墙                                   |
 | Tailwind v4 / Zustand      | [globals.css](../../frontend/src/app/globals.css)、[user-ui.css](../../frontend/src/app/user-ui.css)、[stores](../../frontend/src/stores/authStore.ts) | CSS 变量负责主题；store 管理客户端共享状态                                       |
-| Astryx / StyleX            | [AstryxProvider](../../frontend/src/components/common/AstryxProvider.tsx)、[词汇布局](../../frontend/src/app/%28main%29/vocabulary/layout.tsx)         | 只在词汇模块渐进接入，不是全站已替换                                             |
+| Astryx / StyleX            | [AstryxProvider](../../frontend/src/components/common/AstryxProvider.tsx)、[用户壳](../../frontend/src/app/%28main%29/MainLayoutInner.tsx)             | 用户壳统一提供主题；词汇与课程搜索渐进接入，后台共享控件没有整体替换             |
 | WhisperX / faster-whisper  | [独立转录实现](../../gpu-worker/gpu_worker/transcription/__init__.py)                                                                                  | 前者逐词对齐，失败可回退；API 镜像不安装 GPU 栈                                  |
 | SLCS                       | [包元数据](../../backend/slcs/pyproject.toml)、[最小规范](../slcs/README.md)                                                                           | 一份可离线读取的学习材料契约；不是网站全部数据格式                               |
 | nginx / Docker Compose     | [nginx.ssl.conf](../../nginx.ssl.conf)、[生产 Compose](../../docker-compose.prod.yml)                                                                  | 对外入口、转发、静态文件与多进程装配                                             |
@@ -52,10 +52,10 @@ FastAPI（backend/app/main.py）
 - `api/`：HTTP 身份和参数边界。**不是所有路由都只剩薄壳**；`videos.py` 等仍有大量操作编排。
 - `schemas/`：Pydantic 请求/响应模型，决定浏览器看得见哪些字段；改这里要追前端 DTO。
 - `services/`：用例和纯规则混合存在。多个服务仍会自行提交，不能假设“service 永不 commit”。
-- `models/`：77 张映射表的定义集中注册于 `models/__init__.py`；不能删 import 后指望 Alembic 仍识别该表。
+- `models/`：映射表集中注册于 `models/__init__.py`；不能删 import 后指望 Alembic 仍识别该表。
 - `tasks/`：持久工作和定时调度的入口。任务名字符串是跨进程契约，不一定等于当前模块路径。
 - `core/`：配置、连接、错误、安全、日志等共用基础。`config.py` 中有启用收据时的惰性服务导入，不是严格无上层依赖的纯基础层。
-- `migrations/versions/`：100 个 revision，包含旧功能的建表和后来的删表。旧迁移不是“旧功能死代码”。当前单 head 是 `d7e21b4c9f82`，以后以 `alembic heads` 为准。
+- `migrations/versions/`：有序迁移包含旧功能的建表和后来的删表，旧迁移不是“旧功能死代码”。本轮新增 nullable 视频／派发处理代次列，单 head 为 `d7e21b4c9f84`；运行目标仍须以实际 `alembic heads/current` 核对。
 - `scripts/`：人工维护、导入、播种、签名、审计工具，不会自动随 API 启动。运行前先看是否会写库/发消息/调用模型。
 - `slcs/` 与 `slcs_tests/`：独立库和安装制品测试。`app/slcs`、`video_learning_material.py` 是兼容导入层，不是第二个读取器。
 
@@ -103,7 +103,7 @@ FastAPI（backend/app/main.py）
 
 后端 `dependencies._authenticate` 共用 token 类型、撤销、改密、账号存在和封禁校验；媒体/PDF/通知握手通过 `resolve_token_user` 复用。媒体 URL 的 query token 必须脱敏；日志不能记整条查询串。JWT 支持的 HMAC 算法由配置约束，并非永远硬编码 HS256。
 
-续签使用 Redis `SET NX` 原子消费旧 refresh；Redis 故障时该保证降级，详见风险 R02。用户和管理端 API 的 GET 缓存按 client、token、URL 隔离。
+续签使用 Redis `SET NX` 原子消费旧 refresh；Redis 故障返回明确 503，不签发后继 token。撤销写入也必须得到确认；客户端立即清本机会话，但服务端未确认时在登录页保留警告。禁用黑名单或缺少 JTI 不伪称远端撤销成功。普通 access 黑名单读取仍保留 fail-open；改密／封禁等 DB 校验不变。用户和管理端 API 的 GET 缓存按 client、token、URL 隔离，异步刷新与退出导航按会话 epoch 防止旧请求复活或覆盖新登录。
 
 ### 5.2 视频生产
 
@@ -111,7 +111,7 @@ FastAPI（backend/app/main.py）
 
 Tail 顺序由 `finalize_steps` 定义：翻译、注释、词注预热、分类、下载、转码、完成/发布及衍生指标。下载失败可以走受支持的原站嵌入回退，并非“没下载文件就一定不能发布”。看门狗负责超时标错；beat 的 outbox 补发负责未发出的任务，两者不能相互代替。
 
-派发是**至少一次**而非 exactly-once；Redis 处理锁不是数据库 fencing token；当前跨机器任务/回调没有处理代次，见 R01。
+派发是**至少一次**而非 exactly-once。首次生产、开始、恢复、重试／重译和自动下载重试均复用 outbox；视频状态与意图同事务，broker 故障保留待派发，不靠第二次提交补偿已清译文。服务端 `processing_generation` 贯穿 head、GPU 原任务名消息、回调、tail 与 outbox；旧缺代次消息仅能匹配 legacy NULL 行，不能默认认领新轮次。worker 自己的 session 在 ORM flush、显式 DML 与 commit 前锁视频并校验数据库代次；超时、重试、下架会使旧轮次失效。Redis 锁／完成标志与媒体 raw／转码／封面按代次隔离；媒体路径仍提取原视频 UUID 做实时权限检查，临时产物不对外服务。代次不是课程修订或内容指纹，也不把 Redis 锁当 exactly-once。正常任务的锁由任务显式交接，session 退出不重复释放；已提交 ready 的 tail 重投只补终态／自动发布，不重新翻译或转码。上线切换仍须先停旧二进制 worker、核对迁移并同步 GPU 协议；新代码兼容旧消息不意味着未加 fence 的旧进程也会被自动保护。
 
 ### 5.3 看视频、点词、保存、复习
 

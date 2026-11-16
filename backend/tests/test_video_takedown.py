@@ -13,11 +13,21 @@ Covers:
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID, uuid4
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
 from tests.conftest import TestSessionLocal
+
+
+@pytest.fixture(autouse=True)
+def _isolated_media_root(tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "local_media_path", str(tmp_path))
+    return tmp_path
 
 
 async def _seed_video(
@@ -261,3 +271,88 @@ class TestTakedownSuggestions:
         await client.post(f"/api/v1/videos/admin/{video.id}/takedown", headers=admin_headers)
         resp = await client.get("/api/v1/videos/admin/takedown-suggestions", headers=admin_headers)
         assert video.id not in [i["id"] for i in resp.json()["items"]]
+
+
+@pytest.mark.parametrize("generation", [None, "22222222-2222-4222-8222-222222222222"])
+async def test_takedown_replaces_generation_and_fences_old_session(db_session, generation):
+    from app.models.video import Video
+    from app.services.processing_generation import StaleProcessingGenerationError, fence_session
+    from app.services.video_service import takedown_video
+
+    video, _ = await _seed_video(db_session, title="Fenced", with_subtitle=False)
+    video.processing_generation = generation
+    video.auto_publish = True
+    await db_session.commit()
+    async with TestSessionLocal() as worker:
+        stale = await worker.get(Video, video.id)
+        await takedown_video(db_session, video.id)
+        assert video.processing_generation != generation
+        assert UUID(video.processing_generation).version == 4
+        assert not video.is_published and not video.auto_publish
+        with fence_session(worker, video.id, generation):
+            stale.title = "must not overwrite taken-down row"
+            with pytest.raises(StaleProcessingGenerationError):
+                await worker.commit()
+            await worker.rollback()
+    async with TestSessionLocal() as reader:
+        fresh = await reader.get(Video, video.id)
+        assert fresh.title == "Fenced" and fresh.storage_mode == "offline"
+        assert fresh.video_url_720p is None and not fresh.is_published
+
+
+async def test_takedown_locks_live_row_before_changing_generation(db_session):
+    from sqlalchemy import event
+
+    from app.services.video_service import takedown_video
+
+    video, _ = await _seed_video(db_session, title="Locked", with_subtitle=False)
+    seen = []
+
+    def capture(state):
+        if state.is_select:
+            statement = state.statement
+            if statement._for_update_arg is not None:
+                seen.append(statement.get_execution_options())
+
+    event.listen(db_session.sync_session, "do_orm_execute", capture)
+    try:
+        await takedown_video(db_session, video.id)
+    finally:
+        event.remove(db_session.sync_session, "do_orm_execute", capture)
+    assert seen and seen[0].get("populate_existing") is True
+
+
+def test_delete_media_removes_exact_video_generations_only(_isolated_media_root):
+    from app.services.processing_generation import artifact_identity
+    from app.services.video_service import _delete_media_files
+
+    root = _isolated_media_root
+    video_id = str(uuid4())
+    other_id = str(uuid4())
+    ids = [video_id, artifact_identity(video_id, str(uuid4())), artifact_identity(video_id, str(uuid4()))]
+    removed = []
+    kept = [f"{other_id}_raw.webm", f"{other_id}_720p.mp4", f"{video_id}_g{'a' * 31}_720p.mp4"]
+    kept += [f"{video_id}_g{'b' * 33}_raw.mp4", f"{video_id}extra_720p.mp4", f"{video_id}_720p.mp4.bak"]
+    for identity in ids:
+        removed += [
+            f"{identity}.mp4",
+            f"{identity}_raw.mp4",
+            f"{identity}_raw.webm",
+            f"{identity}_raw.{uuid4().hex}.part.mp4",
+            f"{identity}_480p.mp4",
+            f"{identity}_720p.mp4",
+            f"{identity}_1080p.mp4",
+            f"{identity}_720p.{uuid4().hex}.part.mp4",
+        ]
+        kept += [f"{identity}_thumb.jpg", f"{identity}_thumb.probe", f"{identity}_thumb.png.part"]
+    for name in removed + kept:
+        (root / name).write_bytes(b"test-owned file")
+    nested = root / "avatars" / f"{video_id}_720p.mp4"
+    nested.parent.mkdir()
+    nested.write_bytes(b"nested unrelated file")
+    _delete_media_files(video_id)
+    assert all(not (root / name).exists() for name in removed)
+    assert all((root / name).read_bytes() == b"test-owned file" for name in kept)
+    assert nested.read_bytes() == b"nested unrelated file"
+    _delete_media_files("*")
+    assert all((root / name).exists() for name in kept)

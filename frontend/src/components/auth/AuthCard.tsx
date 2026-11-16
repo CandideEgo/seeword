@@ -4,17 +4,12 @@ import { siteConfig } from "@/lib/siteConfig";
 import { AuthThemeToggle } from "@/components/auth/AuthThemeToggle";
 import { cn } from "@/lib/utils";
 import { ComplianceInfo } from "@/components/common/ComplianceInfo";
+import { AstryxProvider } from "@/components/common/AstryxProvider";
+import { LogoutNotice } from "@/components/auth/LogoutNotice";
 
 /**
- * 账号流程（login / register / forgot-password / set-password / onboarding /
- * redirect recovery）的公共壳：单列、顶部对齐，表单页 480px、引导页 44rem
- * （设计 `auth.css` 的 `.auth-shell` / `.auth-shell-wide`），品牌与主题切换同排。
- *
- * 注意：`user-ui.css` 的 `.user-auth > div` 把**直接子 div** 限到 30rem，所以
- * wide 版用 `<section>` 承载宽度，避免被该规则盖掉 `max-w-[44rem]`。
- *
- * 标题/副标题字号由 `user-ui.css` 的 `.user-auth h1` / `.user-auth header p`
- * 提供，页面里不再各自写字号（避免与设计档位打架）。
+ * 账号流程公共壳：表单与引导页共用 user-auth-shell；宽版仅用于引导。
+ * 宽度、标题和响应式间距由 user-ui.css 维护，品牌与主题切换同排。
  */
 export function AuthCard({
   title,
@@ -53,18 +48,17 @@ export function AuthCard({
         <h1 className={cn("font-display text-ink", wide && "max-w-[40rem]")}>{title}</h1>
       </header>
 
+      <LogoutNotice />
       {children}
       <ComplianceInfo className="mt-6 text-center" />
     </>
   );
 
   return (
-    <main className="user-ui user-auth min-h-dvh bg-canvas px-5 pt-6 pb-10 md:px-6">
-      {wide ? (
-        <section className="mx-auto w-full max-w-[44rem]">{content}</section>
-      ) : (
-        <div className="mx-auto w-full max-w-[480px]">{content}</div>
-      )}
+    <main className="user-ui user-auth min-h-dvh bg-canvas px-5 py-8 md:px-6 md:py-14">
+      <section className={cn("user-auth-shell mx-auto w-full", wide && "is-wide")}>
+        <AstryxProvider>{content}</AstryxProvider>
+      </section>
     </main>
   );
 }

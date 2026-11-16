@@ -26,7 +26,7 @@ export function VocabWordCard({
   badge,
   onSpeak,
   sentenceHref,
-  sentenceLabel = "回到对应句子 →",
+  sentenceLabel = "回到原句",
   contextSentence,
   extraSources,
   actions,
@@ -47,11 +47,13 @@ export function VocabWordCard({
   const hasFooter = Boolean(sentenceHref || actions || extraSources);
 
   return (
-    <Card variant="outline" padding={4} className="flex flex-col">
+    <Card variant="outline" padding={5} className="vocabulary-word flex flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-copy-lg font-bold tracking-tight text-ink">{word}</span>
+            <span lang="en" className="text-title font-semibold tracking-tight text-ink">
+              {word}
+            </span>
             {ipa && <span className="text-meta text-muted font-mono">{ipa}</span>}
             {partOfSpeech && (
               <span className="text-meta text-muted italic">{partOfSpeechLabel(partOfSpeech)}</span>
@@ -59,7 +61,12 @@ export function VocabWordCard({
           </div>
           <DictionaryMeaning translation={meaning} definition={null} partOfSpeech={partOfSpeech} />
           {contextSentence && (
-            <p className="mt-2 text-meta leading-relaxed text-muted">原句：{contextSentence}</p>
+            <blockquote
+              lang="en"
+              className="vocabulary-context mt-3 text-copy leading-relaxed text-body"
+            >
+              {contextSentence}
+            </blockquote>
           )}
         </div>
 
@@ -69,7 +76,7 @@ export function VocabWordCard({
               type="button"
               onClick={onSpeak}
               aria-label={`播放 ${word}`}
-              className="w-7 h-7 rounded-full bg-surface-card flex items-center justify-center text-muted hover:bg-action-primary hover:text-on-primary transition-colors duration-100 cursor-pointer"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-surface-soft text-muted transition-colors duration-100 hover:bg-brand-50 hover:text-brand-700"
             >
               <Volume2 size={13} />
             </button>
@@ -129,7 +136,7 @@ export function VocabWordAction({
       aria-label={ariaLabel}
       data-testid={testId}
       className={[
-        "transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex min-h-11 items-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
         TONE[tone],
       ].join(" ")}
     >

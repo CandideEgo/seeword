@@ -71,6 +71,13 @@ def fake_httpx(monkeypatch):
 
 
 class TestCallbackDelivery:
+    def test_generation_is_forwarded_in_callback_payload(self, monkeypatch, fake_httpx):
+        _callback_settings(monkeypatch)
+        fake_httpx.responses = [_Resp(200)]
+        generation = "571a32fc-57cc-4b58-83fa-03f0a285d6d9"
+        assert _post_transcription_callback("vid", status="error", error="failed", processing_generation=generation)
+        assert fake_httpx.calls[0]["json"]["processing_generation"] == generation
+
     def test_rate_limited_callback_is_retried(self, monkeypatch, fake_httpx):
         _callback_settings(monkeypatch)
         fake_httpx.responses = [_Resp(429), _Resp(200)]
@@ -149,6 +156,15 @@ def fake_transcription(monkeypatch):
 
 
 class TestGpuTaskRetry:
+    def test_success_passes_generation_unchanged(self, monkeypatch, fake_transcription):
+        calls = []
+        monkeypatch.setattr(video_processing, "_post_transcription_callback", lambda *a, **k: calls.append(k) or True)
+        generation = "571a32fc-57cc-4b58-83fa-03f0a285d6d9"
+        transcribe_video_gpu.run.__func__(
+            _FakeTaskSelf(), "vid", "https://example.com/fixture", "local", None, generation
+        )
+        assert calls[0]["processing_generation"] == generation
+
     def test_failed_delivery_retries_the_task(self, monkeypatch, fake_transcription):
         monkeypatch.setattr(video_processing, "_post_transcription_callback", lambda *a, **k: False)
         fake_self = _FakeTaskSelf()

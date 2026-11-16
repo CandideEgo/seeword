@@ -30,7 +30,7 @@ export function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       activateOnFocus={activateOnFocus}
-      className={cn("outline-none", className)}
+      className={cn("sw-tabs-list outline-none", className)}
       {...props}
     />
   );

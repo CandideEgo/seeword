@@ -253,3 +253,76 @@ async def test_private_upload_uses_signed_source_and_keeps_canonical_path(tmp_pa
             await video_media.stage_local_upload(video)
     assert video.source_url.endswith("video1_raw.mp4")
     assert video_media.find_local_raw("video1") == video.source_url
+
+
+@pytest.mark.parametrize("generation", [None, "22222222-2222-4222-8222-222222222222"])
+async def test_upload_staging_never_moves_another_generations_source(tmp_path, media_config, monkeypatch, generation):
+    from app.services.processing_generation import artifact_identity
+
+    video_id = "11111111-1111-4111-8111-111111111111"
+    other_generation = "33333333-3333-4333-8333-333333333333"
+    other_id = artifact_identity(video_id, other_generation)
+    media_dir = Path(media_config.local_media_path).resolve()
+    media_dir.mkdir()
+    source = media_dir / f"{other_id}_raw.webm"
+    source.write_bytes(b"another attempt still needs these bytes")
+    video = SimpleNamespace(id=video_id, source_url=str(source), processing_generation=generation)
+    upload = AsyncMock(return_value="https://cdn.example.com/raw")
+    monkeypatch.setattr("app.services.oss_service.upload_file", upload)
+    monkeypatch.setattr("app.services.oss_service.get_signed_url", lambda *a, **k: "https://signed.example.com/raw")
+
+    gpu_source, key = await video_media.stage_local_upload(video)
+    artifact_id = artifact_identity(video_id, generation)
+    expected = media_dir / f"{artifact_id}_raw.webm"
+    assert gpu_source == "https://signed.example.com/raw"
+    assert key == f"raw/{artifact_id}.webm"
+    upload.assert_awaited_once_with(str(expected), key)
+    assert Path(video.source_url) == expected
+    assert expected.read_bytes() == source.read_bytes() == b"another attempt still needs these bytes"
+    assert video_media.find_local_raw(artifact_id) == str(expected)
+    # A retry reuses only this attempt's own canonical path.
+    await video_media.stage_local_upload(video)
+    assert source.exists() and expected.exists()
+    assert list(media_dir.glob("*.part*")) == []
+
+
+async def test_generation_upload_without_oss_keeps_local_source(tmp_path, media_config, monkeypatch):
+    from app.services.processing_generation import artifact_identity
+
+    source = tmp_path / "upload.mp4"
+    source.write_bytes(b"local upload")
+    video = SimpleNamespace(
+        id="11111111-1111-4111-8111-111111111111",
+        source_url=str(source),
+        processing_generation="22222222-2222-4222-8222-222222222222",
+    )
+    monkeypatch.setattr("app.services.oss_service.upload_file", AsyncMock(return_value=None))
+    local, key = await video_media.stage_local_upload(video)
+    artifact_id = artifact_identity(video.id, video.processing_generation)
+    assert Path(local).name == f"{artifact_id}_raw.mp4"
+    assert key == "" and video.source_url == local
+    assert source.read_bytes() == Path(local).read_bytes() == b"local upload"
+
+
+async def test_failed_staging_copy_preserves_source_and_previous_raw(tmp_path, media_config, monkeypatch):
+    media_dir = Path(media_config.local_media_path).resolve()
+    media_dir.mkdir()
+    source = tmp_path / "upload.mp4"
+    source.write_bytes(b"source")
+    previous = media_dir / "video1_raw.mp4"
+    previous.write_bytes(b"previous raw")
+    video = SimpleNamespace(id="video1", source_url=str(source))
+
+    def fail_copy(src, dest):
+        dest.write_bytes(b"partial copy")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(video_media.shutil, "copy2", fail_copy)
+    upload = AsyncMock()
+    monkeypatch.setattr("app.services.oss_service.upload_file", upload)
+    with pytest.raises(OSError, match="disk full"):
+        await video_media.stage_local_upload(video)
+    assert source.read_bytes() == b"source" and previous.read_bytes() == b"previous raw"
+    assert video.source_url == str(source)
+    assert list(media_dir.glob("*.part*")) == []
+    upload.assert_not_called()

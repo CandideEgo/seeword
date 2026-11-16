@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -77,11 +77,17 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-1" aria-label="学习导航">
-        {MAIN_NAV.map(renderNavLink)}
+        {MAIN_NAV.map((item) => (
+          <Fragment key={item.href}>
+            {renderNavLink(item)}
+            {item.href === "/channels" &&
+              lessonsEnabled &&
+              renderNavLink({ href: "/lessons", label: "视频课程", icon: BookOpen })}
+          </Fragment>
+        ))}
         {!collapsed && <p className="user-nav-label">资料库</p>}
         {collapsed && <div className="my-2 border-t border-hairline" role="presentation" />}
         {SECONDARY_NAV.map(renderNavLink)}
-        {lessonsEnabled && renderNavLink({ href: "/lessons", label: "视频课程", icon: BookOpen })}
       </nav>
 
       <div className="shrink-0 border-t border-hairline pt-2 pb-2">

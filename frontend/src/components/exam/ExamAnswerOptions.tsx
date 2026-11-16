@@ -27,13 +27,15 @@ export function ExamAnswerOptions({
           disabled={disabled}
           onClick={() => onChange(key)}
           className={cn(
-            "flex w-full items-start gap-3 rounded-sm border p-3 text-left text-copy leading-relaxed text-ink disabled:cursor-not-allowed disabled:opacity-60",
+            "exam-answer flex min-h-14 w-full items-start gap-3 rounded-md border p-4 text-left text-copy leading-relaxed text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60",
             value === key
               ? "border-brand-500 bg-brand-50"
               : "border-hairline bg-canvas hover:border-hairline-strong"
           )}
         >
-          <span className="font-semibold">{key}</span>
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-current/20 text-meta font-semibold">
+            {key}
+          </span>
           <span className="min-w-0 break-words">{text}</span>
           <span className="sr-only">{value === key ? "已选择" : "未选择"}</span>
         </button>

@@ -108,7 +108,7 @@ test("Astryx 词汇控件保留搜索、筛选、分页与 URL 恢复", async ({
 });
 
 for (const selectedTheme of ["dark", "light"] as const) {
-  test(`Astryx 卸载后原生 UI 保留站内 ${selectedTheme} 偏好而非系统主题`, async ({
+  test(`Astryx 跨用户页面及离开用户壳后保留站内 ${selectedTheme} 偏好`, async ({
     page,
     request,
   }) => {
@@ -124,17 +124,20 @@ for (const selectedTheme of ["dark", "light"] as const) {
     await expect(page.locator("html")).toHaveAttribute("data-theme", selectedTheme);
     await expect(page.getByRole("searchbox", { name: "搜索单词" })).toHaveCSS(
       "color",
-      selectedTheme === "dark" ? "rgb(245, 245, 247)" : "rgb(29, 29, 31)"
+      selectedTheme === "dark" ? "rgb(237, 243, 252)" : "rgb(23, 43, 69)"
     );
 
-    // Client-side navigation unmounts Astryx, but the app still owns the native UI mode.
+    // User pages share one provider; leaving the user shell must release it
+    // without replacing the app's selected native UI mode with system theme.
     await page.locator('a[href="/"]:visible').first().click();
     await expect(page).toHaveURL("/");
-    await expect(page.locator("html")).not.toHaveAttribute("data-astryx-theme");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+    await expect(page.locator(".user-ui [data-astryx-theme='neutral']")).toHaveCount(1);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", selectedTheme);
     await expect(page.locator("html")).toHaveCSS("color-scheme", selectedTheme);
     await page.goto("/admin/login");
     await expect(page.locator("[data-astryx-theme]")).toHaveCount(0);
+    await expect(page.locator("html")).not.toHaveAttribute("data-astryx-theme");
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme");
     await expect(page.locator("html")).toHaveCSS("color-scheme", selectedTheme);
   });
 }

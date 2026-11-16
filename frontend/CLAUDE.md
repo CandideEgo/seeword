@@ -62,7 +62,7 @@ npx playwright test
 
 ### Astryx 试点
 
-词汇模块 layout 挂 `AstryxProvider`，使用官方预编译 CSS，不接 Tailwind token bridge。主题映射放在 `user-ui.css` 局部作用域；同名状态色在 globals 的 `@theme inline` 保持 SeeWord 语义。其它页面/共享控件未迁移，不能把试点当全站替换。相关真实回归是 `e2e/astryx-vocabulary.spec.ts`。
+用户端 `MainLayoutInner` 统一挂 `AstryxProvider`，账号公共壳按其独立页面边界挂载；词汇 layout 不再重复嵌套。使用官方预编译 CSS，不接 Tailwind token bridge。主题映射只在 `user-ui.css` 用户作用域；词汇与课程搜索使用官方控件，其余共享控件仍保留原生契约，后台没有整体迁移。真实回归入口包括 `e2e/astryx-vocabulary.spec.ts` 与课程闭环测试。
 
 ### 播放与响应式
 

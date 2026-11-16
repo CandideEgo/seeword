@@ -48,8 +48,9 @@ export function ErrorState({
 }: ErrorStateProps) {
   const content = (
     <div
+      role="alert"
       className={cn(
-        "flex flex-col items-center justify-center text-center",
+        "sw-error flex flex-col items-center justify-center px-4 text-center",
         fullPage ? "" : "py-20",
         className
       )}

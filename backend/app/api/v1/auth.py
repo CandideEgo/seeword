@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.errors import ServiceUnavailableError
 from app.core.limiter import rate_limit
 from app.core.logging import mask_phone
 from app.core.redis import get_redis
@@ -404,15 +405,17 @@ async def logout(
     Optionally also blacklists the refresh token if provided in the request body.
     """
     if not settings.jwt_blacklist_enabled:
-        return MessageResponse(message="Logged out successfully")
+        raise ServiceUnavailableError("服务端未启用会话撤销，原会话可能在到期前仍有效")
 
     payload = decode_token(credentials.credentials)
     if payload is None:
-        return MessageResponse(message="Logged out successfully")
+        # Authentication may have succeeded just before the access token expired;
+        # that still says nothing about revocation of a supplied refresh token.
+        raise ServiceUnavailableError("暂时无法确认会话撤销，请稍后重试")
 
     jti = payload.get("jti")
-    if jti is None:
-        return MessageResponse(message="Logged out successfully")
+    if not jti:
+        raise ServiceUnavailableError("当前旧会话无法确认撤销，原会话可能在到期前仍有效")
 
     # Calculate remaining TTL from the exp claim.
     exp = payload.get("exp")
@@ -429,14 +432,15 @@ async def logout(
         refresh_payload = decode_token(data.refresh_token)
         if refresh_payload:
             refresh_jti = refresh_payload.get("jti")
-            if refresh_jti:
-                refresh_exp = refresh_payload.get("exp")
-                if refresh_exp:
-                    refresh_remaining = int(refresh_exp - datetime.now(UTC).timestamp())
-                else:
-                    refresh_remaining = settings.jwt_refresh_expire_days * 24 * 60 * 60
-                await blacklist_token(refresh_jti, max(refresh_remaining, 0))
-                logger.info("refresh_token_blacklisted", user_id=current_user.id, jti=refresh_jti)
+            if not refresh_jti:
+                raise ServiceUnavailableError("当前旧会话无法确认撤销，原会话可能在到期前仍有效")
+            refresh_exp = refresh_payload.get("exp")
+            if refresh_exp:
+                refresh_remaining = int(refresh_exp - datetime.now(UTC).timestamp())
+            else:
+                refresh_remaining = settings.jwt_refresh_expire_days * 24 * 60 * 60
+            await blacklist_token(refresh_jti, max(refresh_remaining, 0))
+            logger.info("refresh_token_blacklisted", user_id=current_user.id, jti=refresh_jti)
 
     return MessageResponse(message="Logged out successfully")
 

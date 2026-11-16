@@ -59,11 +59,14 @@ async def test_concurrent_localization_claims_create_and_send_one_intent(pg_clie
         asyncio.gather(pg_client.post(url, headers=headers), pg_client.post(url, headers=headers)), timeout=15
     )
     assert sorted(response.status_code for response in responses) == [200, 409]
-    sender.assert_awaited_once_with(pipeline_dispatch.LOCALIZE_VIDEO_TASK, [vid, True], None)
     async with get_async_session_maker()() as db:
         assert await db.scalar(select(func.count(PipelineDispatch.id))) == 1
         video = await db.get(Video, vid)
         assert video.status == VideoStatus.processing and video.video_url_720p == "/media/previous.mp4"
+        assert video.processing_generation is not None and video.step_started_at is not None
+        sender.assert_awaited_once_with(
+            pipeline_dispatch.LOCALIZE_VIDEO_TASK, [vid, True, video.processing_generation], None
+        )
 
 
 async def test_failed_intent_insert_rolls_back_processing_claim(pg_client, monkeypatch):

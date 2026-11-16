@@ -5,15 +5,17 @@ in Redis with a TTL equal to the token's remaining lifetime. On every request,
 the auth dependency checks whether the JTI is blacklisted.
 
 Design choices:
-  - **Fail-open**: if Redis is unavailable the request is allowed through.
-    Blocking all authenticated traffic because Redis is down would be worse
-    than letting a few revoked tokens slip.
+  - Ordinary access-token reads retain their documented fail-open policy.
+  - Refresh consumption and revocation writes fail closed: a Redis outage is
+    unavailable, never proof that a single-use claim or revocation succeeded.
   - **Key format**: ``token_blacklist:{jti}`` — simple, O(1) lookup.
   - **TTL**: set to the token's remaining validity so keys auto-expire
     when the token would have expired anyway.
 """
 
 import structlog
+
+from app.core.errors import ServiceUnavailableError
 
 logger = structlog.get_logger(__name__)
 
@@ -34,11 +36,15 @@ async def blacklist_token(jti: str, ttl_seconds: int) -> None:
         from app.core.redis import get_redis
 
         r = get_redis()
-        await r.set(f"token_blacklist:{jti}", "1", ex=ttl_seconds)
+        acknowledged = await r.set(f"token_blacklist:{jti}", "1", ex=ttl_seconds)
+        if not acknowledged:
+            raise ServiceUnavailableError("暂时无法确认会话撤销，请稍后重试")
         logger.debug("token_blacklisted", jti=jti, ttl=ttl_seconds)
-    except Exception:
-        # Fail open — log but don't raise.
+    except ServiceUnavailableError:
+        raise
+    except Exception as exc:
         logger.warning("token_blacklist_redis_error", jti=jti, exc_info=True)
+        raise ServiceUnavailableError("暂时无法确认会话撤销，请稍后重试") from exc
 
 
 async def claim_token_once(jti: str | None, ttl_seconds: int) -> bool:
@@ -54,14 +60,13 @@ async def claim_token_once(jti: str | None, ttl_seconds: int) -> bool:
     ``token_blacklist:{jti}`` key, winning the claim *is* revoking the old
     token — there is no second write to lose.
 
-    Redis outage fails open (True) for the same reason as the rest of this
-    module: an outage must not lock every user out of their session. The
-    tradeoff is stated rather than hidden — during an outage the concurrent
-    rotation window comes back.
+    Redis outage raises ServiceUnavailableError: callers must not mint a
+    successor or mistake temporary unavailability for a revoked credential.
+    Legacy refresh tokens without a JTI cannot prove single-use consumption
+    and require a fresh login.
     """
     if not jti:
-        # Tokens issued before the jti claim was added cannot be deduplicated.
-        return True
+        return False
     if ttl_seconds <= 0:
         return False
 
@@ -69,10 +74,10 @@ async def claim_token_once(jti: str | None, ttl_seconds: int) -> bool:
         from app.core.redis import get_redis
 
         r = get_redis()
-        return await r.set(f"token_blacklist:{jti}", "1", nx=True, ex=ttl_seconds) is not None
-    except Exception:
+        return bool(await r.set(f"token_blacklist:{jti}", "1", nx=True, ex=ttl_seconds))
+    except Exception as exc:
         logger.warning("token_blacklist_claim_redis_error", jti=jti, exc_info=True)
-        return True
+        raise ServiceUnavailableError("暂时无法确认会话续期，请稍后重试") from exc
 
 
 async def is_token_blacklisted(jti: str | None) -> bool:

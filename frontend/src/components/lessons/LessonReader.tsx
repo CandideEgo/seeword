@@ -417,7 +417,7 @@ function LessonContent({
       : pack.segments.findLast((segment) => segment.start_ms <= resumePosition);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 py-6 sm:py-9">
+    <div className="user-page lesson-reader mx-auto max-w-6xl space-y-6">
       <PageHeader
         title={
           refreshing ? (
@@ -503,14 +503,14 @@ function LessonContent({
                 这条原句引用已不可用
               </p>
             )}
-            <ol className="divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface-card">
+            <ol className="lesson-transcript divide-y divide-hairline-soft overflow-hidden rounded-lg border border-hairline bg-surface-card">
               {pack.segments.map((segment) => (
                 <li
                   key={segment.id}
                   id={`lesson-line-${segment.id}`}
                   aria-current={active?.id === segment.id ? "true" : undefined}
                   className={cn(
-                    "grid min-w-0 scroll-m-3 gap-1.5 px-3 py-3 sm:grid-cols-[3.8rem_minmax(0,1fr)] sm:gap-3 sm:px-4",
+                    "grid min-w-0 scroll-m-3 gap-2 px-4 py-5 sm:grid-cols-[3.8rem_minmax(0,1fr)] sm:gap-4 sm:px-6",
                     (active?.id === segment.id || selected?.segment.id === segment.id) &&
                       "bg-brand-50"
                   )}
@@ -527,7 +527,7 @@ function LessonContent({
                   <div className="min-w-0 space-y-0.5">
                     <p
                       lang="en"
-                      className="text-copy-lg leading-relaxed break-words whitespace-pre-wrap text-ink"
+                      className="lesson-original text-copy-lg leading-relaxed break-words whitespace-pre-wrap text-ink"
                     >
                       {lessonWordPieces(segment).map(({ text, token }, index) => {
                         const phrase =

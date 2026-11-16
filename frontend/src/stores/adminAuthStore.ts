@@ -22,6 +22,7 @@ import {
   type BaseAuthUser,
 } from "@/lib/authHelpers";
 import { requestTokenRefresh, type RefreshOutcome } from "@/lib/sessionRefresh";
+import { requestSessionLogout, logoutLocation } from "@/lib/sessionLogout";
 
 /** JWT payload（role 不在 JWT 里，admin role 经 /users/me DB 查询 + get_admin_user 叠加）。 */
 export type AdminAuthUser = BaseAuthUser;
@@ -50,7 +51,7 @@ const MIGRATION_MAPPINGS: [string, string][] = [
 ];
 
 let refreshPromise: Promise<RefreshOutcome> | null = null;
-/** Bumped by logout() so a refresh that lands later cannot resurrect the session. */
+/** Invalidates async work when login/logout changes the local session. */
 let sessionEpoch = 0;
 
 export const useAdminAuthStore = create<AdminAuthState & AdminAuthActions>((set, get) => ({
@@ -61,6 +62,7 @@ export const useAdminAuthStore = create<AdminAuthState & AdminAuthActions>((set,
   isLoading: true,
 
   login(token: string, refreshToken?: string | null) {
+    sessionEpoch += 1;
     // localStorage + 镜像 cookie 一起写（唯一入口，见 lib/authHelpers.setSession）。
     setSession(ADMIN_SESSION_KEYS, token, refreshToken);
     const user = decodeJwt(token) as AdminAuthUser | null;
@@ -74,24 +76,10 @@ export const useAdminAuthStore = create<AdminAuthState & AdminAuthActions>((set,
   },
 
   logout() {
-    sessionEpoch += 1;
+    const epoch = ++sessionEpoch;
     const currentToken = get().token;
     const currentRefreshToken = get().refreshToken;
-    if (currentToken && typeof window !== "undefined") {
-      const body = currentRefreshToken
-        ? JSON.stringify({ refresh_token: currentRefreshToken })
-        : "{}";
-      fetch("/api/v1/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-          "Content-Type": "application/json",
-        },
-        body,
-      }).catch(() => {
-        /* ignore - token will expire naturally */
-      });
-    }
+    const revocation = requestSessionLogout(currentToken, currentRefreshToken);
     if (typeof window !== "undefined") {
       // 两个存放位置一起清（唯一入口，见 lib/authHelpers.clearSession）。
       clearSession(ADMIN_SESSION_KEYS);
@@ -102,9 +90,11 @@ export const useAdminAuthStore = create<AdminAuthState & AdminAuthActions>((set,
       user: null,
       isAuthenticated: false,
     });
-    if (typeof window !== "undefined") {
-      window.location.href = "/admin/login";
-    }
+    void revocation.then((outcome) => {
+      if (typeof window !== "undefined" && epoch === sessionEpoch) {
+        window.location.href = logoutLocation("/admin/login", outcome);
+      }
+    });
   },
 
   async bootstrap() {

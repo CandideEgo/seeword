@@ -103,7 +103,7 @@ function NavLinks({
       {NAV.map((section) => (
         <div key={section.title} className="mb-4">
           {!collapsed && (
-            <div className="mb-1.5 px-3 text-caption font-semibold uppercase tracking-wider text-muted-soft">
+            <div className="mb-2 px-3 text-caption font-medium text-muted-soft">
               {section.title}
             </div>
           )}
@@ -129,7 +129,7 @@ function NavLinks({
                       "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-copy font-medium transition-all",
                       collapsed && "justify-center px-2",
                       active
-                        ? "bg-action-primary text-on-primary shadow-sm"
+                        ? "bg-brand-50 text-brand-700"
                         : "text-muted hover:bg-surface-soft hover:text-ink"
                     )}
                   >
@@ -138,8 +138,7 @@ function NavLinks({
                     {!collapsed && item.badge !== undefined && item.badge > 0 && (
                       <span
                         className={cn(
-                          "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-meta font-semibold",
-                          active ? "bg-white/20 text-white" : "bg-brand-100 text-brand-700"
+                          "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-100 px-1.5 text-meta font-semibold text-brand-700"
                         )}
                       >
                         {item.badge}

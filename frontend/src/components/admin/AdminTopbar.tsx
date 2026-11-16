@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, ClipboardList, ExternalLink, LogOut, ShieldCheck } from "lucide-react";
@@ -8,7 +8,14 @@ import { useAdminAuthStore } from "@/stores/adminAuthStore";
 import { getUgcPendingCount } from "@/lib/adminData";
 import { useVisibilityAwareInterval } from "@/hooks/useVisibilityAwareInterval";
 import { AdminBreadcrumb, type BreadcrumbItem } from "./ui/AdminBreadcrumb";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+  DropdownMenuPositioner,
+  DropdownMenuPopup,
+  DropdownMenuItem,
+} from "@/components/ui/DropdownMenu";
 
 // ---------------------------------------------------------------------------
 // Breadcrumb mapping
@@ -17,6 +24,7 @@ import { cn } from "@/lib/utils";
 const BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
   "/admin": [{ label: "仪表盘" }],
   "/admin/videos": [{ label: "视频管理" }],
+  "/admin/lessons": [{ label: "课程材料" }],
   "/admin/home-editorial": [{ label: "首页编排" }],
   "/admin/channels": [{ label: "频道管理" }],
   "/admin/users": [{ label: "用户管理" }],
@@ -43,65 +51,37 @@ function resolveBreadcrumbs(pathname: string): BreadcrumbItem[] {
 
 function UserMenu({ name }: { name: string }) {
   const logout = useAdminAuthStore((s) => s.logout);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-copy hover:bg-surface-soft transition-colors"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="管理员账号菜单"
+        className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-copy transition-colors hover:bg-surface-soft"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-medium text-meta">
+        <span className="flex size-8 items-center justify-center rounded-full bg-brand-100 text-meta font-medium text-brand-700">
           {name.slice(0, 1).toUpperCase()}
         </span>
-        <span className="hidden sm:block text-ink font-medium">{name}</span>
-        <ChevronDown
-          size={14}
-          className={cn("text-muted transition-transform", open && "rotate-180")}
-        />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 z-50 mt-1 w-48 rounded-lg border border-hairline bg-canvas py-1 shadow-lg">
-          <div className="border-b border-hairline px-3 py-2">
-            <p className="text-copy font-medium text-ink">{name}</p>
-            <p className="flex items-center gap-1 text-meta text-muted">
-              <ShieldCheck size={12} className="text-brand-500" />
-              管理员
-            </p>
-          </div>
-          <Link
-            href="/"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3 py-2 text-copy text-body hover:bg-surface-soft transition-colors"
-          >
-            <ExternalLink size={15} />
-            访问用户端
-          </Link>
-          <button
-            onClick={() => {
-              setOpen(false);
-              logout();
-            }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-copy text-error hover:bg-error/10 transition-colors"
-          >
-            <LogOut size={15} />
-            退出登录
-          </button>
-        </div>
-      )}
-    </div>
+        <span className="hidden font-medium text-ink sm:block">{name}</span>
+        <ChevronDown size={14} className="text-muted" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuPositioner align="end" sideOffset={8}>
+          <DropdownMenuPopup aria-label="管理员账号操作" className="w-52">
+            <div className="border-b border-hairline px-3 py-3">
+              <p className="break-words text-copy font-medium text-ink">{name}</p>
+              <p className="mt-1 flex items-center gap-1 text-meta text-muted">
+                <ShieldCheck size={12} aria-hidden /> 管理员
+              </p>
+            </div>
+            <DropdownMenuItem render={<Link href="/" />}>
+              <ExternalLink size={15} aria-hidden /> 访问用户端
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void logout()} className="text-error">
+              <LogOut size={15} aria-hidden /> 退出登录
+            </DropdownMenuItem>
+          </DropdownMenuPopup>
+        </DropdownMenuPositioner>
+      </DropdownMenuPortal>
+    </DropdownMenu>
   );
 }
 

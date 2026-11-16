@@ -197,17 +197,23 @@ async def _shadowing_token_ok(owner_user_id: str, request: Request) -> bool:
 # Publish-state gate for video media files.
 #
 # Pipeline-produced files are named ``{video_id}.mp4`` (720p fallback),
-# ``{video_id}_480p.mp4`` / ``_720p`` / ``_1080p`` / ``_raw.<ext>``. They must
+# ``{video_id}_480p.mp4`` / ``_720p`` / ``_1080p`` / ``_raw.<ext>``; fenced
+# attempts insert ``_g{32 lowercase hex}`` between the UUID and that suffix.
+# They must
 # not be publicly downloadable while the video is unpublished (draft UGC
 # content leaks before admin approval otherwise — the URL is derivable from
 # the video id). Access follows the same rules as the API layer
 # (services/video_access.py): official/published/snapshot videos are public,
 # owners and admins may preview drafts via a JWT (?token= or Bearer).
 # ---------------------------------------------------------------------------
-_VIDEO_FILE_RE = re.compile(
-    r"^(?P<vid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
-    r"(?:_raw|_480p|_720p|_1080p)?$"
+_VIDEO_ARTIFACT_STEM = (
+    r"(?P<vid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    r"(?:_g[0-9a-f]{32})?"
 )
+_VIDEO_FILE_RE = re.compile(rf"^{_VIDEO_ARTIFACT_STEM}(?:_raw|_480p|_720p|_1080p)?$")
+# Atomic writers probe temporary bytes before replacing the final filename.
+# Those UUID-named files are not playable artifacts, even for an admin/owner.
+_VIDEO_TEMP_FILE_RE = re.compile(rf"^{_VIDEO_ARTIFACT_STEM}_(?:raw|480p|720p|1080p)\.[0-9a-f]{{32}}\.part$")
 
 # Short-TTL cache of the viewer-independent access decision:
 # {video_id: (expires_at, publicly_viewable)}. Only "is this video public" may
@@ -267,10 +273,11 @@ async def _video_media_allowed(video_id: str, viewer_id: str | None) -> bool:
     """
     now = time.monotonic()
     cached = _VIDEO_ACCESS_CACHE.get(video_id)
-    # 匿名 viewer 没有旁路，缓存里的公共判定就是全部答案（正负都算，与既有的
-    # 负向缓存行为一致）；带身份的 viewer 还要算 owner/admin 旁路，必须实时判定。
-    if cached is not None and cached[0] > now and (cached[1] or viewer_id is None):
-        return cached[1]
+    # Only anonymous denials may be reused. Positive state must be read live:
+    # a taken-down worker may finish writing an old artifact after local file
+    # cleanup, and a cached public=True must not make those bytes playable.
+    if cached is not None and cached[0] > now and not cached[1] and viewer_id is None:
+        return False
 
     from app.models.video import Video
     from app.services.video_access import check_video_access_by_owner, is_admin
@@ -360,6 +367,8 @@ async def serve_media(file_path: str, request: Request):
     # `/media/shadowing/{own}/../../{vid}.mp4` entered it, skipping the
     # publish-state gate below. The gate must follow the bytes that ship.
     rel = full.relative_to(base).parts
+    if len(rel) == 1 and _VIDEO_TEMP_FILE_RE.fullmatch(full.stem) is not None:
+        raise HTTPException(status_code=404)
     if rel[0] == "shadowing":
         if len(rel) < 2 or not await _shadowing_token_ok(rel[1], request):
             raise HTTPException(status_code=404)

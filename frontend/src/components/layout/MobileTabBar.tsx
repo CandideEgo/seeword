@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
-import { MAIN_NAV, navigationActive } from "@/lib/navigation";
+import { MAIN_NAV, mobileNavigationActive } from "@/lib/navigation";
 
 /** 手机底部导航与桌面侧栏共用五个**一级**入口，顺序和页面归属一致。 */
 const TABS = MAIN_NAV;
@@ -31,7 +31,7 @@ export function MobileTabBar() {
   }, []);
 
   function isActive(href: string) {
-    return navigationActive(pathname, href);
+    return mobileNavigationActive(pathname, href);
   }
 
   if (isExamFlow) return null;

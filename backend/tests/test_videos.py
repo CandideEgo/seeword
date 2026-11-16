@@ -362,7 +362,12 @@ class TestAdminLocalizeVideo:
         # The conftest _mock_celery fixture records dispatches on the request's
         # monkeypatch — assert localize_video was called.
         calls = getattr(monkeypatch, "_celery_calls", [])
-        assert any(name.endswith("localize_video") and args == (vid, True) for name, args, _ in calls)
+        from app.models.video import Video
+
+        async with TestSessionLocal() as db:
+            generation = (await db.get(Video, vid)).processing_generation
+        assert generation is not None
+        assert any(name.endswith("localize_video") and args == (vid, True, generation) for name, args, _ in calls)
 
     async def test_localize_conflict_when_processing(self, client: AsyncClient, admin_headers: dict):
         from tests.conftest import TestSessionLocal
@@ -389,12 +394,17 @@ class TestAdminLocalizeVideo:
 
         first = await client.post(f"/api/v1/videos/admin/{vid}/localize", headers=admin_headers)
         assert first.status_code == 200
+        from app.models.video import Video
+
+        async with TestSessionLocal() as db:
+            generation = (await db.get(Video, vid)).processing_generation
+        assert generation is not None
 
         def _localize_dispatches() -> list:
             return [
                 call
                 for call in getattr(monkeypatch, "_celery_calls", [])
-                if call[0].endswith("localize_video") and call[1] == (vid, True)
+                if call[0].endswith("localize_video") and call[1] == (vid, True, generation)
             ]
 
         assert len(_localize_dispatches()) == 1

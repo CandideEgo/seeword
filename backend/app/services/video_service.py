@@ -5,6 +5,7 @@ so HTTP concerns (parsing, status codes) stay separate from
 domain logic (queries, state transitions, side effects).
 """
 
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -644,19 +645,22 @@ def _delete_media_files(video_id: str) -> None:
         return
     if not media_dir.exists():
         return
-    import glob
-
-    for pattern in (
-        f"{video_id}.mp4",
-        f"{video_id}_raw.*",
-        f"{video_id}_480p.mp4",
-        f"{video_id}_720p.mp4",
-        f"{video_id}_1080p.mp4",
-    ):
-        for path in glob.glob(str(media_dir / pattern)):
+    # No prefix/glob deletion: similarly named videos, covers and malformed
+    # generation names do not belong to this video's raw/rendition namespace.
+    try:
+        if str(uuid.UUID(video_id)) != video_id:
+            return
+    except ValueError:
+        return
+    owned = re.compile(
+        rf"{re.escape(video_id)}(?:_g[0-9a-f]{{32}})?"
+        r"(?:\.mp4|_raw\.[^/\\]+|_(?:480p|720p|1080p)(?:\.[0-9a-f]{32}\.part)?\.mp4)"
+    )
+    for path in media_dir.iterdir():
+        if owned.fullmatch(path.name):
             try:
-                Path(path).unlink()
-            except Exception:
+                path.unlink()
+            except OSError:
                 pass
 
 
@@ -675,18 +679,24 @@ async def takedown_video(db: AsyncSession, video_id: str) -> VideoAdminResponse:
     字幕、word_levels、Vocabulary、VocabSetWord 与 LearningRecord 全部保留，
     收藏夹入口不断链，集合页「回看原视频」落到一个已下架的 watch 页。
     """
-    video = await _get_video_or_404(db, video_id)
+    video = await db.scalar(
+        select(Video).where(Video.id == video_id).with_for_update().execution_options(populate_existing=True)
+    )
+    if video is None:
+        raise NotFoundError("Video not found")
 
-    was_offline = video.storage_mode == STORAGE_OFFLINE
+    # Serialize with worker write fences: a worker either commits before this
+    # lock, or sees a replaced generation and rolls its transaction back.
+    video.processing_generation = str(uuid.uuid4())
     video.storage_mode = STORAGE_OFFLINE
     video.is_published = False
+    video.auto_publish = False
     video.video_url_480p = None
     video.video_url_720p = None
     video.video_url_1080p = None
     await commit_refresh(db, video)
 
-    if not was_offline:
-        _delete_media_files(video_id)
+    _delete_media_files(video_id)
 
     await _invalidate_video_detail_cache(video_id)
     from app.services.video_cache import invalidate_browse_cache
@@ -742,7 +752,7 @@ from app.tasks.pipeline_helpers import STEP_PROGRESS as _STEP_PROGRESS
 STEP_PROGRESS_DOWNLOADING = _STEP_PROGRESS["downloading"]
 
 
-async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminResponse:
+async def localize_video_admin(db: AsyncSession, video_id: str, *, force: bool = True) -> VideoAdminResponse:
     """Kick off local download+transcode for an imported video (admin).
 
     Keeps previous media until replacement succeeds and flips the video to
@@ -770,6 +780,8 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
             error_message=None,
             processing_step="downloading",
             processing_progress=STEP_PROGRESS_DOWNLOADING,
+            processing_generation=str(uuid.uuid4()),
+            step_started_at=datetime.now(UTC),
             status=VideoStatus.processing,
         )
         .execution_options(synchronize_session=False)
@@ -788,8 +800,11 @@ async def localize_video_admin(db: AsyncSession, video_id: str) -> VideoAdminRes
 
     from app.services.pipeline_dispatch import LOCALIZE_VIDEO_TASK, dispatch_now, enqueue
 
-    dispatch_id = await enqueue(db, video_id=video_id, task_name=LOCALIZE_VIDEO_TASK, args=[video_id, True])
+    dispatch_id = await enqueue(db, video_id=video_id, task_name=LOCALIZE_VIDEO_TASK, args=[video_id, force])
     await db.commit()
     video = await _get_video_or_404(db, video_id)
+    # The caller (notably beat) may already hold this row in its identity map;
+    # synchronize_session=False above must not return that pre-claim snapshot.
+    await db.refresh(video)
     await dispatch_now(db, dispatch_id)
     return VideoAdminResponse.model_validate(video)

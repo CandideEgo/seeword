@@ -23,10 +23,10 @@ class TestRetryFailedDownloads:
     @pytest.mark.asyncio
     async def test_selects_under_strike_limit(self, db_session, monkeypatch):
         await _patch_async_session(monkeypatch)
-        import app.tasks.video_processing as vp
+        from app.services import pipeline_dispatch
 
-        mock_loc = MagicMock()
-        monkeypatch.setattr(vp, "localize_video", mock_loc)
+        send = MagicMock()
+        monkeypatch.setattr(pipeline_dispatch, "_send_task", send)
         monkeypatch.setattr(
             "app.services.youtube_cookies_service.ensure_cookies_for_pipeline",
             AsyncMock(),
@@ -65,18 +65,30 @@ class TestRetryFailedDownloads:
 
         await _run_retry_failed_downloads()
 
-        dispatched = [c.args[0] for c in mock_loc.delay.call_args_list]
-        assert v1.id in dispatched
-        assert v2.id not in dispatched
-        assert v3.id not in dispatched
+        from app.models.pipeline_dispatch import PipelineDispatch
+        from app.services.pipeline_dispatch import LOCALIZE_VIDEO_TASK
+
+        async with TestSessionLocal() as db:
+            video = await db.get(Video, v1.id)
+            intents = list((await db.scalars(select(PipelineDispatch))).all())
+            assert len(intents) == 1
+            assert intents[0].video_id == v1.id
+            assert video.processing_generation is not None
+            assert intents[0].processing_generation == video.processing_generation
+            assert intents[0].args == [v1.id, False, video.processing_generation]
+            assert intents[0].status == "dispatched"
+            send.assert_called_once_with(LOCALIZE_VIDEO_TASK, intents[0].args, None)
+            assert (await db.get(Video, v2.id)).status == VideoStatus.ready
+            assert (await db.get(Video, v3.id)).status == VideoStatus.ready
 
     @pytest.mark.asyncio
     async def test_refreshes_cookies_before_dispatch(self, db_session, monkeypatch):
         await _patch_async_session(monkeypatch)
-        import app.tasks.video_processing as vp
+        from app.services import pipeline_dispatch
 
-        monkeypatch.setattr(vp, "localize_video", MagicMock())
-        cookie_mock = AsyncMock()
+        events = []
+        monkeypatch.setattr(pipeline_dispatch, "_send_task", lambda *args: events.append("send"))
+        cookie_mock = AsyncMock(side_effect=lambda *args: events.append("cookies"))
         monkeypatch.setattr(
             "app.services.youtube_cookies_service.ensure_cookies_for_pipeline",
             cookie_mock,
@@ -98,6 +110,7 @@ class TestRetryFailedDownloads:
         await _run_retry_failed_downloads()
 
         cookie_mock.assert_awaited_once_with(v.source_url)
+        assert events == ["cookies", "send"]
 
 
 class TestLocalizeDownloadFailure:

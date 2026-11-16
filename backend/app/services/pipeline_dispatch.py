@@ -54,12 +54,14 @@ logger = get_logger(__name__)
 #: the API layer does not pull in ``uvicorn``'s opposite — the task module
 #: imports services, and services are imported by the API.
 FINALIZE_VIDEO_TASK = "app.tasks.video_processing.finalize_video"
+PROCESS_VIDEO_TASK = "app.tasks.video_processing.process_video"
 LOCALIZE_VIDEO_TASK = "app.tasks.video_processing.localize_video"
 
 #: Task name → the video status the task is still meaningful in. A video that
 #: left this state is either already past the step (watchdog error, manual
 #: retrigger, delete) or never reached it.
 _REQUIRED_STATUS: dict[str, frozenset[str]] = {
+    PROCESS_VIDEO_TASK: frozenset({VideoStatus.processing.value}),
     GPU_TRANSCRIBE_TASK: frozenset({VideoStatus.processing.value}),
     FINALIZE_VIDEO_TASK: frozenset({VideoStatus.ready_subtitles.value}),
     LOCALIZE_VIDEO_TASK: frozenset({VideoStatus.processing.value}),
@@ -100,6 +102,28 @@ async def _send(task_name: str, args: list, queue: str | None) -> None:
     await asyncio.to_thread(_send_task, task_name, args, queue)
 
 
+def _generation_args(task_name: str, args: list | tuple, generation: str | None) -> list:
+    """Append only the new optional positional parameter; old messages still decode."""
+    result = list(args)
+    if generation is None:
+        return result
+    position = {PROCESS_VIDEO_TASK: 1, FINALIZE_VIDEO_TASK: 2, GPU_TRANSCRIBE_TASK: 4, LOCALIZE_VIDEO_TASK: 2}.get(
+        task_name
+    )
+    if position is None:
+        return result
+    if len(result) > position:
+        if len(result) != position + 1 or result[position] != generation:
+            raise ValueError("Dispatch generation does not match the owning video")
+        return result
+    # Tail's second argument is engine, GPU's fourth is reserved language.
+    defaults = {FINALIZE_VIDEO_TASK: None, GPU_TRANSCRIBE_TASK: None, LOCALIZE_VIDEO_TASK: False}
+    while len(result) < position:
+        result.append(defaults[task_name])
+    result.append(generation)
+    return result
+
+
 async def enqueue(
     db: AsyncSession,
     *,
@@ -116,13 +140,15 @@ async def enqueue(
     it is missing.
     """
     require_content_production(model=task_name != LOCALIZE_VIDEO_TASK)
+    generation = await db.scalar(select(Video.processing_generation).where(Video.id == video_id).with_for_update())
     now = _utcnow()
     values = {
         "id": str(uuid.uuid4()),
         "video_id": video_id,
         "task_name": task_name,
         "queue": queue,
-        "args": list(args),
+        "args": _generation_args(task_name, args, generation),
+        "processing_generation": generation,
         "status": DISPATCH_STATUS_PENDING,
         "attempts": 0,
         "last_error": None,
@@ -138,6 +164,7 @@ async def enqueue(
         for key in (
             "queue",
             "args",
+            "processing_generation",
             "status",
             "attempts",
             "last_error",
@@ -170,7 +197,7 @@ async def dispatch_now(db: AsyncSession, dispatch_id: str) -> bool:
     pending with a backoff — the caller should not treat it as an error, the
     dispatcher will retry.
     """
-    row = await db.get(PipelineDispatch, dispatch_id)
+    row = await db.get(PipelineDispatch, dispatch_id, populate_existing=True)
     if row is None or row.status != DISPATCH_STATUS_PENDING:
         return False
     return await _attempt(db, row)
@@ -182,10 +209,25 @@ async def _attempt(db: AsyncSession, row: PipelineDispatch) -> bool:
     settings = get_settings()
     if not settings.content_production_enabled or (row.task_name != LOCALIZE_VIDEO_TASK and not settings.llm_enabled):
         return False
+    # Same lock order as producers: Video, then its re-armable dispatch row.
+    # Re-read after waiting: a prior dispatcher must not mark a newer intent sent.
+    video = await db.scalar(
+        select(Video).where(Video.id == row.video_id).with_for_update().execution_options(populate_existing=True)
+    )
+    fresh = await db.get(PipelineDispatch, row.id, with_for_update=True, populate_existing=True)
+    if fresh is None or fresh.status != DISPATCH_STATUS_PENDING:
+        await db.commit()
+        return False
+    row = fresh
+    if video is None or row.processing_generation != video.processing_generation:
+        row.status = DISPATCH_STATUS_ABANDONED
+        row.last_error = "video processing generation replaced or deleted"
+        row.updated_at = _utcnow()
+        await db.commit()
+        return False
     required = _REQUIRED_STATUS.get(row.task_name)
     if required is not None:
-        status = await db.scalar(select(Video.status).where(Video.id == row.video_id))
-        current = status.value if status is not None else None
+        current = video.status.value
         if current not in required:
             row.status = DISPATCH_STATUS_ABANDONED
             row.last_error = f"video no longer in {', '.join(sorted(required))} (now: {current or 'deleted'})"
@@ -312,9 +354,12 @@ async def pending_video_ids(db: AsyncSession, video_ids: list[str]) -> set[str]:
     if not video_ids:
         return set()
     rows = await db.execute(
-        select(PipelineDispatch.video_id).where(
+        select(PipelineDispatch.video_id)
+        .join(Video, Video.id == PipelineDispatch.video_id)
+        .where(
             PipelineDispatch.video_id.in_(video_ids),
             PipelineDispatch.status == DISPATCH_STATUS_PENDING,
+            PipelineDispatch.processing_generation.is_not_distinct_from(Video.processing_generation),
         )
     )
     return set(rows.scalars().all())

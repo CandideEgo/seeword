@@ -7,6 +7,12 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.media_probe import get_video_duration
 from app.services import ecdict
+from app.services.processing_generation import (
+    StaleProcessingGenerationError,
+    artifact_identity,
+    processing_session,
+    run_identity,
+)
 from app.services.video_cache import invalidate_video_playback_cache
 
 # Compatibility imports keep task helpers and maintenance consumers callable;
@@ -198,7 +204,7 @@ async def _effective_quality_gate(db) -> tuple[bool, float, float]:
 
 
 @celery_app.task(bind=True, max_retries=3)
-def process_video(self, video_id: str):
+def process_video(self, video_id: str, processing_generation: str | None = None):
     """Head of the video pipeline: extract metadata, stage media, enqueue GPU transcription.
 
     Transcription itself runs on a remote GPU worker (``transcription_gpu``
@@ -210,7 +216,8 @@ def process_video(self, video_id: str):
     from app.core.capabilities import require_content_production
 
     require_content_production(model=True)
-    if not acquire_lock(video_id):
+    run_key = run_identity(video_id, processing_generation)
+    if not acquire_lock(run_key):
         logger.warning("Video %s is already being processed, skipping", video_id)
         return
 
@@ -220,12 +227,15 @@ def process_video(self, video_id: str):
     from app.models.video import Video, VideoSource, VideoStatus
 
     async def _process():
-        async with async_session() as db:
+        async with processing_session(async_session, video_id, processing_generation) as db:
             result = await db.execute(select(Video).where(Video.id == video_id))
             video = result.scalar_one_or_none()
-            if not video:
+            if not video or video.processing_generation != processing_generation or video.storage_mode == "offline":
                 logger.error("Video %s not found", video_id)
-                release_lock_and_steps(video_id)
+                release_lock_and_steps(run_key)
+                return
+            if video.status in (VideoStatus.ready, VideoStatus.ready_subtitles):
+                release_lock(run_key)
                 return
 
             try:
@@ -262,7 +272,7 @@ def process_video(self, video_id: str):
                         args=[video_id],
                     )
                     await db.commit()
-                    release_lock(video_id)
+                    release_lock(run_key)
                     await dispatch_now(db, dispatch_id)
                     return
 
@@ -304,6 +314,7 @@ def process_video(self, video_id: str):
                         await localize_video_thumbnail(
                             video,
                             fallback_urls=info.get("thumbnail_fallbacks") or [],
+                            artifact_id=artifact_identity(video_id, processing_generation),
                         )
                     # 阶段 1: persist external (YouTube) metadata — channel,
                     # upload date, external view/like counts, extras blob.
@@ -324,7 +335,7 @@ def process_video(self, video_id: str):
                 touch_step_started_at(video)
                 video.processing_progress = 10
                 await db.commit()
-                await update_progress(video_id, "extracting")
+                await update_progress(run_key, "extracting")
 
                 # --- Stage media for the GPU worker ---
                 if video.video_source == VideoSource.imported:
@@ -361,14 +372,16 @@ def process_video(self, video_id: str):
                     queue=settings.transcription_gpu_queue_name,
                 )
                 await db.commit()
-                await update_progress(video_id, "transcribing")
+                await update_progress(run_key, "transcribing")
                 await dispatch_now(db, dispatch_id)
                 logger.info("Video %s: GPU transcription handed off", video_id)
 
                 # Release the lock but keep the step-set; the gap to the tail is
                 # bridged by DB status, not a held lock.
-                release_lock(video_id)
+                release_lock(run_key)
 
+            except StaleProcessingGenerationError:
+                raise
             except Exception as e:
                 logger.exception("Video %s head processing failed", video_id)
                 await commit_error_state(video, db, e, step=current_step)
@@ -376,7 +389,7 @@ def process_video(self, video_id: str):
                 # Keep the completed-step set so a retry (automatic or manual)
                 # resumes from the last successful step rather than re-running
                 # everything from scratch.
-                release_lock(video_id)
+                release_lock(run_key)
                 raise self.retry(exc=e) from e
 
     run_pipeline_task(_process())
@@ -414,6 +427,8 @@ async def _register_standard(db, video) -> None:
         )
         await db.execute(stmt)
         await db.commit()
+    except StaleProcessingGenerationError:
+        raise
     except Exception:
         logger.warning("Video %s: failed to register standard version (continuing)", video.id, exc_info=True)
 
@@ -432,6 +447,7 @@ async def _run_translating(ctx: PipelineCtx) -> None:
     from app.models.video import VideoStatus
 
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     # Stamp the translating step *before* the LLM work starts. The old code
     # only touched step_started_at after every subtitle was translated, so the
     # watchdog kept seeing the transcription start time while a long
@@ -496,7 +512,7 @@ async def _run_translating(ctx: PipelineCtx) -> None:
                 message=(f"视频 {video_id} 翻译覆盖率 {coverage:.0%}，已标记 error。可在管理后台换引擎重触发翻译。"),
                 related_url=f"/admin/videos/{video_id}",
             )
-            release_lock_and_steps(video_id)
+            release_lock_and_steps(run_key)
             logger.warning(
                 "Video %s translation blocked (coverage %.0f%%)",
                 video_id,
@@ -516,7 +532,7 @@ async def _run_translating(ctx: PipelineCtx) -> None:
 
     video.processing_progress = STEP_PROGRESS["translating"]
     await db.commit()
-    await update_progress(video_id, "translating")
+    await update_progress(run_key, "translating")
 
 
 async def _run_annotating(ctx: PipelineCtx) -> None:
@@ -535,13 +551,14 @@ async def _run_annotating(ctx: PipelineCtx) -> None:
     from app.models.subtitle import Subtitle
 
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     if not ecdict.is_available():
         logger.warning(
             "Video %s: skipping annotating (ECDICT db missing at %s)",
             video_id,
             ecdict.DB_PATH,
         )
-        await update_progress(video_id, "annotating")
+        await update_progress(run_key, "annotating")
         return
 
     ann_result = await db.execute(
@@ -568,7 +585,7 @@ async def _run_annotating(ctx: PipelineCtx) -> None:
     touch_step_started_at(video)
     video.processing_progress = STEP_PROGRESS["annotating"]
     await db.commit()
-    await update_progress(video_id, "annotating")
+    await update_progress(run_key, "annotating")
 
 
 async def _run_prewarm_notes(ctx: PipelineCtx) -> None:
@@ -582,12 +599,13 @@ async def _run_prewarm_notes(ctx: PipelineCtx) -> None:
     back to live AI / global notes.
     """
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     if not ecdict.is_available():
         logger.info(
             "Video %s: skipping prewarm_notes (no ECDICT — no words to annotate)",
             video_id,
         )
-        await update_progress(video_id, "prewarm_notes")
+        await update_progress(run_key, "prewarm_notes")
         return
 
     try:
@@ -598,12 +616,14 @@ async def _run_prewarm_notes(ctx: PipelineCtx) -> None:
         touch_step_started_at(video)
         video.processing_progress = STEP_PROGRESS["prewarm_notes"]
         await db.commit()
-        await update_progress(video_id, "prewarm_notes")
+        await update_progress(run_key, "prewarm_notes")
+    except StaleProcessingGenerationError:
+        raise
     except Exception as exc:
         # Prewarm is an enhancement; don't fail the pipeline if the LLM is down.
         # The gloss endpoint will fall back to live AI / global notes.
         logger.warning("Video %s: prewarm_notes skipped (%s)", video_id, exc)
-        await update_progress(video_id, "prewarm_notes")
+        await update_progress(run_key, "prewarm_notes")
 
 
 async def _run_classifying(ctx: PipelineCtx) -> None:
@@ -616,17 +636,20 @@ async def _run_classifying(ctx: PipelineCtx) -> None:
     publishing, and ``scripts/backfill_classification.py`` can retry later.
     """
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     try:
         from app.services.video_classification import classify_video_metadata
 
         await classify_video_metadata(db, video_id)
+    except StaleProcessingGenerationError:
+        raise
     except Exception as exc:
         logger.warning("Video %s: classifying skipped (%s)", video_id, exc)
     video.processing_step = "classifying"
     touch_step_started_at(video)
     video.processing_progress = STEP_PROGRESS["classifying"]
     await db.commit()
-    await update_progress(video_id, "classifying")
+    await update_progress(run_key, "classifying")
 
 
 async def _run_downloading(ctx: PipelineCtx) -> None:
@@ -640,8 +663,9 @@ async def _run_downloading(ctx: PipelineCtx) -> None:
     from app.models.video import VideoSource
 
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     if video.video_source == VideoSource.imported:
-        ctx.video_path = await _download_video(video.source_url, video.id)
+        ctx.video_path = await _download_video(video.source_url, ctx.artifact_key)
         if not ctx.video_path:
             # Imported (YouTube) videos can be played via embed
             # without a local file.  Log and continue rather than
@@ -653,7 +677,9 @@ async def _run_downloading(ctx: PipelineCtx) -> None:
             await require_playback(video)
     else:
         # Local upload: raw file already staged by the head.
-        ctx.video_path = _find_local_raw(video.id)
+        ctx.video_path = _find_local_raw(ctx.artifact_key)
+        if not ctx.video_path and Path(video.source_url).is_file():
+            ctx.video_path = video.source_url
         if not ctx.video_path:
             raise Exception(f"Raw video file not found for local upload {video_id}")
     video.processing_step = "downloading"
@@ -661,7 +687,7 @@ async def _run_downloading(ctx: PipelineCtx) -> None:
     video.processing_progress = STEP_PROGRESS["downloading"]
     await db.commit()
     if ctx.video_path:
-        await update_progress(video_id, "downloading")
+        await update_progress(run_key, "downloading")
 
 
 async def _skip_downloading(ctx: PipelineCtx) -> None:
@@ -670,7 +696,9 @@ async def _skip_downloading(ctx: PipelineCtx) -> None:
     Re-find the staged/downloaded raw file for both local and imported videos.
     A Redis completion marker alone cannot restore an in-memory path.
     """
-    ctx.video_path = _find_local_raw(ctx.video_id)
+    ctx.video_path = _find_local_raw(ctx.artifact_key)
+    if not ctx.video_path and ctx.video.video_source != "imported" and Path(ctx.video.source_url).is_file():
+        ctx.video_path = ctx.video.source_url
     if not ctx.video_path and not await has_renditions(ctx.video):
         await _run_downloading(ctx)
 
@@ -682,7 +710,8 @@ async def _run_transcoding(ctx: PipelineCtx) -> None:
     source may finish via embed, with a recorded, bounded localization retry.
     """
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
-    urls = await _transcode_video(ctx.video_path, video.id) if ctx.video_path else {}
+    run_key = ctx.run_key
+    urls = await _transcode_video(ctx.video_path, ctx.artifact_key) if ctx.video_path else {}
     converted = await accept_local_renditions(video, urls)
     if not converted:
         reason = (
@@ -698,7 +727,7 @@ async def _run_transcoding(ctx: PipelineCtx) -> None:
     video.processing_progress = STEP_PROGRESS["transcoding"]
     await db.commit()
     if converted:
-        await update_progress(video_id, "transcoding")
+        await update_progress(run_key, "transcoding")
 
 
 async def _skip_transcoding(ctx: PipelineCtx) -> None:
@@ -729,6 +758,7 @@ async def _run_done(ctx: PipelineCtx) -> None:
     from app.models.video import VideoSource, VideoStatus
 
     db, video, video_id = ctx.db, ctx.video, ctx.video_id
+    run_key = ctx.run_key
     await require_playback(video)
 
     # --- Cover localization retry ---
@@ -739,7 +769,7 @@ async def _run_done(ctx: PipelineCtx) -> None:
     if (video.thumbnail_url or "").startswith("http"):
         from app.services.thumbnail_service import localize_video_thumbnail
 
-        if await localize_video_thumbnail(video):
+        if await localize_video_thumbnail(video, artifact_id=ctx.artifact_key):
             await db.commit()
 
     video.status = VideoStatus.ready
@@ -748,8 +778,7 @@ async def _run_done(ctx: PipelineCtx) -> None:
     video.processing_progress = 100
     await db.commit()
     await invalidate_video_playback_cache(video_id)
-    await update_progress(video_id, "done")
-    release_lock_and_steps(video_id)
+    await update_progress(run_key, "done")
     logger.info("Video %s finalized", video_id)
 
     # Phase 2: register as the standard version for this source_url
@@ -789,6 +818,8 @@ async def _run_done(ctx: PipelineCtx) -> None:
         from app.services.difficulty_service import compute_video_difficulty
 
         await compute_video_difficulty(db, video_id)
+    except StaleProcessingGenerationError:
+        raise
     except Exception:
         logger.warning("Video %s: difficulty computation failed (continuing)", video_id, exc_info=True)
 
@@ -798,12 +829,16 @@ async def _run_done(ctx: PipelineCtx) -> None:
         from app.services.subtitle_metrics_service import compute_video_speech_metrics
 
         await compute_video_speech_metrics(db, video_id)
+    except StaleProcessingGenerationError:
+        raise
     except Exception:
         logger.warning("Video %s: speech metrics computation failed (continuing)", video_id, exc_info=True)
 
     # Best-effort OSS cleanup of the staged raw upload.
     if video.video_source != VideoSource.imported:
-        await _cleanup_oss_raw(video.id, video.source_url)
+        await _cleanup_oss_raw(Path(video.source_url).stem.removesuffix("_raw"), video.source_url)
+    # Keep ownership through automatic publication and its recoverable follow-ups.
+    release_lock_and_steps(run_key)
 
 
 #: Step name → body, for the steps **this task** owns. The declaration (order,
@@ -843,7 +878,7 @@ def finalize_steps() -> tuple[Step, ...]:
 
 
 @celery_app.task(bind=True, max_retries=3, name="app.tasks.video_processing.finalize_video")
-def finalize_video(self, video_id: str, engine: str | None = None):
+def finalize_video(self, video_id: str, engine: str | None = None, processing_generation: str | None = None):
     """Tail of the video pipeline: translate → download → transcode → ready.
 
     Triggered by the transcription callback endpoint once subtitles arrive from
@@ -852,31 +887,41 @@ def finalize_video(self, video_id: str, engine: str | None = None):
     from app.core.capabilities import require_content_production
 
     require_content_production(model=True)
-    if not acquire_lock(video_id):
+    run_key = run_identity(video_id, processing_generation)
+    if not acquire_lock(run_key):
         logger.warning("Video %s is already being processed, skipping finalize", video_id)
         return
 
     from sqlalchemy import select
 
     from app.core.database import async_session
-    from app.models.video import Video
+    from app.models.video import Video, VideoStatus
 
     async def _process():
-        async with async_session() as db:
+        async with processing_session(async_session, video_id, processing_generation) as db:
             result = await db.execute(select(Video).where(Video.id == video_id))
             video = result.scalar_one_or_none()
-            if not video:
+            if not video or video.processing_generation != processing_generation or video.storage_mode == "offline":
                 logger.error("Video %s not found for finalize", video_id)
-                release_lock_and_steps(video_id)
+                release_lock_and_steps(run_key)
                 return
-
-            ctx = PipelineCtx(db=db, video=video, video_id=video_id, engine=engine)
+            ctx = PipelineCtx(
+                db=db, video=video, video_id=video_id, engine=engine, processing_generation=processing_generation
+            )
 
             try:
+                if video.status == VideoStatus.ready:
+                    # A hard exit may follow the ready commit but precede
+                    # auto-publication. Resume only terminal work, never
+                    # retranslate or re-transcode an already playable video.
+                    await _run_done(ctx)
+                    return
                 # The whole tail is the declared step sequence: order, resume-skip
                 # and the failure attribution all come from pipeline_helpers.STEPS.
                 await run_steps(ctx, finalize_steps())
 
+            except StaleProcessingGenerationError:
+                raise
             except Exception as e:
                 logger.exception("Video %s finalize failed", video_id)
                 await commit_error_state(video, db, e, step=ctx.current_step)
@@ -884,7 +929,7 @@ def finalize_video(self, video_id: str, engine: str | None = None):
                 # Keep the completed-step set so a retry (automatic or manual)
                 # resumes from the last successful step rather than re-running
                 # translate/annotate/prewarm needlessly.
-                release_lock(video_id)
+                release_lock(run_key)
                 raise self.retry(exc=e) from e
 
     run_pipeline_task(_process())
@@ -956,11 +1001,13 @@ async def _run_watchdog_pipeline() -> None:
     async with async_session() as db:
         # Phase 1: rows with step_started_at - per-step timeout.
         result = await db.execute(
-            select(Video).where(
+            select(Video)
+            .where(
                 Video.status.in_([VideoStatus.processing, VideoStatus.ready_subtitles]),
                 Video.processing_step.is_not(None),
                 Video.step_started_at.is_not(None),
             )
+            .with_for_update(skip_locked=True)
         )
         stuck: list = []
         for v in result.scalars().all():
@@ -973,7 +1020,7 @@ async def _run_watchdog_pipeline() -> None:
                 step_ts = step_ts.replace(tzinfo=UTC)
             if step_ts >= now - timedelta(seconds=timeout):
                 continue  # within its step's budget
-            if is_lock_held(v.id):
+            if is_lock_held(run_identity(v.id, v.processing_generation)):
                 continue  # worker alive, in retry backoff - not stuck
             stuck.append(v)
 
@@ -983,7 +1030,8 @@ async def _run_watchdog_pipeline() -> None:
         legacy_cutoff = now - timedelta(seconds=transcribe_timeout)
         stuck_ids = {v.id for v in stuck}
         legacy_result = await db.execute(
-            select(Video).where(
+            select(Video)
+            .where(
                 Video.status == VideoStatus.processing,
                 Video.processing_step == "transcribing",
                 Video.step_started_at.is_(None),
@@ -995,9 +1043,10 @@ async def _run_watchdog_pipeline() -> None:
                     ),
                 ),
             )
+            .with_for_update(skip_locked=True)
         )
         for v in legacy_result.scalars().all():
-            if v.id not in stuck_ids and not is_lock_held(v.id):
+            if v.id not in stuck_ids and not is_lock_held(run_identity(v.id, v.processing_generation)):
                 stuck.append(v)
                 stuck_ids.add(v.id)
 
@@ -1024,7 +1073,10 @@ async def _run_watchdog_pipeline() -> None:
             v.error_message = f"Pipeline step '{step}' timed out (worker stuck or offline?)"
             v.processing_step = None
             v.step_started_at = None
-            release_lock_and_steps(v.id)
+            release_lock_and_steps(run_identity(v.id, v.processing_generation))
+            from uuid import uuid4
+
+            v.processing_generation = str(uuid4())
             logger.warning(
                 "Watchdog: marked stuck pipeline step as failed",
                 video_id=v.id,
@@ -1071,7 +1123,7 @@ def watchdog_stale_pipeline():
 # ---------------------------------------------------------------------------
 
 
-async def _run_localize(self, video_id: str, force: bool = False) -> None:
+async def _run_localize(self, video_id: str, force: bool = False, processing_generation: str | None = None) -> None:
     """Download + transcode a video's source to local storage (admin).
 
     Module-level (not a nested closure) so it can be unit-tested directly with
@@ -1084,7 +1136,8 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
     from app.core.capabilities import require_content_production
 
     require_content_production()
-    if not acquire_lock(video_id):
+    run_key = run_identity(video_id, processing_generation)
+    if not acquire_lock(run_key):
         logger.warning("Video %s is already being processed, skipping localize", video_id)
         return
 
@@ -1093,19 +1146,19 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
     from app.core.database import async_session
     from app.models.video import Video, VideoStatus
 
-    async with async_session() as db:
+    async with processing_session(async_session, video_id, processing_generation) as db:
         result = await db.execute(select(Video).where(Video.id == video_id))
         video = result.scalar_one_or_none()
-        if not video:
+        if not video or video.processing_generation != processing_generation or video.storage_mode == "offline":
             logger.error("Video %s not found for localize", video_id)
-            release_lock_and_steps(video_id)
+            release_lock_and_steps(run_key)
             return
         if (
             video.storage_mode == "offline"
             or video.video_source != "imported"
             or video.status not in (VideoStatus.ready, VideoStatus.processing, VideoStatus.error)
         ):
-            release_lock_and_steps(video_id)
+            release_lock_and_steps(run_key)
             return
 
         # Strike limit: skip if this video has failed download too many
@@ -1121,35 +1174,37 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
                     video.download_fail_count,
                     settings.download_retry_max_attempts,
                 )
-                release_lock_and_steps(video_id)
+                release_lock_and_steps(run_key)
                 return
 
         try:
             # Reuse a real raw file on retry, regardless of a stale Redis marker.
             current_step = "downloading"
-            video_path = _find_local_raw(video.id)
+            video_path = _find_local_raw(artifact_identity(video.id, processing_generation))
             if not video_path:
-                video_path = await _download_video(video.source_url, video.id)
+                video_path = await _download_video(video.source_url, artifact_identity(video.id, processing_generation))
             if not video_path:
                 raise PlaybackUnavailableError("Local video download unavailable")
-            await update_progress(video_id, "downloading")
+            await update_progress(run_key, "downloading")
 
             current_step = "transcoding"
-            urls = await _transcode_video(video_path, video.id)
+            urls = await _transcode_video(video_path, artifact_identity(video.id, processing_generation))
             if not await accept_local_renditions(video, urls):
                 raise PlaybackUnavailableError("Local video conversion produced no usable rendition")
             await require_playback(video)
-            await update_progress(video_id, "transcoding")
+            await update_progress(run_key, "transcoding")
             video.status = VideoStatus.ready
             video.processing_step = None
             video.step_started_at = None
             video.processing_progress = 100
             await db.commit()
             await invalidate_video_playback_cache(video_id)
-            await update_progress(video_id, "done")
-            release_lock_and_steps(video_id)
+            await update_progress(run_key, "done")
+            release_lock_and_steps(run_key)
             logger.info("Video %s localized to local storage", video_id)
 
+        except StaleProcessingGenerationError:
+            raise
         except PlaybackUnavailableError as e:
             record_localization_failure(video, str(e))
             if await has_playback(video):
@@ -1161,11 +1216,11 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
                 video.processing_progress = 100
                 await db.commit()
                 await invalidate_video_playback_cache(video_id)
-                release_lock_and_steps(video_id)
+                release_lock_and_steps(run_key)
                 logger.warning("video_localization_failed_playback_preserved", video_id=video_id, step=current_step)
                 return
             await commit_error_state(video, db, e, step=current_step)
-            release_lock(video_id)
+            release_lock(run_key)
             raise self.retry(exc=e) from e
 
         except Exception as e:
@@ -1174,12 +1229,12 @@ async def _run_localize(self, video_id: str, force: bool = False) -> None:
             # Always release the lock so Celery's retry can re-acquire it.
             # Keep the completed-step set so a retry resumes from the last
             # successful step rather than re-downloading/re-transcoding.
-            release_lock(video_id)
+            release_lock(run_key)
             raise self.retry(exc=e) from e
 
 
 @celery_app.task(bind=True, max_retries=2)
-def localize_video(self, video_id: str, force: bool = False):
+def localize_video(self, video_id: str, force: bool = False, processing_generation: str | None = None):
     """Download + transcode a video's source to local storage (admin).
 
     Thin Celery wrapper for ``_run_localize``. See that function for behavior.
@@ -1187,7 +1242,7 @@ def localize_video(self, video_id: str, force: bool = False):
     from app.core.capabilities import require_content_production
 
     require_content_production()
-    run_pipeline_task(_run_localize(self, video_id, force))
+    run_pipeline_task(_run_localize(self, video_id, force, processing_generation))
 
 
 # ---------------------------------------------------------------------------
@@ -1248,9 +1303,17 @@ async def _run_retry_failed_downloads() -> None:
                 v.id,
                 exc_info=True,
             )
-        # force=False (default) - respects the strike limit inside localize.
-        localize_video.delay(v.id)
-        logger.info("Video %s: scheduled download retry", v.id)
+        # The same conditional claim and transactional outbox as manual localization.
+        from app.core.errors import BadRequestError, ConflictError, NotFoundError
+        from app.services.video_service import localize_video_admin
+
+        async with async_session() as db:
+            try:
+                await localize_video_admin(db, v.id, force=False)
+            except (BadRequestError, ConflictError, NotFoundError):
+                await db.rollback()
+                continue
+        logger.info("Video %s: recorded download retry intent", v.id)
 
 
 @celery_app.task(name="app.tasks.video_processing.retry_failed_downloads")

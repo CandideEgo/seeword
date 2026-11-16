@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BookOpen, Clapperboard } from "lucide-react";
+import { ArrowUpRight, BookOpen, Clapperboard, Search } from "lucide-react";
+import { Button } from "@astryxdesign/core/Button";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { InlineSpinner } from "@/components/common/Spinner";
 import { LessonHistory } from "@/components/lessons/LessonHistory";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ApiClientError } from "@/lib/createApiClient";
 import { formatCount } from "@/lib/format";
@@ -24,27 +24,29 @@ export function LessonCatalog() {
   const [request, setRequest] = useState({ query: "", offset: 0 });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-7 py-6 sm:py-9">
+    <div className="user-page lesson-library mx-auto max-w-6xl space-y-8">
       <PageHeader title="视频课程" />
       <form
         role="search"
         aria-label="课程检索"
-        className="flex gap-2"
+        className="lesson-search flex items-end gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           setRequest({ query: input.trim(), offset: 0 });
         }}
       >
-        <Input
+        <TextInput
           type="search"
-          aria-label="搜索课程"
+          label="搜索课程"
+          isLabelHidden
           placeholder="搜索课程"
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={setInput}
+          startIcon={Search}
+          size="lg"
+          width="100%"
         />
-        <Button type="submit" variant="outline" className="shrink-0">
-          搜索
-        </Button>
+        <Button type="submit" label="搜索" variant="primary" size="lg" className="shrink-0" />
       </form>
       <CatalogPage
         key={JSON.stringify(request)}
@@ -104,15 +106,15 @@ function CatalogPage({
       ) : !page.items.length ? (
         <EmptyState icon={BookOpen} title={query ? "未找到匹配课程" : "暂无已发布课程"} />
       ) : (
-        <ul className="divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface-card">
+        <ul className="lesson-catalog-grid">
           {page.items.map((lesson) => (
             <li key={lesson.lesson_id}>
               <Link
                 href={lessonHref(lesson.lesson_id, lesson.revision_id)}
-                className="group flex min-w-0 items-center gap-4 px-4 py-5 transition-colors hover:bg-surface-soft sm:px-6"
+                className="lesson-catalog-item group"
               >
-                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-surface-soft text-brand-700">
-                  <Clapperboard size={21} aria-hidden />
+                <span className="lesson-catalog-icon">
+                  <Clapperboard size={22} aria-hidden />
                 </span>
                 <span
                   lang="en"
@@ -133,26 +135,24 @@ function CatalogPage({
       {(offset > 0 || (page && page.total > LESSON_CATALOG_PAGE_SIZE)) && (
         <nav aria-label="课程目录分页" className="flex items-center justify-between gap-3">
           <Button
-            variant="outline"
+            label="上一页"
+            variant="secondary"
             size="sm"
-            disabled={offset === 0}
+            isDisabled={offset === 0}
             onClick={() => onPage(Math.max(0, offset - LESSON_CATALOG_PAGE_SIZE))}
-          >
-            上一页
-          </Button>
+          />
           {page && (
             <span className="text-meta text-muted tabular-nums">
               第 {formatCount(Math.floor(offset / LESSON_CATALOG_PAGE_SIZE) + 1)} 页
             </span>
           )}
           <Button
-            variant="outline"
+            label="下一页"
+            variant="secondary"
             size="sm"
-            disabled={page === null || error !== null || offset + page.limit >= page.total}
+            isDisabled={page === null || error !== null || offset + page.limit >= page.total}
             onClick={() => onPage(offset + LESSON_CATALOG_PAGE_SIZE)}
-          >
-            下一页
-          </Button>
+          />
         </nav>
       )}
     </section>

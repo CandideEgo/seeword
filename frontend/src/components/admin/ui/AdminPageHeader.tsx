@@ -13,7 +13,12 @@ export interface AdminPageHeaderProps {
 
 export function AdminPageHeader({ title, description, actions, className }: AdminPageHeaderProps) {
   return (
-    <div className={cn("flex flex-wrap items-start justify-between gap-x-4 gap-y-3", className)}>
+    <div
+      className={cn(
+        "admin-page-header flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-hairline pb-5",
+        className
+      )}
+    >
       <div className="min-w-0">
         <h1 className="text-display-sm font-semibold tracking-tight text-ink">{title}</h1>
         {description && <p className="mt-1 text-copy text-muted">{description}</p>}
